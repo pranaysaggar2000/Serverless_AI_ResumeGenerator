@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let hasAnalyzed = false; // Track if analysis has been performed
     let tailoringStrategy = "balanced"; // Track tailoring strategy: profile_focus, balanced, jd_focus
     let currentJdAnalysis = null; // Store JD analysis for regeneration
+    let currentEditingData = null; // Top-level state for bullet/editor preferences
 
     // 1. Initialization
     await loadState();
@@ -561,6 +562,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         generateBtn.disabled = true;
         showStatus(`Analyzing and tailoring resume with ${currentProvider === 'groq' ? 'Groq' : 'Gemini'}...`, "info");
 
+        // Reset editor state for fresh generation
+        currentEditingData = null;
+
         const activeKey = currentProvider === 'groq' ? currentGroqKey : currentApiKey;
 
         try {
@@ -894,7 +898,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Advanced Editor Logic (see below)
 
 
-    let currentEditingData = null;
+    // Advanced Editor Logic (see below)
+
+    // currentEditingData is now defined at top-level state
     let previousSection = null;
 
     editBtn.addEventListener('click', () => {
@@ -1297,7 +1303,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
 
             showStatus("Resume updated!", "success");
+
+            // Reset editor state and return to main view
+            currentEditingData = null;
             editorUI.style.display = 'none';
+            if (typeof showMain === 'function') showMain();
+            else actionsDiv.style.display = 'block'; // Fallback if showMain not found
             actionsDiv.style.display = 'block';
 
         } catch (e) {

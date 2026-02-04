@@ -75,6 +75,26 @@ An AI-powered Chrome Extension that generates ATS-optimized resumes tailored to 
    - Enter your API key
    - Save settings
 
+## 🔐 Security & Best Practices
+
+**API Key Security:**
+- ⚠️ **Your API keys are stored locally** in Chrome's extension storage
+- 🔄 **Rotate keys periodically** for security
+- 📊 **Enable rate limits** on your API provider dashboard
+- 🚫 **Never share** your Chrome profile or API keys
+- 💡 **Use free tier keys** for testing; upgrade only if needed
+
+**Built-in Protections:**
+- ✅ **CORS Restrictions**: API only accepts requests from Chrome extensions
+- ✅ **Rate Limiting**: 30 requests per minute per IP address
+- ✅ **Input Validation**: Text limited to 50KB, JSON to 100KB
+- ✅ **HTTPS Only**: All Vercel deployments use secure connections
+
+**Recommendations:**
+- Keep your Vercel deployment URL private
+- Review your API provider's usage dashboard regularly
+- If sharing this tool, fork and deploy your own instance
+
 ## 🚀 Usage
 
 ### First-Time Setup

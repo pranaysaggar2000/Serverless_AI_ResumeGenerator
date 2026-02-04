@@ -5,8 +5,10 @@ import os
 import json
 import io
 import base64
+from functools import wraps
+from time import time
+from collections import defaultdict
 
-# Add the parent directory to sys.path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from main import (
@@ -19,7 +21,64 @@ from main import (
 from resume_builder import create_resume_pdf
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+# CORS: Allow only Chrome extension origins
+CORS(app, resources={
+    r"/api/*": {
+        "origins": ["chrome-extension://*"],
+        "methods": ["GET", "POST"],
+        "allow_headers": ["Content-Type"]
+    }
+})
+
+# Rate limiting (in-memory, resets on deployment)
+rate_limit_store = defaultdict(list)
+MAX_REQUESTS_PER_MINUTE = 30
+
+# Input size limits (in characters)
+MAX_TEXT_SIZE = 50000  # ~50KB
+MAX_JSON_SIZE = 100000  # ~100KB
+
+def validate_text_size(text, max_size=MAX_TEXT_SIZE):
+    """Validate text input size."""
+    if not text:
+        return False, "Text cannot be empty"
+    if len(str(text)) > max_size:
+        return False, f"Input too large (max {max_size} characters)"
+    return True, None
+
+def validate_json_size(data, max_size=MAX_JSON_SIZE):
+    """Validate JSON data size."""
+    if not data:
+        return False, "Data cannot be empty"
+    json_str = json.dumps(data)
+    if len(json_str) > max_size:
+        return False, f"Data too large (max {max_size} characters)"
+    return True, None
+
+def rate_limit(f):
+    """Simple rate limiting decorator."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Use IP address for rate limiting
+        client_ip = request.remote_addr or 'unknown'
+        current_time = time()
+        
+        # Clean old requests (older than 1 minute)
+        rate_limit_store[client_ip] = [
+            req_time for req_time in rate_limit_store[client_ip]
+            if current_time - req_time < 60
+        ]
+        
+        # Check rate limit
+        if len(rate_limit_store[client_ip]) >= MAX_REQUESTS_PER_MINUTE:
+            return jsonify({"error": "Rate limit exceeded. Please try again later."}), 429
+        
+        # Add current request
+        rate_limit_store[client_ip].append(current_time)
+        
+        return f(*args, **kwargs)
+    return decorated_function
 
 @app.route('/api/extract_text', methods=['POST'])
 def extract_text():
@@ -37,6 +96,7 @@ def extract_text():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/tailor_resume', methods=['POST'])
+@rate_limit
 def api_tailor_resume():
     try:
         data = request.json
@@ -47,6 +107,15 @@ def api_tailor_resume():
         
         if not base_resume or not jd_text or not api_key:
             return jsonify({"error": "Missing required fields: base_resume, jd_text, or api_key"}), 400
+        
+        # Validate input sizes
+        valid, error = validate_text_size(jd_text)
+        if not valid:
+            return jsonify({"error": error}), 400
+        
+        valid, error = validate_json_size(base_resume)
+        if not valid:
+            return jsonify({"error": error}), 400
             
         # 1. Parse JD
         jd_analysis = parse_job_description(jd_text, provider=provider, api_key=api_key)
@@ -62,6 +131,7 @@ def api_tailor_resume():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/generate_pdf', methods=['POST'])
+@rate_limit
 def api_generate_pdf():
     try:
         data = request.json
@@ -69,6 +139,11 @@ def api_generate_pdf():
         
         if not resume_data:
             return jsonify({"error": "Missing resume_data"}), 400
+        
+        # Validate input size
+        valid, error = validate_json_size(resume_data)
+        if not valid:
+            return jsonify({"error": error}), 400
             
         # Generate PDF in-memory
         buffer = io.BytesIO()
@@ -83,6 +158,7 @@ def api_generate_pdf():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/analyze', methods=['POST'])
+@rate_limit
 def analyze():
     try:
         data = request.json
@@ -94,6 +170,15 @@ def analyze():
         if not resume_data or not jd_text or not api_key:
             return jsonify({"error": "Missing required fields"}), 400
             
+        # Validate input sizes
+        valid, error = validate_text_size(jd_text)
+        if not valid:
+            return jsonify({"error": error}), 400
+        
+        valid, error = validate_json_size(resume_data)
+        if not valid:
+            return jsonify({"error": error}), 400
+            
         
         analysis = analyze_resume_with_jd(resume_data, jd_text, provider=provider, api_key=api_key)
         
@@ -102,6 +187,7 @@ def analyze():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/extract_base_profile', methods=['POST'])
+@rate_limit
 def api_extract_base_profile():
     try:
         data = request.json
@@ -111,6 +197,11 @@ def api_extract_base_profile():
         
         if not text or not api_key:
             return jsonify({"error": "Missing text or api_key"}), 400
+        
+        # Validate input size
+        valid, error = validate_text_size(text)
+        if not valid:
+            return jsonify({"error": error}), 400
             
         profile_data = extract_base_resume_info(text, provider=provider, api_key=api_key)
         return jsonify(profile_data)
@@ -118,6 +209,7 @@ def api_extract_base_profile():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/ask', methods=['POST'])
+@rate_limit
 def api_ask():
     try:
         data = request.json
@@ -129,6 +221,19 @@ def api_ask():
         
         if not question or not resume_data or not jd_text or not api_key:
             return jsonify({"error": "Missing required fields"}), 400
+        
+        # Validate input sizes
+        valid, error = validate_text_size(question, max_size=5000)
+        if not valid:
+            return jsonify({"error": error}), 400
+        
+        valid, error = validate_text_size(jd_text)
+        if not valid:
+            return jsonify({"error": error}), 400
+        
+        valid, error = validate_json_size(resume_data)
+        if not valid:
+            return jsonify({"error": error}), 400
         
         from main import answer_question_with_context
         result = answer_question_with_context(question, resume_data, jd_text, provider=provider, api_key=api_key)

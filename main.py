@@ -185,18 +185,20 @@ def analyze_resume_with_jd(resume_data: dict, jd_text: str, provider: str = "gem
         
         # internal helper to clean json
         def clean_json_string(s):
+            if not s: return ""
             match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', s)
             if match:
                 return match.group(1)
+            # Find first { to last }
             match = re.search(r'\{[\s\S]*\}', s)
             if match:
                 return match.group(0)
-            return s
+            return ""
 
         cleaned_text = clean_json_string(response_text)
         
-        if not cleaned_text:
-            return {"error": "Empty response from AI"}
+        if not cleaned_text or not cleaned_text.strip():
+            return {"error": "AI returned invalid/non-JSON response. Please try again."}
 
         return json.loads(cleaned_text)
             

@@ -207,23 +207,33 @@ def analyze_resume_with_jd(resume_data: dict, jd_text: str, provider: str = "gem
 
 def answer_question_with_context(question: str, resume_data: dict, jd_text: str, provider: str = "gemini", api_key: str = None) -> dict:
     """
-    Answer a user's question about the job in the context of their resume.
+    Answer a job application question based on the candidate's resume.
+    Returns a plain-text answer suitable for copy-pasting into application forms.
     """
     prompt = f"""
-    You are a career advisor helping a job seeker understand how their background fits a specific role.
+    You are helping a job applicant answer a question from a job application form.
     
     JOB DESCRIPTION:
     {jd_text}
     
-    CANDIDATE'S RESUME:
+    APPLICANT'S RESUME:
     {json.dumps(resume_data, indent=2)}
     
-    QUESTION:
+    APPLICATION QUESTION:
     {question}
     
-    Provide a helpful, specific answer based on the candidate's actual experience and skills as shown in their resume.
-    Be honest - if they don't have something, suggest how they might address it or frame existing experience.
-    Keep the answer concise (2-3 sentences) and actionable.
+    INSTRUCTIONS:
+    - Write a direct, professional answer based on the applicant's actual experience and skills
+    - Keep it concise (2-4 sentences maximum)
+    - Use plain text with NO formatting (no bold, italics, bullet points, or special characters)
+    - Write in first person ("I have...", "My experience includes...")
+    - Make it ready to copy-paste directly into an application form
+    - Be honest - if they lack something, focus on related experience or willingness to learn
+    - CRITICAL: Sound natural and human-written. Avoid AI tells:
+      * NO em dashes (—) - use regular hyphens (-) or commas instead
+      * NO overly formal or flowery language
+      * NO phrases like "I am passionate about", "I am excited to", "leverage", "utilize"
+      * Use simple, direct language that a real person would write
     
     Answer:
     """
@@ -742,6 +752,12 @@ CRITICAL OBJECTIVE: Rewrite the resume to MAXIMIZE ATS keyword matching while ma
    - Avoid "AI-like" or flowery language (e.g., instead of "Spearheaded the implementation...", use "Led the implementation..." or "Implemented...").
    - Sentences should be clear, direct, and fact-based.
    - When describing AI/ML projects for a generalist Software Engineer role, emphasize the engineering lifecycle (deployment, latency, APIs, Docker, testing) over the theoretical modeling, unless the JD specifically asks for model training.
+   - **CRITICAL - Avoid AI Tells:**
+     * NEVER use em dashes (—) - use regular hyphens (-), commas, or periods instead
+     * NO phrases like "passionate about", "excited to", "leverage", "utilize", "spearheaded"
+     * NO overly formal or corporate jargon
+     * Use simple, direct verbs: "built", "created", "improved", "reduced", "increased"
+     * Sound like a real person wrote this, not an AI
 
 8. **ATS Optimization & Keyword Enrichment (CRITICAL)**:
    - **Expansion**: Use `tech_stack_nuances` to map broad skills to specifics. If the user lists "GCP" and `tech_stack_nuances` includes "BigQuery ML", **explicitly list BigQuery ML**.

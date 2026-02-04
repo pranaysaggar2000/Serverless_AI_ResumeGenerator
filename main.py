@@ -131,8 +131,6 @@ def query_provider(prompt: str, provider: str = "gemini", expect_json: bool = Fa
     if provider == "groq":
         return query_groq(prompt, expect_json=expect_json, api_key=api_key)
     else:  # Default to gemini
-        print("   Using Gemini (Cloud via REST)...")
-        # Use valid model name (gemini-1.5-flash is standard stable)
         model_name = "gemini-2.5-flash"
         
         # Use Pro for complex tasks if analyzing

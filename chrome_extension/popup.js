@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentApiKey = "";
     let currentGroqKey = "";
     let currentProvider = "gemini";
+    let hasAnalyzed = false; // Track if analysis has been performed
 
     // 1. Initialization
     await loadState();
@@ -321,8 +322,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             actionsDiv.style.display = 'block';
             showStatus("Done! Check options below.", "success");
 
-            // Trigger Analysis in background -> DISABLED per user request
-            // performAnalysis();
+
 
         } catch (e) {
             showStatus(`Error: ${e.message}`, "error");
@@ -520,12 +520,39 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Render details
             let html = ``;
-            if (data.missing_keywords && data.missing_keywords.length) {
-                html += `<div style="margin-bottom: 8px;"><strong>⚠️ Missing Keywords:</strong> <span style="color: #d63384;">${data.missing_keywords.join(', ')}</span></div>`;
+
+            // Summary Feedback
+            if (data.summary_feedback) {
+                html += `<div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-left: 3px solid #4A00E0; border-radius: 4px;">
+                    <strong>📋 Summary:</strong> ${data.summary_feedback}
+                </div>`;
             }
-            html += `<strong>Recommendations:</strong><ul>`;
-            (data.recommendations || []).forEach(rec => html += `<li>${rec}</li>`);
-            html += `</ul>`;
+
+            // Matching Areas
+            if (data.matching_areas && data.matching_areas.length) {
+                html += `<div style="margin-bottom: 10px;">
+                    <strong>✅ Strong Matches:</strong>
+                    <ul style="margin: 5px 0; padding-left: 20px;">`;
+                data.matching_areas.forEach(area => html += `<li style="color: #28a745;">${area}</li>`);
+                html += `</ul></div>`;
+            }
+
+            // Missing Keywords
+            if (data.missing_keywords && data.missing_keywords.length) {
+                html += `<div style="margin-bottom: 10px;">
+                    <strong>⚠️ Missing Keywords:</strong> 
+                    <span style="color: #d63384;">${data.missing_keywords.join(', ')}</span>
+                </div>`;
+            }
+
+            // Recommendations
+            if (data.recommendations && data.recommendations.length) {
+                html += `<div style="margin-bottom: 8px;">
+                    <strong>💡 Recommendations:</strong>
+                    <ul style="margin: 5px 0; padding-left: 20px;">`;
+                data.recommendations.forEach(rec => html += `<li>${rec}</li>`);
+                html += `</ul></div>`;
+            }
 
             analysisDetails.innerHTML = html;
 
@@ -543,23 +570,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // List of UI elements already defined or not needed to be redefined
 
-
-    // ... (copyContentBtn listener) ...
-
-    // (Ensure we don't duplicate code; targeting the analyzeBtn listener specifically)
 
     analyzeBtn.addEventListener('click', async () => {
         if (!tailoredResume) {
             showStatus("No resume generated to analyze.", "error");
             return;
         }
-        showStatus("Re-analyzing ATS Score...", "info");
+        const statusMessage = hasAnalyzed ? "Re-analyzing ATS Score..." : "Analyzing ATS Score...";
+        showStatus(statusMessage, "info");
 
         const success = await performAnalysis();
 
         if (success) {
+            hasAnalyzed = true; // Mark as analyzed
             showStatus("Analysis Complete!", "success");
             setTimeout(() => showStatus("", ""), 3000);
         }

@@ -1,126 +1,166 @@
 # 🚀 AI Resume Generator & Tailor
 
-An advanced, AI-powered tool that generates ATS-optimized resumes tailored to specific job descriptions. It features a Streamlit web app for manual use and a Chrome Extension for seamless integration with job boards.
+An AI-powered Chrome Extension that generates ATS-optimized resumes tailored to specific job descriptions. Built with a serverless backend deployed on Vercel, supporting both Google Gemini and Groq AI providers.
 
 ## ✨ Key Features
 
--   **🎯 ATS Optimization**: Automatically tailors your resume keywords, summary, and bullet points to match the Job Description (JD) using advanced AI analysis.
--   **✏️ Advanced Manual Editor**: Full-featured form-based editor in the Chrome Extension.
-    -   **Dynamic Editing**: Add/Remove Skill Categories, Experience Items, and Bullet Points.
-    -   **Auto-Save**: Never lose your progress; changes persist between tab switches.
-    -   **Contact Management**: Edit Location, Links, and contact details easily.
-    -   **Live Regeneration**: Update the PDF instantly with your manual edits.
--   **📋 One-Click Copy**: Easily copy tailored experience and project descriptions to your clipboard for pasting into job application portals (e.g., Workday).
--   **📊 ATS Analysis & Scoring**: Get a detailed match score (0-100) and specific feedback using Gemini 1.5 Pro.
-    -   Identifies missing keywords.
-    -   Highlights strong matching areas.
-    -   Provides actionable recommendations.
--   **💡 Smart Q&A**: Ask questions about the job description in the context of your resume (e.g., "Do I have the required Python experience?").
--   **🤖 Multi-Model Support**:
-    -   **Primary**: Google Gemini 1.5 Flash / 2.0 Flash level.
-    -   **Fallback**: Gemma 2 27B.
-    -   **Groq**: Ultra-fast inference with Llama 3.
-    -   **Ollama**: Local model support.
--   **📄 PDF Parsing with Link Extraction**: Extracts text and hidden hyperlinks (LinkedIn/Portfolio) from your existing PDF resume.
--   **🎨 Professional Layout**: Generates clean, polished PDFs using ReportLab with:
-    -   Smart spacing adjustments (1pt precision).
-    -   Overflow handling (smart trimming of optional bullets/projects).
-    -   Clickable hyperlinks.
--   **🧩 Chrome Side Panel**: The tool attempts to open in the Side Panel, allowing it to stay open ("persist") while you browse and interact with different job postings.
-    -   Tailor, Edit, and Analyze your resume directly alongside the job post.
--   **💾 Persistence**: Saves your base profile (`user_profile.json`) so you don't need to re-upload every time.
+- **🎯 ATS Optimization**: Automatically tailors your resume to match job descriptions using advanced AI analysis
+- **✏️ Advanced Manual Editor**: Full-featured editor in the Chrome Extension
+  - Dynamic editing: Add/remove skill categories, experience items, and bullet points
+  - Auto-save: Changes persist between section switches
+  - Contact management: Edit location, links, and contact details
+  - Live regeneration: Update PDF instantly with manual edits
+- **📋 Granular Copy**: Copy tailored summaries, experience descriptions, and project details individually to clipboard
+- **📊 ATS Analysis & Scoring**: Get detailed match scores (0-100) with comprehensive feedback
+  - Summary feedback on overall fit
+  - Strong matching areas highlighted
+  - Missing keywords identified
+  - Actionable recommendations provided
+- **💡 Smart Q&A**: Ask questions about the job description in the context of your resume
+- **🤖 Dual AI Provider Support**:
+  - **Google Gemini 2.5**: Flash for generation, Pro for analysis
+  - **Groq**: Ultra-fast inference with Llama 3.3 70B, fallback chain to Llama 3.1 8B and Qwen 32B
+- **📄 PDF Generation**: Professional, clean PDFs with clickable hyperlinks
+- **☁️ Serverless Architecture**: Deployed on Vercel for zero-maintenance operation
 
 ## 🛠️ Prerequisites
 
--   Python 3.10+
--   API Keys for at least one provider (Google Gemini Recommended)
+- Python 3.10+ (for local development/deployment)
+- API key for at least one provider:
+  - [Google Gemini API](https://ai.google.dev/)
+  - [Groq API](https://console.groq.com/)
 
-## 📦 Installation
+## 📦 Installation & Deployment
 
-1.  **Clone the repository** (or download the files).
-2.  **Install dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
+### Backend Deployment (Vercel)
 
-## ⚙️ Configuration
+1. **Clone the repository**:
+   ```bash
+   git clone <your-repo-url>
+   cd Serverless_AI_ResumeGenerator
+   ```
 
-1.  **Create a `.env` file** in the project root.
-2.  **Add your API keys**:
-    ```env
-    # Required for the default/best experience
-    GEMINI_API_KEY=your_google_gemini_key
+2. **Install Vercel CLI**:
+   ```bash
+   npm install -g vercel
+   ```
 
-    # Optional: For ultra-fast inference
-    GROQ_API_KEY=your_groq_key
+3. **Deploy to Vercel**:
+   ```bash
+   vercel --prod
+   ```
 
-    # Optional: For other models
-    OPENROUTER_API_KEY=your_openrouter_key
-    ```
-3.  **Git Ignore**: `user_profile.json` and `.env` are automatically ignored to protect your data.
+4. **Set Environment Variables** in Vercel Dashboard:
+   - `GEMINI_API_KEY` (if using Gemini)
+   - `GROQ_API_KEY` (if using Groq)
+
+5. **Note your deployment URL** (e.g., `https://your-app.vercel.app`)
+
+### Chrome Extension Setup
+
+1. **Update API URL**:
+   - Open `chrome_extension/popup.js`
+   - Update `API_BASE_URL` to your Vercel deployment URL
+
+2. **Load the Extension**:
+   - Open Chrome and go to `chrome://extensions/`
+   - Enable **Developer mode** (top right)
+   - Click **Load unpacked**
+   - Select the `chrome_extension` folder
+
+3. **Configure API Keys**:
+   - Click the extension icon
+   - Go to **Settings** (⚙️)
+   - Select your preferred provider (Gemini or Groq)
+   - Enter your API key
+   - Save settings
 
 ## 🚀 Usage
 
-### Option 1: Web App (Streamlit)
-Ideal for testing layout changes or manually pasting JDs.
+### First-Time Setup
 
-1.  Run the app:
-    ```bash
-    streamlit run app.py
-    ```
-2.  Upload your existing PDF resume (first time only).
-3.  Paste a Job Description.
-4.  Click **Generate Tailored Resume**.
+1. Click the extension icon on any page
+2. Upload your base resume PDF
+3. The extension will extract and store your profile
 
-### Option 2: Chrome Extension (Recommended)
-Tailor resumes directly while browsing job sites.
+### Generating Tailored Resumes
 
-1.  **Start the Backend Server**:
-    The extension needs a local server to handle the AI processing.
-    ```bash
-    python server.py
-    ```
-    *Keep this terminal window running.*
+1. Navigate to a job posting (LinkedIn, Indeed, company careers page, etc.)
+2. Click the extension icon
+3. Click **"Process Page & Generate Resume"**
+4. Wait for the AI to analyze and tailor your resume
+5. Preview or download the generated PDF
 
-2.  **Load the Extension**:
-    -   Open Chrome and go to `chrome://extensions/`.
-    -   Enable **Developer mode** (top right).
-    -   Click **Load unpacked**.
-    -   Select the `chrome_extension` folder in this directory.
+### Advanced Features
 
-3.  **Use It**:
-    -   Navigate to a job posting (e.g., LinkedIn, Greenhouse, Lever).
-    -   Click the extension icon.
-    -   **Setup (First Time)**: If you haven't uploaded a resume yet, you'll be prompted to upload your base PDF to create your profile.
-    -   **Generate**: Click "Process Page & Generate Resume" to create an initial tailored version.
-    -   **Edit**: Click "✏️ Edit Resume" to tweak content. You can add/remove bullets, jobs, or skills. Changes auto-save!
-        -   Click "Save & Regenerate" to update the PDF.
-    -   **Copy**: Click "📋 Copy Content" to open a list of your tailored experiences and projects. Click the copy button next to any item to grab the text for job application forms.
-    -   **Analyze**: Click "📊 Analyze ATS Score" to see how well you match the JD and get improvement tips.
-    -   **Ask**: Use the Smart Q&A box to prepare for interviews or clarify requirements.
-    -   The final PDF is saved in `generated_resumes/` and can be downloaded or previewed.
+- **Edit Resume**: Click "✏️ Edit Resume" to manually refine content
+  - Select sections (Summary, Skills, Experience, Projects, etc.)
+  - Add/remove items and bullets
+  - Click "Save & Regenerate" to update the PDF
+
+- **Copy Content**: Click "📋 Copy Content" to access granular copy options
+  - Copy individual summaries, experience descriptions, or project details
+  - Perfect for filling out application forms
+
+- **Analyze ATS Score**: Click "📊 Analyze ATS Score" for detailed feedback
+  - View match score, missing keywords, and recommendations
+  - Only runs when you click (not automatic)
+
+- **Smart Q&A**: Ask questions in the Q&A box
+  - Example: "Do I have the required Python experience?"
+  - Get contextual answers based on your resume and the job description
 
 ## 📂 Project Structure
 
--   `main.py`: Core logic for AI interaction, PDF parsing, and content tailoring.
--   `resume_builder.py`: PDF generation engine using ReportLab. Handles layout, fonts, and drawing.
--   `app.py`: Streamlit frontend interface.
--   `server.py`: Flask backend API for the Chrome Extension.
--   `user_profile.json`: Stores your parsed resume data (name, experience, skills) locally.
--   `chrome_extension/`: Source code for the browser extension (manifest, popup, scripts).
--   `requirements.txt`: Python dependencies.
+```
+├── api/
+│   └── index.py          # Vercel serverless API endpoints
+├── chrome_extension/
+│   ├── manifest.json     # Extension configuration
+│   ├── popup.html        # Extension UI
+│   └── popup.js          # Extension logic
+├── main.py               # Core AI logic and resume tailoring
+├── resume_builder.py     # PDF generation with ReportLab
+├── requirements.txt      # Python dependencies
+├── vercel.json          # Vercel deployment config
+└── README.md
+```
+
+## 🔧 API Endpoints
+
+- `POST /api/extract_text`: Extract text from uploaded PDF
+- `POST /api/extract_base_profile`: Parse resume into structured data
+- `POST /api/tailor_resume`: Generate tailored resume from JD
+- `POST /api/generate_pdf`: Create PDF from resume data
+- `POST /api/analyze`: Perform ATS analysis
+- `GET /api/health`: Health check endpoint
 
 ## ❓ Troubleshooting
 
--   **Missing LinkedIn/Portfolio Links**: Make sure to re-upload your resume if you haven't recently. We added a fix to extract hidden hyperlinks from PDFs.
--   **Summary too short?**: We recently adjusted the prompt. If it's still short, check the logs in `main.py` to see the AI response.
--   **API Errors**: Check your `.env` file and ensure your API quota isn't exceeded. The system tries to fallback to Gemma 2 if Gemini fails.
+- **"Analysis Error: Invalid API Key"**: Check that you've entered the correct API key for your selected provider in Settings
+- **"No Job Description detected"**: Refresh the page and try again, or manually paste the JD
+- **Extension not loading**: Make sure you've updated the `API_BASE_URL` in `popup.js` to your Vercel deployment URL
+- **PDF generation fails**: Check Vercel logs for errors; ensure your deployment has sufficient memory
 
-## 🔒 Data Privacy & Permissions
+## 🔒 Privacy & Permissions
 
 **Why does this extension request access to "all websites"?**
-Because this tool uses the **Side Panel** to allow you to generate resumes while browsing *any* job board (LinkedIn, Indeed, Company Careers pages, etc.), it requires the `activeTab` or `<all_urls>` permission to read the job description from the page you are currently viewing.
 
--   **On-Demand Access**: The extension **ONLY** reads the content of a page when you explicitly click the **"Process Page & Generate Resume"** button.
--   **No Background Tracking**: It does not track your browsing history or read data from tabs you are not actively using for resume generation.
--   **Local Processing**: Your personal data (resume profile) stays on your machine (in `user_profile.json` and Chrome Local Storage). It is only sent to the AI provider (e.g., Google Gemini) for the specific purpose of generating the resume.
+The extension needs to read job descriptions from any job board you visit (LinkedIn, Indeed, company career pages, etc.).
+
+- **On-Demand Only**: Content is read only when you click "Process Page & Generate Resume"
+- **No Background Tracking**: Does not track browsing history or read tabs you're not actively using
+- **Secure Processing**: Resume data is sent only to your chosen AI provider (Gemini/Groq) for generation
+- **Local Storage**: Your base profile is stored in Chrome's local storage, not on any server
+
+## 📝 License
+
+MIT License - feel free to use and modify for your needs.
+
+## 🙏 Acknowledgments
+
+Built with:
+- Google Gemini 2.5 / Groq APIs
+- ReportLab for PDF generation
+- Vercel for serverless hosting
+- Chrome Extensions API

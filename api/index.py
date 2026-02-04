@@ -19,8 +19,7 @@ from main import (
 from resume_builder import create_resume_pdf
 
 app = Flask(__name__)
-# Allow CORS from the Chrome Extension
-CORS(app, resources={r"/api/*": {"origins": "*"}}) # Relaxed for development, restrict in production if needed
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 @app.route('/api/extract_text', methods=['POST'])
 def extract_text():
@@ -95,14 +94,6 @@ def analyze():
         if not resume_data or not jd_text or not api_key:
             return jsonify({"error": "Missing required fields"}), 400
             
-        # Note: analyze_resume_with_jd currently hardcodes Gemini Pro in main.py, 
-        # but we can update it later. For now, passing provider won't hurt if we update signature.
-        # Actually, let's look at main.py: analyze_resume_with_jd DOES NOT take provider.
-        # It internally calls query_provider(..., provider="gemini", ...)
-        # So for now, we leave it as is or update main.py to accept provider. 
-        # Given the instruction "analyze_resume_with_jd(resume_data, jd_text, api_key=api_key)", we'll just keep it.
-        # Wait, user wants BOTH. I should probably update analyze_resume_with_jd too if possible.
-        # But for now, let's at least update the args here.
         
         analysis = analyze_resume_with_jd(resume_data, jd_text, provider=provider, api_key=api_key)
         

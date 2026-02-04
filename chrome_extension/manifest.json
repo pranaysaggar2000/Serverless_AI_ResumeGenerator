@@ -18,9 +18,9 @@
     "action": {
         "default_title": "Resume Generator",
         "default_icon": {
-            "16": "icon16.png",
-            "48": "icon48.png",
-            "128": "icon128.png"
+            "16": "icon.png",
+            "48": "icon.png",
+            "128": "icon.png"
         }
     },
     "side_panel": {

@@ -336,6 +336,15 @@ def extract_base_resume_info(resume_text: str, provider: str = "gemini", api_key
                 "location": "City, State",
                 "bullets": ["Bullet 1"]
             }}
+        ],
+        "research": [
+            {{
+                "title": "Paper Title",
+                "conference": "Conference/Journal Name",
+                "dates": "Date",
+                "link": "URL (optional)",
+                "bullets": ["Bullet 1"]
+            }}
         ]
     }}
     
@@ -697,6 +706,12 @@ def clean_tailored_resume(resume_data: dict) -> dict:
         for lead in resume_data['leadership']:
             if 'bullets' in lead:
                 lead['bullets'] = [convert_markdown_to_html(b) for b in lead['bullets']]
+                
+    # Clean research bullets
+    if 'research' in resume_data:
+        for item in resume_data['research']:
+            if 'bullets' in item:
+                item['bullets'] = [convert_markdown_to_html(b) for b in item['bullets']]
     
     return resume_data
 
@@ -711,15 +726,15 @@ def find_best_match(gen_item, pool):
     
     gen_company = (gen_item.get('company') or gen_item.get('organization') or "").lower().strip()
     gen_role = (gen_item.get('role') or gen_item.get('title') or "").lower().strip()
-    gen_name = (gen_item.get('name') or "").lower().strip() # For projects
+    gen_name = (gen_item.get('name') or gen_item.get('title') or "").lower().strip() # For projects/research
 
     for orig_item in pool:
         score = 0
-        orig_company = (orig_item.get('company') or orig_item.get('organization') or "").lower().strip()
+        orig_company = (orig_item.get('company') or orig_item.get('organization') or orig_item.get('conference') or "").lower().strip()
         orig_role = (orig_item.get('role') or orig_item.get('title') or "").lower().strip()
-        orig_name = (orig_item.get('name') or "").lower().strip()
+        orig_name = (orig_item.get('name') or orig_item.get('title') or "").lower().strip()
 
-        # Company Match (Strongest signal for Exp/Lead)
+        # Company Match (Strongest signal for Exp/Lead/Research)
         if gen_company and orig_company and gen_company == orig_company:
             score += 3
         elif gen_company and orig_company and (gen_company in orig_company or orig_company in gen_company):
@@ -754,6 +769,7 @@ def restore_immutable_fields(original_data: dict, generated_data: dict) -> dict:
     if 'experience' in original_data: pool.extend(original_data['experience'])
     if 'leadership' in original_data: pool.extend(original_data['leadership'])
     if 'projects' in original_data: pool.extend(original_data['projects'])
+    if 'research' in original_data: pool.extend(original_data['research'])
     
     # helper to restore
     def restore_section(section_name, fields_to_restore):
@@ -773,6 +789,9 @@ def restore_immutable_fields(original_data: dict, generated_data: dict) -> dict:
     
     # Restore Leadership
     restore_section('leadership', ['role', 'organization', 'duration', 'dates', 'location'])
+    
+    # Restore Research
+    restore_section('research', ['title', 'conference', 'dates', 'link'])
 
     return generated_data
 
@@ -904,6 +923,11 @@ CRITICAL RULES FOR THIS STRATEGY:
             for i, item in enumerate(resume_context['leadership']):
                 if i < len(bullet_counts['leadership']):
                     item['target_bullets'] = bullet_counts['leadership'][i]
+                    
+        if 'research' in resume_context and 'research' in bullet_counts:
+             for i, item in enumerate(resume_context['research']):
+                if i < len(bullet_counts['research']):
+                    item['target_bullets'] = bullet_counts['research'][i]
 
     prompt = f"""
 You are a Strategic Resume Architect.
@@ -916,10 +940,11 @@ CANDIDATE PROFILE (JSON):
 {json.dumps(resume_context, indent=2)}
 
 TASK: Reconstruct the resume JSON to best fit the JD.
-1. **Analyze** the candidate's full profile (Experience, Projects, Leadership).
+1. **Analyze** the candidate's full profile (Experience, Projects, Leadership, Research).
 2. **Reorganize** items to tell the best story:
    - **MOVE** highly relevant items to the 'experience' or 'projects' sections.
    - **MOVE** less relevant items (e.g. part-time jobs unrelated to JD) to 'leadership' or 'volunteer' sections, or remove them if totally irrelevant.
+   - **Research Items**: Can be their own 'research' section OR moved to 'projects' if practical application is key.
    - **REORDER** items within sections by impact and relevance.
 3. **Rewrite Bullets**:
    - Focus on impact, metrics, and JD keywords.

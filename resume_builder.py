@@ -366,7 +366,24 @@ def generate_resume(data, filename_or_buffer):
                 story.append(Paragraph(f"• {bullet}", styles['BulletPoint']))
             story.append(Spacer(1, 2))
 
-    # 7. Leadership Experience
+    # 7. Research & Publications
+    if 'research' in data and data['research']:
+        story.append(Paragraph("Research & Publications", styles['SectionHeader']))
+        story.append(create_hr_line())
+        story.append(Spacer(1, 1))
+        for res in data['research']:
+            story.append(create_aligned_row(res.get('title', 'Paper'), res.get('dates', ''), styles['BoldEntry']))
+            
+            conf = res.get('conference', '')
+            if res.get('link'):
+                conf += f" [{res['link']}]"
+                
+            story.append(create_aligned_row(conf, res.get('location', ''), styles['ItalicEntry']))
+            for bullet in res.get('bullets', []):
+                story.append(Paragraph(f"• {bullet}", styles['BulletPoint']))
+            story.append(Spacer(1, 2))
+
+    # 8. Leadership Experience
     if 'leadership' in data and data['leadership']:
         story.append(Paragraph("Leadership Experience", styles['SectionHeader']))
         story.append(create_hr_line())

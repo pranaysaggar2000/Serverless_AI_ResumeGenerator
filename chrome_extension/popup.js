@@ -1092,7 +1092,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             });
         }
-        else if (['experience', 'projects', 'leadership'].includes(section)) {
+        else if (['experience', 'projects', 'leadership', 'research'].includes(section)) {
             if (!data) data = [];
             const listDiv = document.createElement('div');
             listDiv.id = 'itemsList';
@@ -1100,7 +1100,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             data.forEach(item => renderItemBlock(listDiv, item, section));
             formContainer.appendChild(listDiv);
 
-            let btnLabel = section === 'experience' ? 'Job' : (section === 'projects' ? 'Project' : 'Role');
+            let btnLabel = section === 'experience' ? 'Job' : (section === 'projects' ? 'Project' : (section === 'research' ? 'Paper' : 'Role'));
             const addBtn = document.createElement('button');
             addBtn.textContent = `➕ Add ${btnLabel}`;
             addBtn.style.cssText = "width: 100%; padding: 8px; background: #e9ecef; border: 1px dashed #ccc; color: #333; cursor: pointer; margin-top: 10px;";
@@ -1108,10 +1108,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             addBtn.onclick = () => {
                 let newItem = { bullets: ["New bullet"] };
                 if (section === 'experience') newItem = { company: "New Co", role: "Role", location: "", dates: "Dates", bullets: ["New bullet"] };
+                if (section === 'leadership') newItem = { organization: "New Org", role: "Role", location: "", dates: "Dates", bullets: ["New bullet"] };
+                if (section === 'research') newItem = { title: "New Paper", conference: "Conference", link: "", dates: "Date", bullets: ["New bullet"] };
                 if (section === 'projects') newItem = { name: "New Project", tech: "", dates: "", bullets: ["New bullet"] };
                 renderItemBlock(listDiv, newItem, section);
             };
             formContainer.appendChild(addBtn);
+
+            const removeSectionBtn = document.createElement('button');
+            removeSectionBtn.textContent = `🗑️ Remove Entire ${btnLabel} Section`;
+            removeSectionBtn.style.cssText = "width: 100%; padding: 8px; background: #ffebee; border: 1px dashed #ffcdd2; color: #c62828; cursor: pointer; margin-top: 5px;";
+            removeSectionBtn.onclick = () => {
+                if (confirm(`Are you sure you want to remove the entire '${section}' section?`)) {
+                    // clear list
+                    const listDiv = document.getElementById('itemsList');
+                    listDiv.innerHTML = '';
+                    // update data model? It updates on 'parseEditor' call usually?
+                    // parseEditor reads from DOM. So clearing DOM is enough.
+                }
+            };
+            formContainer.appendChild(removeSectionBtn);
         }
     }
 
@@ -1135,7 +1151,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <input type="text" class="item-tech" value="${item.tech || ''}" placeholder="Technologies">
                     <input type="text" class="item-dates" value="${item.dates || ''}" placeholder="Dates" style="grid-column: span 2;">
                 </div>`;
-        } // leadership similar if needed
+        } else if (section === 'leadership') {
+            headerHtml = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 5px;">
+                    <input type="text" class="item-org" value="${item.organization || ''}" placeholder="Organization">
+                    <input type="text" class="item-role" value="${item.role || ''}" placeholder="Role">
+                    <input type="text" class="item-location" value="${item.location || ''}" placeholder="Location">
+                    <input type="text" class="item-dates" value="${item.dates || ''}" placeholder="Dates">
+                </div>`;
+        } else if (section === 'research') {
+            headerHtml = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 5px;">
+                    <input type="text" class="item-title" value="${item.title || ''}" placeholder="Paper Title" style="font-weight:bold;">
+                    <input type="text" class="item-conference" value="${item.conference || ''}" placeholder="Conference/Journal">
+                    <input type="text" class="item-link" value="${item.link || ''}" placeholder="Link (URL)">
+                    <input type="text" class="item-dates" value="${item.dates || ''}" placeholder="Dates">
+                </div>`;
+        }
 
         let bulletsHtml = '';
         (item.bullets || []).forEach(b => bulletsHtml += createBulletRow(b));
@@ -1146,26 +1178,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             : (item.bullets || []).length;
 
         div.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                <span style="font-weight: bold; color: #555;">Item</span>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <label style="font-size: 11px; display: flex; align-items: center; gap: 5px;">
-                        📊 Bullets: 
-                        <button class="bullet-count-decrease" style="width: 24px; height: 24px; padding: 0; font-size: 16px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; border-radius: 3px;" title="Decrease bullets">−</button>
-                        <span class="bullet-count-display" style="min-width: 20px; text-align: center; font-weight: bold;">${currentBulletCount}</span>
-                        <button class="bullet-count-increase" style="width: 24px; height: 24px; padding: 0; font-size: 16px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; border-radius: 3px;" title="Increase bullets">+</button>
-                        <input type="hidden" class="bullet-count-input" value="${currentBulletCount}">
-                    </label>
-                    <button class="remove-btn remove-item-btn">🗑️ Remove</button>
-                </div>
-            </div>
-            ${headerHtml}
-            <div class="edit-field">
-                <label>Bullets</label>
-                <div class="bullet-list-container">${bulletsHtml}</div>
-                <button class="add-bullet-btn" style="font-size: 10px; padding: 2px 5px; margin-top: 5px;">+ Add Bullet</button>
-            </div>
-        `;
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                    <span style="font-weight: bold; color: #555;">Item</span>
+                                    <div style="display: flex; gap: 10px; align-items: center;">
+                                        <label style="font-size: 11px; display: flex; align-items: center; gap: 5px;">
+                                            📊 Bullets:
+                                            <button class="bullet-count-decrease" style="width: 24px; height: 24px; padding: 0; font-size: 16px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; border-radius: 3px;" title="Decrease bullets">−</button>
+                                            <span class="bullet-count-display" style="min-width: 20px; text-align: center; font-weight: bold;">${currentBulletCount}</span>
+                                            <button class="bullet-count-increase" style="width: 24px; height: 24px; padding: 0; font-size: 16px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; border-radius: 3px;" title="Increase bullets">+</button>
+                                            <input type="hidden" class="bullet-count-input" value="${currentBulletCount}">
+                                        </label>
+                                        <button class="remove-btn remove-item-btn">🗑️ Remove</button>
+                                    </div>
+                                </div>
+                                ${headerHtml}
+                                <div class="edit-field">
+                                    <label>Bullets</label>
+                                    <div class="bullet-list-container">${bulletsHtml}</div>
+                                    <button class="add-bullet-btn" style="font-size: 10px; padding: 2px 5px; margin-top: 5px;">+ Add Bullet</button>
+                                </div>
+                                `;
 
         div.querySelector('.remove-item-btn').onclick = () => div.remove();
         const bContainer = div.querySelector('.bullet-list-container');
@@ -1206,9 +1238,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     function createBulletRow(text) {
         const safeText = text ? text.replace(/"/g, '&quot;') : '';
         return `<div class="bullet-item" style="display: grid; grid-template-columns: 1fr auto; gap: 5px; margin-bottom: 5px; width: 100%;">
-                    <textarea class="bullet-input" style="width: 100%; height: 50px; resize: vertical; padding: 5px;">${safeText}</textarea>
-                    <button class="remove-btn remove-bullet-btn">❌</button>
-                </div>`;
+                                    <textarea class="bullet-input" style="width: 100%; height: 50px; resize: vertical; padding: 5px;">${safeText}</textarea>
+                                    <button class="remove-btn remove-bullet-btn">❌</button>
+                                </div>`;
     }
 
     function parseEditor(section) {
@@ -1231,7 +1263,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (k) skills[k] = v;
             });
             return skills;
-        } else if (['experience', 'projects'].includes(section)) {
+        } else if (['experience', 'projects', 'leadership', 'research'].includes(section)) {
             const blocks = formContainer.querySelectorAll('.item-block');
             const list = [];
             blocks.forEach(b => {
@@ -1241,6 +1273,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     item.company = getVal('.item-company');
                     item.role = getVal('.item-role');
                     item.location = getVal('.item-location');
+                    item.dates = getVal('.item-dates');
+                } else if (section === 'leadership') {
+                    item.organization = getVal('.item-org');
+                    item.role = getVal('.item-role');
+                    item.location = getVal('.item-location');
+                    item.dates = getVal('.item-dates');
+                } else if (section === 'research') {
+                    item.title = getVal('.item-title');
+                    item.conference = getVal('.item-conference');
+                    item.link = getVal('.item-link');
                     item.dates = getVal('.item-dates');
                 } else {
                     item.name = getVal('.item-name');
@@ -1263,22 +1305,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         return null;
     }
 
+    /**
+     * Collect bullet count preferences from the UI.
+     * Returns object like: {experience: [3, 4, 2], projects: [3, 0, 2]}
+     */
     function collectBulletCounts() {
-        /**
-         * Collect bullet count preferences from the UI.
-         * Returns object like: {experience: [3, 4, 2], projects: [3, 0, 2]}
-         */
         const bulletCounts = {
             experience: [],
             projects: [],
-            leadership: []
+            leadership: [],
+            research: []
         };
 
         // Get current section being edited
         const section = sectionSelect.value;
+        const trackedSections = ['experience', 'projects', 'leadership', 'research'];
 
-        // If editing experience, projects, or leadership, collect counts
-        if (['experience', 'projects', 'leadership'].includes(section)) {
+        // If currently editing one of these sections, scrape values from DOM
+        if (trackedSections.includes(section)) {
             const itemBlocks = formContainer.querySelectorAll('.item-block');
             itemBlocks.forEach(block => {
                 const countInput = block.querySelector('.bullet-count-input');
@@ -1289,10 +1333,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        // For sections not being edited, use bullet_count_preference from currentEditingData (source of truth)
-        ['experience', 'projects', 'leadership'].forEach(sec => {
+        // For sections NOT being edited, rely on currentEditingData or tailoredResume
+        trackedSections.forEach(sec => {
             if (sec !== section) {
-                // Check currentEditingData first (contains latest preferences)
+                // Priority 1: Check currentEditingData (contains latest user save)
                 if (currentEditingData && currentEditingData[sec]) {
                     bulletCounts[sec] = currentEditingData[sec].map(item => {
                         return item.bullet_count_preference !== undefined
@@ -1300,7 +1344,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             : (item.bullets || []).length;
                     });
                 }
-                // Fallback to tailoredResume if needed
+                // Priority 2: Fallback to tailoredResume (previous generation)
                 else if (tailoredResume && tailoredResume[sec]) {
                     bulletCounts[sec] = tailoredResume[sec].map(item =>
                         (item.bullets || []).length

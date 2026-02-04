@@ -116,12 +116,12 @@ def api_extract_base_profile():
         data = request.json
         text = data.get('text')
         api_key = data.get('api_key')
-        # extracting profile usually uses Gemini better, keeping it default for now unless requested
+        provider = data.get('provider', 'gemini')
         
         if not text or not api_key:
             return jsonify({"error": "Missing text or api_key"}), 400
             
-        profile_data = extract_base_resume_info(text, api_key=api_key)
+        profile_data = extract_base_resume_info(text, provider=provider, api_key=api_key)
         return jsonify(profile_data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

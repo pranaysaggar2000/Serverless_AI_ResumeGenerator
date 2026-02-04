@@ -21,3 +21,4 @@ user_profile.json
 
 # Generated files
 *.pdf
+.env

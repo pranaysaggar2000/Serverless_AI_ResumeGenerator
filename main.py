@@ -145,9 +145,9 @@ def query_provider(prompt: str, provider: str = "gemini", expect_json: bool = Fa
         return call_gemini_api(prompt, api_key, model=model_name)
 
 
-def analyze_resume_with_jd(resume_data: dict, jd_text: str, api_key: str = None) -> dict:
+def analyze_resume_with_jd(resume_data: dict, jd_text: str, provider: str = "gemini", api_key: str = None) -> dict:
     """
-    Analyze the resume against the JD using Gemini 1.5 Pro.
+    Analyze the resume against the JD using AI.
     Returns a dict with score and feedback.
     """
     prompt = f"""
@@ -180,7 +180,7 @@ def analyze_resume_with_jd(resume_data: dict, jd_text: str, api_key: str = None)
         
         # Force JSON mime type instruction in prompt is handled,
         # but for REST we just hope the model listens to "JSON ONLY".
-        response_text = query_provider(prompt, provider="gemini", api_key=api_key)
+        response_text = query_provider(prompt, provider=provider, api_key=api_key)
         
         # internal helper to clean json
         def clean_json_string(s):
@@ -226,9 +226,9 @@ def extract_text_from_pdf(file_stream) -> str:
         return ""
 
 
-def extract_base_resume_info(resume_text: str, api_key: str = None) -> dict:
+def extract_base_resume_info(resume_text: str, provider: str = "gemini", api_key: str = None) -> dict:
     """
-    Extract base resume information from text using Gemini.
+    Extract base resume information using AI.
     Returns a JSON dict matching the get_base_resume structure.
     """
     prompt = f"""
@@ -295,7 +295,7 @@ def extract_base_resume_info(resume_text: str, api_key: str = None) -> dict:
     """
     
     try:
-        response_text = query_provider(prompt, provider="gemini", api_key=api_key)
+        response_text = query_provider(prompt, provider=provider, api_key=api_key)
         json_match = re.search(r'\{[\s\S]*\}', response_text)
         if json_match:
             return json.loads(json_match.group())
@@ -723,7 +723,7 @@ CRITICAL OBJECTIVE: Rewrite the resume to MAXIMIZE ATS keyword matching while ma
 Return the complete resume as valid JSON with the same structure."""
 
     try:
-        response_text = query_provider(prompt, provider)
+        response_text = query_provider(prompt, provider, api_key=api_key)
         
         # Extract JSON from response
         json_match = re.search(r'\{[\s\S]*\}', response_text)

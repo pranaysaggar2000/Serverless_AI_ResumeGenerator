@@ -104,7 +104,7 @@ def analyze():
         # Wait, user wants BOTH. I should probably update analyze_resume_with_jd too if possible.
         # But for now, let's at least update the args here.
         
-        analysis = analyze_resume_with_jd(resume_data, jd_text, api_key=api_key)
+        analysis = analyze_resume_with_jd(resume_data, jd_text, provider=provider, api_key=api_key)
         
         return jsonify(analysis)
     except Exception as e:

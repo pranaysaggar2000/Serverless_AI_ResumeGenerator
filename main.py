@@ -16,7 +16,7 @@ from typing import List
 # Model provider options
 PROVIDERS = ["gemini", "groq"]
 
-def call_gemini_api(prompt: str, api_key: str, model: str = "gemini-1.5-flash") -> str:
+def call_gemini_api(prompt: str, api_key: str, model: str = "gemini-2.5-flash") -> str:
     """
     Call Gemini API via REST to avoid heavy SDK dependencies (grpcio).
     """
@@ -133,11 +133,11 @@ def query_provider(prompt: str, provider: str = "gemini", expect_json: bool = Fa
     else:  # Default to gemini
         print("   Using Gemini (Cloud via REST)...")
         # Use valid model name (gemini-1.5-flash is standard stable)
-        model_name = "gemini-1.5-flash"
+        model_name = "gemini-2.5-flash"
         
         # Use Pro for complex tasks if analyzing
         if "analyze" in prompt.lower() or "ATS scoring" in prompt:
-             model_name = "gemini-1.5-pro"
+             model_name = "gemini-2.5-pro"
 
         if not api_key and os.getenv("GEMINI_API_KEY"):
             api_key = os.getenv("GEMINI_API_KEY")

@@ -701,41 +701,78 @@ def clean_tailored_resume(resume_data: dict) -> dict:
     return resume_data
 
 
+def find_best_match(gen_item, pool):
+    """
+    Find the best matching item from the original pool based on Company/Role/Name.
+    Returns the original item dict or None.
+    """
+    best_match = None
+    max_score = 0
+    
+    gen_company = (gen_item.get('company') or gen_item.get('organization') or "").lower().strip()
+    gen_role = (gen_item.get('role') or gen_item.get('title') or "").lower().strip()
+    gen_name = (gen_item.get('name') or "").lower().strip() # For projects
 
+    for orig_item in pool:
+        score = 0
+        orig_company = (orig_item.get('company') or orig_item.get('organization') or "").lower().strip()
+        orig_role = (orig_item.get('role') or orig_item.get('title') or "").lower().strip()
+        orig_name = (orig_item.get('name') or "").lower().strip()
+
+        # Company Match (Strongest signal for Exp/Lead)
+        if gen_company and orig_company and gen_company == orig_company:
+            score += 3
+        elif gen_company and orig_company and (gen_company in orig_company or orig_company in gen_company):
+            score += 1
+            
+        # Role Match
+        if gen_role and orig_role and gen_role == orig_role:
+            score += 2
+        elif gen_role and orig_role and (gen_role in orig_role or orig_role in gen_role):
+            score += 1
+
+        # Project Name Match
+        if gen_name and orig_name and gen_name == orig_name:
+            score += 5 # High confidence for projects
+        elif gen_name and orig_name and (gen_name in orig_name or orig_name in gen_name):
+            score += 2
+
+        if score > max_score and score >= 2: # Threshold
+            max_score = score
+            best_match = orig_item
+            
+    return best_match
 
 def restore_immutable_fields(original_data: dict, generated_data: dict) -> dict:
     """
     Overwrites generated metadata (role, company, dates) with values 
     from the original input to prevent hallucination.
+    Uses fuzzy matching to handle reordering/moving of items.
     """
-    # Experience
-    if 'experience' in original_data and 'experience' in generated_data:
-        for i, orig_item in enumerate(original_data['experience']):
-            if i < len(generated_data['experience']):
-                gen_item = generated_data['experience'][i]
-                # Restore constants
-                for field in ['role', 'company', 'duration', 'dates', 'location']:
-                    if field in orig_item:
-                        gen_item[field] = orig_item[field]
+    # Create a flat pool of all original items
+    pool = []
+    if 'experience' in original_data: pool.extend(original_data['experience'])
+    if 'leadership' in original_data: pool.extend(original_data['leadership'])
+    if 'projects' in original_data: pool.extend(original_data['projects'])
+    
+    # helper to restore
+    def restore_section(section_name, fields_to_restore):
+        if section_name in generated_data:
+            for gen_item in generated_data[section_name]:
+                match = find_best_match(gen_item, pool)
+                if match:
+                    for field in fields_to_restore:
+                        if field in match:
+                            gen_item[field] = match[field]
 
-    # Projects
-    if 'projects' in original_data and 'projects' in generated_data:
-        for i, orig_item in enumerate(original_data['projects']):
-            if i < len(generated_data['projects']):
-                gen_item = generated_data['projects'][i]
-                for field in ['name', 'link', 'dates']: # Keep name, link, dates constant
-                    if field in orig_item:
-                         gen_item[field] = orig_item[field]
-                
-    # Leadership
-    if 'leadership' in original_data and 'leadership' in generated_data:
-        for i, orig_item in enumerate(original_data['leadership']):
-            if i < len(generated_data['leadership']):
-                gen_item = generated_data['leadership'][i]
-                for field in ['role', 'organization', 'duration', 'dates', 'location']:
-                    if field in orig_item:
-                        gen_item[field] = orig_item[field]
-
+    # Restore Experience
+    restore_section('experience', ['role', 'company', 'duration', 'dates', 'location'])
+    
+    # Restore Projects
+    restore_section('projects', ['name', 'link', 'dates'])
+    
+    # Restore Leadership
+    restore_section('leadership', ['role', 'organization', 'duration', 'dates', 'location'])
 
     return generated_data
 
@@ -848,43 +885,25 @@ CRITICAL RULES FOR THIS STRATEGY:
     # Contact & Summary
     current_resume_content += "--- SECTION: CONTACT & SUMMARY ---\n"
     base_info = {k: v for k, v in base_resume.items() if k not in ['experience', 'projects', 'leadership', 'skills']}
-    current_resume_content += json.dumps(base_info, indent=2) + "\n\n"
+    # Inject bullet counts into base_resume for AI guidance
+    # We do this on a copy to avoid mutating the original object permanently
+    resume_context = json.loads(json.dumps(base_resume))
     
-    # Skills
-    if 'skills' in base_resume:
-        current_resume_content += "--- SECTION: SKILLS ---\n"
-        current_resume_content += json.dumps(base_resume['skills'], indent=2) + "\n"
-        current_resume_content += "INSTRUCTION: Optimize skills for JD relevance. Keep within 5 lines.\n\n"
-
-    # Experience
-    if 'experience' in base_resume:
-        current_resume_content += "--- SECTION: EXPERIENCE ---\n"
-        exp_counts = bullet_counts.get('experience', []) if bullet_counts else []
-        for i, item in enumerate(base_resume['experience']):
-            target = exp_counts[i] if i < len(exp_counts) else 3
-            current_resume_content += f"ITEM {i+1} [Role: {item.get('role', 'N/A')}]:\n"
-            current_resume_content += f"Current Bullets: {json.dumps(item.get('bullets', []), indent=2)}\n"
-            current_resume_content += f"ACTION: Rewrite these bullets into EXACTLY {target} high-impact bullets optimized for the JD.\n\n"
-
-    # Projects
-    if 'projects' in base_resume:
-        current_resume_content += "--- SECTION: PROJECTS ---\n"
-        proj_counts = bullet_counts.get('projects', []) if bullet_counts else []
-        for i, item in enumerate(base_resume['projects']):
-            target = proj_counts[i] if i < len(proj_counts) else 3
-            current_resume_content += f"ITEM {i+1} [Name: {item.get('name', 'N/A')}]:\n"
-            current_resume_content += f"Current Bullets: {json.dumps(item.get('bullets', []), indent=2)}\n"
-            current_resume_content += f"ACTION: Rewrite into EXACTLY {target} bullets.\n\n"
-
-    # Leadership
-    if 'leadership' in base_resume:
-        current_resume_content += "--- SECTION: LEADERSHIP ---\n"
-        lead_counts = bullet_counts.get('leadership', []) if bullet_counts else []
-        for i, item in enumerate(base_resume['leadership']):
-            target = lead_counts[i] if i < len(lead_counts) else 3
-            current_resume_content += f"ITEM {i+1}:\n"
-            current_resume_content += f"Current Bullets: {json.dumps(item.get('bullets', []), indent=2)}\n"
-            current_resume_content += f"ACTION: Rewrite into EXACTLY {target} bullets.\n\n"
+    if bullet_counts:
+        if 'experience' in resume_context and 'experience' in bullet_counts:
+            for i, item in enumerate(resume_context['experience']):
+                if i < len(bullet_counts['experience']):
+                    item['target_bullets'] = bullet_counts['experience'][i]
+        
+        if 'projects' in resume_context and 'projects' in bullet_counts:
+            for i, item in enumerate(resume_context['projects']):
+                if i < len(bullet_counts['projects']):
+                    item['target_bullets'] = bullet_counts['projects'][i]
+                    
+        if 'leadership' in resume_context and 'leadership' in bullet_counts:
+            for i, item in enumerate(resume_context['leadership']):
+                if i < len(bullet_counts['leadership']):
+                    item['target_bullets'] = bullet_counts['leadership'][i]
 
     prompt = f"""
 You are a Strategic Resume Architect.
@@ -893,18 +912,25 @@ JOB ANALYSIS:
 
 {strategy_note}
 
-TASK: Rewrite the resume sections below.
-STRICTLY follow the ACTION INSTRUCTION for each item regarding bullet counts.
+CANDIDATE PROFILE (JSON):
+{json.dumps(resume_context, indent=2)}
 
-{current_resume_content}
+TASK: Reconstruct the resume JSON to best fit the JD.
+1. **Analyze** the candidate's full profile (Experience, Projects, Leadership).
+2. **Reorganize** items to tell the best story:
+   - **MOVE** highly relevant items to the 'experience' or 'projects' sections.
+   - **MOVE** less relevant items (e.g. part-time jobs unrelated to JD) to 'leadership' or 'volunteer' sections, or remove them if totally irrelevant.
+   - **REORDER** items within sections by impact and relevance.
+3. **Rewrite Bullets**:
+   - Focus on impact, metrics, and JD keywords.
+   - **Respect 'target_bullets' count** if specified for an item.
 
 GENERAL RULES:
 1. Contact Info: Preserve email, phone, links EXACTLY. Update location if needed.
-2. Summary: Optimize for JD (2-3 sentences).
-3. Skills: Optimize for JD (max 5 lines).
-4. Formatting: Use <b>tags</b> for bolding.
-5. JSON Output: Return the COMPLETE resume in valid JSON format matching the input structure.
-6. KEY NAMING: Use "role" for Experience job titles.
+2. Summary: Auto-generate a strong 2-3 sentence summary optimized for the JD.
+3. Formatting: Use <b>tags</b> for bolding key achievements.
+4. JSON Output: Return the COMPLETE resume in valid JSON format.
+5. KEY NAMING: Use "role" for Experience job titles.
 """
 
     try:
@@ -920,11 +946,11 @@ GENERAL RULES:
                     # Post-process to convert any remaining markdown to HTML
                     cleaned = clean_tailored_resume(tailored)
                     
-                    # RESTORE CONSTANTS (Role, Company, Dates)
+                    # RESTORE CONSTANTS (Role, Company, Dates) using fuzzy matching
                     cleaned = restore_immutable_fields(base_resume, cleaned)
                     
-                    # STRICTLY ENFORCE bullet counts if provided
-                    cleaned = enforce_bullet_limits(cleaned, bullet_counts)
+                    # Note: We rely on AI to respect bullet counts now, as strict enforcement
+                    # by index is impossible after reordering.
                     
                     return cleaned
             except json.JSONDecodeError as e:

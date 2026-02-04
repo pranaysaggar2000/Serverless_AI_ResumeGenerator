@@ -280,20 +280,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 `;
             });
         } else if (section === 'skills') {
-            const skills = baseResume.skills || [];
-            skills.forEach((skillCat, idx) => {
+            const skills = baseResume.skills || {};
+            let idx = 0;
+            Object.entries(skills).forEach(([category, items]) => {
                 html += `
                     <div style="border: 1px solid #ddd; padding: 8px; margin-bottom: 8px; border-radius: 4px;">
                         <div class="edit-field">
                             <label>Category Name</label>
-                            <input type="text" data-field="skills.${idx}.category" value="${skillCat.category || ''}" placeholder="e.g., Languages">
+                            <input type="text" data-field="skills.${category}" data-category="${category}" value="${category}" placeholder="e.g., Languages" readonly>
                         </div>
                         <div class="edit-field">
                             <label>Skills (comma-separated)</label>
-                            <textarea data-field="skills.${idx}.items" rows="2" placeholder="Python, JavaScript, etc.">${skillCat.items || ''}</textarea>
+                            <textarea data-field="skills.${category}" rows="2" placeholder="Python, JavaScript, etc.">${items || ''}</textarea>
                         </div>
                     </div>
                 `;
+                idx++;
             });
         } else if (section === 'projects') {
             const projects = baseResume.projects || [];
@@ -332,6 +334,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <div class="edit-field">
                             <label>Description (one per line)</label>
                             <textarea data-field="leadership.${idx}.bullets" rows="2" placeholder="Description/Bullets">${(lead.bullets || []).join('\\n')}</textarea>
+                        </div>
+                    </div>
+                `;
+            });
+        } else if (section === 'research') {
+            const research = baseResume.research || [];
+            research.forEach((paper, idx) => {
+                html += `
+                    <div style="border: 1px solid #ddd; padding: 8px; margin-bottom: 8px; border-radius: 4px;">
+                        <strong style="font-size: 12px;">${paper.title || 'Research Paper'} #${idx + 1}</strong>
+                        <div class="edit-field">
+                            <label>Paper Title</label>
+                            <input type="text" data-field="research.${idx}.title" value="${paper.title || ''}" placeholder="Paper Title">
+                        </div>
+                        <div class="edit-field">
+                            <label>Conference/Journal</label>
+                            <input type="text" data-field="research.${idx}.conference" value="${paper.conference || ''}" placeholder="Conference or Journal Name">
+                        </div>
+                        <div class="edit-field">
+                            <label>Link</label>
+                            <input type="text" data-field="research.${idx}.link" value="${paper.link || ''}" placeholder="URL to paper">
+                        </div>
+                        <div class="edit-field">
+                            <label>Date</label>
+                            <input type="text" data-field="research.${idx}.dates" value="${(paper.dates || '').replace(/"/g, '&quot;')}" placeholder="Publication Date">
+                        </div>
+                        <div class="edit-field">
+                            <label>Bullets (one per line)</label>
+                            <textarea data-field="research.${idx}.bullets" rows="2" placeholder="Key points about the research">${(paper.bullets || []).join('\\n')}</textarea>
                         </div>
                     </div>
                 `;

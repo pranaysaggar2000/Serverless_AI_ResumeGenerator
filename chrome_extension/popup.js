@@ -538,6 +538,74 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
 
+    // --- Manual Text Input Logic ---
+
+    async function processManualText(text, btnElement, statusElementId) {
+        if (!text || text.length < 50) {
+            showStatus("Please enter at least 50 characters of resume text.", "error", statusElementId);
+            return;
+        }
+
+        if (!checkCurrentProviderKey()) {
+            showStatus("Please save your API Key in settings first.", "error", statusElementId);
+            return;
+        }
+
+        btnElement.disabled = true;
+        showStatus("Processing text... please wait.", "info", statusElementId);
+
+        try {
+            let extractionKey = currentProvider === 'groq' ? currentGroqKey : currentApiKey;
+
+            const profileResp = await fetch(`${API_BASE_URL}/extract_base_profile`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: text,
+                    api_key: extractionKey,
+                    provider: currentProvider
+                })
+            });
+            const profileData = await profileResp.json();
+
+            if (profileData.error) throw new Error(profileData.error);
+
+            // Save to storage
+            await chrome.storage.local.set({
+                base_resume: profileData,
+                user_profile_name: profileData.name || "User"
+            });
+
+            baseResume = profileData;
+            profileNameDisplay.textContent = profileData.name;
+
+            showStatus("✅ Profile updated successfully!", "success", statusElementId);
+
+            setTimeout(() => {
+                showMainUI();
+                // Clear inputs
+                document.getElementById('resumeTextInit').value = '';
+                document.getElementById('reuploadResumeText').value = '';
+            }, 1000);
+
+        } catch (e) {
+            showStatus(`Error: ${e.message}`, "error", statusElementId);
+        } finally {
+            btnElement.disabled = false;
+        }
+    }
+
+    document.getElementById('processTextInitBtn').addEventListener('click', () => {
+        const text = document.getElementById('resumeTextInit').value;
+        processManualText(text, document.getElementById('processTextInitBtn'));
+    });
+
+    document.getElementById('reuploadTextBtn').addEventListener('click', () => {
+        const text = document.getElementById('reuploadResumeText').value;
+        processManualText(text, document.getElementById('reuploadTextBtn'), 'profileStatus');
+    });
+
+
 
     // 5. Job Detection
     async function detectJobDescription() {

@@ -674,7 +674,7 @@ def clean_tailored_resume(resume_data: dict) -> dict:
     return resume_data
 
 
-def tailor_resume(base_resume: dict, jd_analysis: dict, provider: str = "gemini", api_key: str = None) -> dict:
+def tailor_resume(base_resume: dict, jd_analysis: dict, provider: str = "gemini", api_key: str = None, tailoring_strategy: str = "balanced") -> dict:
     """
     Use AI provider to tailor the resume content for ATS optimization.
     Preserves all metrics and facts, only adjusts vocabulary.
@@ -684,8 +684,40 @@ def tailor_resume(base_resume: dict, jd_analysis: dict, provider: str = "gemini"
         jd_analysis: Analysis from parse_job_description
         provider: One of 'gemini', 'ollama', or 'openrouter'
     """
+    # Strategy-specific instructions
+    if tailoring_strategy == "profile_focus":
+        strategy_note = """
+=== TAILORING STRATEGY: PROFILE FOCUS ===
+**PRIORITY: Preserve original content and authenticity**
+- Only add JD keywords where they naturally fit without forcing changes
+- Maintain original wording, phrasing, and structure from base resume
+- Keep all original metrics, numbers, and accomplishments exactly as written
+- Only rephrase if it significantly improves clarity WITHOUT changing meaning
+- Prefer authenticity over aggressive keyword optimization
+"""
+    elif tailoring_strategy == "jd_focus":
+        strategy_note = """
+=== TAILORING STRATEGY: JD FOCUS ===
+**PRIORITY: Maximize ATS keyword matching**
+- Aggressively integrate JD keywords and terminology throughout resume
+- Rephrase bullets to include more keyword matches where possible
+- Prioritize ATS score over preserving original wording
+- Use JD-specific terminology even if it differs from original phrasing
+- Ensure every mandatory and preferred keyword appears at least once
+"""
+    else:  # balanced (default)
+        strategy_note = """
+=== TAILORING STRATEGY: BALANCED ===
+**PRIORITY: Integrate JD keywords while maintaining authenticity**
+- Add relevant JD keywords naturally throughout resume
+- Maintain authenticity and original metrics
+- Rephrase only where it improves both clarity and ATS matching
+"""
+    
     prompt = f"""
 You are a Strategic Resume Architect. Your PRIMARY GOAL is to achieve a 95+ ATS (Applicant Tracking System) match score.
+
+{strategy_note}
 
 TARGET JOB ANALYSIS:
 {json.dumps(jd_analysis, indent=2)}

@@ -97,6 +97,8 @@
     <div style="display: flex; align-items: center; flex-grow: 1;">
       <span class="icon">📄</span> Resume Generator
     </div>
+    <button id="profileToggle"
+      style="width: auto; padding: 5px; background: transparent; color: #555; border: 1px solid #ddd; font-size: 16px; margin-right: 5px;">👤</button>
     <button id="settingsToggle"
       style="width: auto; padding: 5px; background: transparent; color: #555; border: 1px solid #ddd; font-size: 16px;">⚙️</button>
   </h1>
@@ -105,10 +107,13 @@
     Navigate to a job posting and click Generate.
   </p>
 
-  <!-- Settings UI (Hidden by default) -->
   <div id="settingsUI"
     style="display: none; margin-bottom: 20px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 6px;">
-    <h3 style="margin-top: 0; font-size: 14px;">⚙️ Settings</h3>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <h3 style="margin: 0; font-size: 14px;">⚙️ Settings</h3>
+      <button id="backFromSettings" style="width: auto; padding: 5px 10px; background: #6c757d; font-size: 12px;">←
+        Back</button>
+    </div>
 
     <!-- AI Provider Selection -->
     <label for="providerSelect" style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">AI
@@ -145,12 +150,65 @@
     <div id="settingsStatus" style="font-size: 12px; margin-top: 5px;"></div>
   </div>
 
+  <!-- Profile Management UI (Hidden by default) -->
+  <div id="profileUI"
+    style="display: none; margin-bottom: 20px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 6px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <h3 style="margin: 0; font-size: 14px;">👤 Manage Profile</h3>
+      <button id="backFromProfile" style="width: auto; padding: 5px 10px; background: #6c757d; font-size: 12px;">←
+        Back</button>
+    </div>
+
+    <!-- Re-upload Resume Option -->
+    <div style="background: #f8f9fa; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
+      <h4 style="margin: 0 0 8px 0; font-size: 13px;">📄 Re-upload Base Resume</h4>
+      <input type="file" id="reuploadResumeFile" accept=".pdf"
+        style="font-size: 12px; margin-bottom: 8px; width: 100%;">
+      <button id="reuploadBtn" style="background: #667eea; font-size: 12px; padding: 6px 12px;">Upload New
+        Resume</button>
+    </div>
+
+    <!-- Manual Edit Option -->
+    <div style="background: #f8f9fa; padding: 10px; border-radius: 4px;">
+      <h4 style="margin: 0 0 8px 0; font-size: 13px;">✏️ Edit Profile Manually</h4>
+      <p style="font-size: 11px; color: #666; margin-bottom: 10px;">Edit your base profile information directly.</p>
+
+      <label for="profileSectionSelect" style="display: block; font-size: 12px; margin-bottom: 5px;">Select
+        Section:</label>
+      <select id="profileSectionSelect"
+        style="width: 100%; padding: 6px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        <option value="contact">Contact Info</option>
+        <option value="experience">Experience</option>
+        <option value="projects">Projects</option>
+        <option value="skills">Skills</option>
+        <option value="leadership">Leadership</option>
+      </select>
+
+      <div id="profileFormContainer"
+        style="max-height: 300px; overflow-y: auto; margin-bottom: 10px; border: 1px solid #eee; padding: 5px; border-radius: 4px;">
+        <!-- Dynamic form will be rendered here -->
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <button id="saveProfileBtn" style="background: #28a745; font-size: 12px; padding: 6px 12px;">Save Profile
+          Changes</button>
+        <button id="cancelProfileEditBtn"
+          style="background: #6c757d; font-size: 12px; padding: 6px 12px;">Cancel</button>
+      </div>
+    </div>
+
+    <div id="profileStatus" style="font-size: 12px; margin-top: 10px;"></div>
+  </div>
 
 
-  <!-- Setup UI (Hidden by default) -->
+
   <div id="setupUI" style="display: none; text-align: center; margin-bottom: 20px;">
     <div style="background: #eef2f5; padding: 15px; border-radius: 8px; border: 1 dashed #ccc;">
-      <h3 style="margin: 0 0 10px 0; font-size: 14px;">Setup Your Profile</h3>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h3 style="margin: 0; font-size: 14px;">Setup Your Profile</h3>
+        <button id="backFromSetup"
+          style="width: auto; padding: 5px 10px; background: #6c757d; font-size: 12px; display: none;">← Back</button>
+      </div>
       <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Upload your base resume to get started.</p>
       <input type="file" id="resumeFile" accept=".pdf" style="font-size: 12px; margin-bottom: 10px; width: 100%;">
       <button id="uploadBtn" style="background: #667eea;">Upload Resume</button>
@@ -159,10 +217,29 @@
 
   <!-- Main UI (Hidden until profile confirmed) -->
   <div id="mainUI" style="display: none;">
-    <div
-      style="font-size: 12px; color: #555; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+    <div style="font-size: 12px; color: #555; margin-bottom: 10px;">
       <span>Using profile: <strong id="profileName">Loading...</strong></span>
-      <a href="#" id="updateProfileLink" style="color: #667eea; text-decoration: none;">Update</a>
+    </div>
+
+    <!-- Tailoring Strategy Slider -->
+    <div
+      style="margin-bottom: 15px; padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e0e0e0;">
+      <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #333;">
+        📊 Tailoring Strategy
+      </label>
+      <div style="position: relative; margin-bottom: 8px;">
+        <input type="range" id="tailoringSlider" min="0" max="2" value="1" step="1"
+          style="width: 100%; cursor: pointer; accent-color: #667eea;">
+        <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 11px; color: #666;">
+          <span style="text-align: left; width: 33%;">📝 Profile<br>Focus</span>
+          <span style="text-align: center; width: 33%;">⚖️ Balanced</span>
+          <span style="text-align: right; width: 33%;">🎯 JD<br>Focus</span>
+        </div>
+      </div>
+      <div id="strategyDescription"
+        style="font-size: 11px; color: #555; margin-top: 8px; padding: 6px; background: #fff; border-radius: 4px; border: 1px solid #e0e0e0;">
+        Balanced approach - integrates JD keywords while maintaining authenticity
+      </div>
     </div>
 
     <button id="generateBtn">Process Page & Generate Resume</button>

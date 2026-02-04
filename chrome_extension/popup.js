@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const statusDiv = document.getElementById('status');
     const generateBtn = document.getElementById('generateBtn');
     const profileNameDisplay = document.getElementById('profileName');
-    const updateProfileLink = document.getElementById('updateProfileLink');
     const analysisResults = document.getElementById('analysisResults');
     const atsScoreDisplay = document.getElementById('atsScore');
     const analysisDetails = document.getElementById('analysisDetails');
@@ -30,12 +29,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentGroqKey = "";
     let currentProvider = "gemini";
     let hasAnalyzed = false; // Track if analysis has been performed
+    let tailoringStrategy = "balanced"; // Track tailoring strategy: profile_focus, balanced, jd_focus
 
     // 1. Initialization
     await loadState();
 
     async function loadState() {
-        const data = await chrome.storage.local.get(['gemini_api_key', 'groq_api_key', 'provider', 'base_resume', 'user_profile_name']);
+        const data = await chrome.storage.local.get(['gemini_api_key', 'groq_api_key', 'provider', 'base_resume', 'user_profile_name', 'tailoring_strategy']);
 
         // Load Provider
         if (data.provider) {
@@ -71,6 +71,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
                 showSettings(); // Force settings if no key
             }
+        }
+
+        // Load Tailoring Strategy
+        if (data.tailoring_strategy) {
+            tailoringStrategy = data.tailoring_strategy;
+            const sliderValue = tailoringStrategy === 'profile_focus' ? 0 : tailoringStrategy === 'balanced' ? 1 : 2;
+            document.getElementById('tailoringSlider').value = sliderValue;
+            updateStrategyDescription(sliderValue);
         }
     }
 
@@ -109,6 +117,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // Tailoring Strategy Slider
+    const tailoringSlider = document.getElementById('tailoringSlider');
+    const strategyDescription = document.getElementById('strategyDescription');
+
+    function updateStrategyDescription(value) {
+        const descriptions = [
+            '📝 Profile Focus - Preserves original content, minimal keyword forcing',
+            '⚖️ Balanced - Integrates JD keywords while maintaining authenticity',
+            '🎯 JD Focus - Aggressive keyword matching for maximum ATS score'
+        ];
+        strategyDescription.textContent = descriptions[value];
+    }
+
+    tailoringSlider.addEventListener('input', async (e) => {
+        const value = parseInt(e.target.value);
+        updateStrategyDescription(value);
+
+        // Map slider value to strategy name
+        const strategies = ['profile_focus', 'balanced', 'jd_focus'];
+        tailoringStrategy = strategies[value];
+
+        // Save to storage
+        await chrome.storage.local.set({ tailoring_strategy: tailoringStrategy });
+    });
+
     function showMainUI() {
         setupUI.style.display = 'none';
         settingsUI.style.display = 'none';
@@ -127,6 +160,250 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupUI.style.display = 'none';
         mainUI.style.display = 'none';
     }
+
+    function showMain() {
+        const profileUI = document.getElementById('profileUI');
+        settingsUI.style.display = 'none';
+        setupUI.style.display = 'none';
+        profileUI.style.display = 'none';
+        mainUI.style.display = 'block';
+    }
+
+    // Back button handlers
+    document.getElementById('backFromSettings').addEventListener('click', () => {
+        showMain();
+    });
+
+    document.getElementById('backFromSetup').addEventListener('click', () => {
+        showMain();
+    });
+
+    document.getElementById('backFromProfile').addEventListener('click', () => {
+        showMain();
+    });
+
+    // Profile Toggle
+    document.getElementById('profileToggle').addEventListener('click', () => {
+        const profileUI = document.getElementById('profileUI');
+        const settingsUI = document.getElementById('settingsUI');
+        const mainUI = document.getElementById('mainUI');
+        const setupUI = document.getElementById('setupUI');
+
+        profileUI.style.display = 'block';
+        settingsUI.style.display = 'none';
+        mainUI.style.display = 'none';
+        setupUI.style.display = 'none';
+
+        // Load current profile into editor
+        renderProfileEditor('contact');
+    });
+
+    // Profile Section Selector
+    document.getElementById('profileSectionSelect').addEventListener('change', (e) => {
+        renderProfileEditor(e.target.value);
+    });
+
+    // Profile Editor Rendering (reuse editor logic)
+    function renderProfileEditor(section) {
+        const container = document.getElementById('profileFormContainer');
+        if (!baseResume) {
+            container.innerHTML = '<p style="font-size: 11px; color: #999;">No profile data loaded.</p>';
+            return;
+        }
+
+        let html = '';
+
+        if (section === 'contact') {
+            const contact = baseResume.contact || {};
+            html = `
+                <div class="edit-field">
+                    <label>Location</label>
+                    <input type="text" data-field="contact.location" value="${contact.location || ''}" placeholder="City, State">
+                </div>
+                <div class="edit-field">
+                    <label>Phone</label>
+                    <input type="text" data-field="contact.phone" value="${contact.phone || ''}" placeholder="Phone Number">
+                </div>
+                <div class="edit-field">
+                    <label>Email</label>
+                    <input type="text" data-field="contact.email" value="${contact.email || ''}" placeholder="Email">
+                </div>
+                <div class="edit-field">
+                    <label>LinkedIn URL</label>
+                    <input type="text" data-field="contact.linkedin_url" value="${contact.linkedin_url || ''}" placeholder="LinkedIn URL">
+                </div>
+                <div class="edit-field">
+                    <label>Portfolio URL</label>
+                    <input type="text" data-field="contact.portfolio_url" value="${contact.portfolio_url || ''}" placeholder="Portfolio URL">
+                </div>
+            `;
+        } else if (section === 'experience') {
+            const experiences = baseResume.experience || [];
+            experiences.forEach((exp, idx) => {
+                html += `
+                    <div style="border: 1px solid #ddd; padding: 8px; margin-bottom: 8px; border-radius: 4px;">
+                        <strong style="font-size: 12px;">${exp.company || 'Experience'} #${idx + 1}</strong>
+                        <div class="edit-field">
+                            <label>Company</label>
+                            <input type="text" data-field="experience.${idx}.company" value="${exp.company || ''}" placeholder="Company Name">
+                        </div>
+                        <div class="edit-field">
+                            <label>Role</label>
+                            <input type="text" data-field="experience.${idx}.role" value="${(exp.role || '').replace(/"/g, '&quot;')}" placeholder="Job Title">
+                        </div>
+                        <div class="edit-field">
+                            <label>Duration</label>
+                            <input type="text" data-field="experience.${idx}.duration" value="${(exp.duration || '').replace(/"/g, '&quot;')}" placeholder="e.g., Jan 2020 - Present">
+                        </div>
+                        <div class="edit-field">
+                            <label>Bullets (one per line)</label>
+                            <textarea data-field="experience.${idx}.bullets" rows="4" placeholder="Enter bullet points, one per line">${(exp.bullets || []).join('\\n')}</textarea>
+                        </div>
+                    </div>
+                `;
+            });
+        } else if (section === 'skills') {
+            const skills = baseResume.skills || [];
+            skills.forEach((skillCat, idx) => {
+                html += `
+                    <div style="border: 1px solid #ddd; padding: 8px; margin-bottom: 8px; border-radius: 4px;">
+                        <div class="edit-field">
+                            <label>Category Name</label>
+                            <input type="text" data-field="skills.${idx}.category" value="${skillCat.category || ''}" placeholder="e.g., Languages">
+                        </div>
+                        <div class="edit-field">
+                            <label>Skills (comma-separated)</label>
+                            <textarea data-field="skills.${idx}.items" rows="2" placeholder="Python, JavaScript, etc.">${skillCat.items || ''}</textarea>
+                        </div>
+                    </div>
+                `;
+            });
+        } else if (section === 'projects') {
+            const projects = baseResume.projects || [];
+            projects.forEach((proj, idx) => {
+                html += `
+                    <div style="border: 1px solid #ddd; padding: 8px; margin-bottom: 8px; border-radius: 4px;">
+                        <strong style="font-size: 12px;">${proj.name || 'Project'} #${idx + 1}</strong>
+                        <div class="edit-field">
+                            <label>Project Name</label>
+                            <input type="text" data-field="projects.${idx}.name" value="${proj.name || ''}" placeholder="Project Name">
+                        </div>
+                        <div class="edit-field">
+                            <label>Bullets (one per line)</label>
+                            <textarea data-field="projects.${idx}.bullets" rows="3" placeholder="Enter bullet points, one per line">${(proj.bullets || []).join('\\n')}</textarea>
+                        </div>
+                    </div>
+                `;
+            });
+        } else if (section === 'leadership') {
+            const leadership = baseResume.leadership || [];
+            leadership.forEach((lead, idx) => {
+                html += `
+                    <div style="border: 1px solid #ddd; padding: 8px; margin-bottom: 8px; border-radius: 4px;">
+                        <div class="edit-field">
+                            <label>Title</label>
+                            <input type="text" data-field="leadership.${idx}.title" value="${lead.title || ''}" placeholder="Leadership Role">
+                        </div>
+                        <div class="edit-field">
+                            <label>Description</label>
+                            <textarea data-field="leadership.${idx}.description" rows="2" placeholder="Description">${(lead.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        container.innerHTML = html || '<p style="font-size: 11px; color: #999;">No data for this section.</p>';
+    }
+
+    // Save Profile Changes
+    document.getElementById('saveProfileBtn').addEventListener('click', async () => {
+        const container = document.getElementById('profileFormContainer');
+        const inputs = container.querySelectorAll('input, textarea');
+
+        // Parse changes back into baseResume
+        inputs.forEach(input => {
+            const field = input.dataset.field;
+            if (!field) return;
+
+            const parts = field.split('.');
+            let obj = baseResume;
+
+            for (let i = 0; i < parts.length - 1; i++) {
+                if (!obj[parts[i]]) obj[parts[i]] = {};
+                obj = obj[parts[i]];
+            }
+
+            const lastKey = parts[parts.length - 1];
+            if (input.tagName === 'TEXTAREA' && lastKey === 'bullets') {
+                obj[lastKey] = input.value.split('\\n').filter(b => b.trim());
+            } else {
+                obj[lastKey] = input.value;
+            }
+        });
+
+        // Save to storage
+        await chrome.storage.local.set({ base_resume: baseResume });
+
+        const statusEl = document.getElementById('profileStatus');
+        statusEl.textContent = '✅ Profile saved successfully!';
+        statusEl.style.color = '#28a745';
+        setTimeout(() => {
+            statusEl.textContent = '';
+            showMain();
+        }, 1000);
+    });
+
+    // Cancel Profile Edit
+    document.getElementById('cancelProfileEditBtn').addEventListener('click', () => {
+        showMain();
+    });
+
+    // Re-upload Resume
+    document.getElementById('reuploadBtn').addEventListener('click', async () => {
+        const fileInput = document.getElementById('reuploadResumeFile');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            showStatus('Please select a PDF file.', 'error', 'profileStatus');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            showStatus('Uploading and parsing resume...', 'info', 'profileStatus');
+
+            const extractResp = await fetch(`${API_BASE_URL}/extract_text`, {
+                method: 'POST',
+                body: formData
+            });
+            const extractData = await extractResp.json();
+            if (extractData.error) throw new Error(extractData.error);
+
+            const profileResp = await fetch(`${API_BASE_URL}/extract_base_profile`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: extractData.text,
+                    api_key: currentProvider === 'groq' ? currentGroqKey : currentApiKey,
+                    provider: currentProvider
+                })
+            });
+            const profileData = await profileResp.json();
+            if (profileData.error) throw new Error(profileData.error);
+
+            baseResume = profileData;
+            await chrome.storage.local.set({ base_resume: baseResume });
+
+            showStatus('✅ Resume re-uploaded and profile updated!', 'success', 'profileStatus');
+            renderProfileEditor(document.getElementById('profileSectionSelect').value);
+
+        } catch (e) {
+            showStatus(`Error: ${e.message}`, 'error', 'profileStatus');
+        }
+    });
 
     // 3. Settings Logic
     saveSettingsBtn.addEventListener('click', async () => {
@@ -232,10 +509,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    updateProfileLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        showSetupUI();
-    });
+
 
     // 5. Job Detection
     async function detectJobDescription() {
@@ -281,7 +555,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     base_resume: baseResume,
                     jd_text: currentJdText,
                     api_key: activeKey,
-                    provider: currentProvider
+                    provider: currentProvider,
+                    tailoring_strategy: tailoringStrategy
                 })
             });
 

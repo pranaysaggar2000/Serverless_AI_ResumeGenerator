@@ -104,6 +104,7 @@ def api_tailor_resume():
         jd_text = data.get('jd_text')
         api_key = data.get('api_key')
         provider = data.get('provider', 'gemini')
+        tailoring_strategy = data.get('tailoring_strategy', 'balanced')  # Default to balanced
         
         if not base_resume or not jd_text or not api_key:
             return jsonify({"error": "Missing required fields: base_resume, jd_text, or api_key"}), 400
@@ -121,7 +122,7 @@ def api_tailor_resume():
         jd_analysis = parse_job_description(jd_text, provider=provider, api_key=api_key)
         
         # 2. Tailor Resume
-        tailored_resume = tailor_resume(base_resume, jd_analysis, provider=provider, api_key=api_key)
+        tailored_resume = tailor_resume(base_resume, jd_analysis, provider=provider, api_key=api_key, tailoring_strategy=tailoring_strategy)
         
         return jsonify({
             "tailored_resume": tailored_resume,

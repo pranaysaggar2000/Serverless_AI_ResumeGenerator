@@ -1197,12 +1197,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        // For sections not being edited, use current bullet counts from tailoredResume
+        // For sections not being edited, use bullet_count_preference from currentEditingData (source of truth)
         ['experience', 'projects', 'leadership'].forEach(sec => {
-            if (sec !== section && tailoredResume && tailoredResume[sec]) {
-                bulletCounts[sec] = tailoredResume[sec].map(item =>
-                    (item.bullets || []).length
-                );
+            if (sec !== section) {
+                // Check currentEditingData first (contains latest preferences)
+                if (currentEditingData && currentEditingData[sec]) {
+                    bulletCounts[sec] = currentEditingData[sec].map(item => {
+                        return item.bullet_count_preference !== undefined
+                            ? parseInt(item.bullet_count_preference)
+                            : (item.bullets || []).length;
+                    });
+                }
+                // Fallback to tailoredResume if needed
+                else if (tailoredResume && tailoredResume[sec]) {
+                    bulletCounts[sec] = tailoredResume[sec].map(item =>
+                        (item.bullets || []).length
+                    );
+                }
             }
         });
 

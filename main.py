@@ -878,7 +878,8 @@ CRITICAL OBJECTIVE: Rewrite the resume to MAXIMIZE ATS keyword matching while ma
    - Use exact keyword matches from JD (not synonyms).
    - Match industry terminology exactly.
 
-Return the complete resume as valid JSON with the same structure."""
+Return the complete resume as valid JSON with the same structure. 
+IMPORTANT: Ensure experience and leadership items use the key "role" for job titles (do NOT use "title")."""
 
     try:
         response_text = query_provider(prompt, provider, api_key=api_key)

@@ -339,7 +339,27 @@ def extract_base_resume_info(resume_text: str, provider: str = "gemini", api_key
         response_text = query_provider(prompt, provider=provider, api_key=api_key)
         json_match = re.search(r'\{[\s\S]*\}', response_text)
         if json_match:
-            return json.loads(json_match.group())
+            data = json.loads(json_match.group())
+            
+            # Normalize Experience Role
+            if 'experience' in data:
+                for item in data['experience']:
+                    if 'role' not in item:
+                        for key in ['title', 'position', 'job_title', 'designation']:
+                            if key in item:
+                                item['role'] = item[key]
+                                break
+            
+            # Normalize Leadership Role
+            if 'leadership' in data:
+                for item in data['leadership']:
+                    if 'role' not in item:
+                         for key in ['title', 'position']:
+                            if key in item:
+                                item['role'] = item[key]
+                                break
+
+            return data
     except Exception as e:
         print(f"Error extracting resume info: {e}")
     

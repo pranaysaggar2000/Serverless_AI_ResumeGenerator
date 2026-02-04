@@ -172,7 +172,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         settingsUI.style.display = 'none';
         setupUI.style.display = 'none';
         profileUI.style.display = 'none';
+
+        // Ensure editor is hidden
+        if (typeof editorUI !== 'undefined') editorUI.style.display = 'none';
+
         mainUI.style.display = 'block';
+
+        // Restore actions if resume exists
+        if (typeof tailoredResume !== 'undefined' && tailoredResume) {
+            actionsDiv.style.display = 'block';
+        } else {
+            actionsDiv.style.display = 'none';
+        }
     }
 
     // Back button handlers
@@ -255,7 +266,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         </div>
                         <div class="edit-field">
                             <label>Role</label>
-                            <input type="text" data-field="experience.${idx}.role" value="${(exp.role || '').replace(/"/g, '&quot;')}" placeholder="Job Title">
+                            <input type="text" data-field="experience.${idx}.role" value="${(exp.role || exp.title || exp.position || exp.job_title || '').replace(/"/g, '&quot;')}" placeholder="Job Title">
                         </div>
                         <div class="edit-field">
                             <label>Dates</label>
@@ -312,7 +323,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div style="border: 1px solid #ddd; padding: 8px; margin-bottom: 8px; border-radius: 4px;">
                         <div class="edit-field">
                             <label>Role</label>
-                            <input type="text" data-field="leadership.${idx}.role" value="${lead.role || ''}" placeholder="Leadership Role">
+                            <input type="text" data-field="leadership.${idx}.role" value="${(lead.role || lead.title || lead.position || '').replace(/"/g, '&quot;')}" placeholder="Leadership Role">
                         </div>
                         <div class="edit-field">
                             <label>Dates</label>

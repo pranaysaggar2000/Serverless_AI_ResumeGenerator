@@ -917,6 +917,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderEditor("summary", currentEditingData["summary"]);
     });
 
+    cancelEditBtn.addEventListener('click', () => {
+        currentEditingData = null; // discard changes
+        editorUI.style.display = 'none';
+        if (typeof showMain === 'function') showMain();
+        else actionsDiv.style.display = 'block';
+    });
+
     sectionSelect.addEventListener('change', () => {
         if (!currentEditingData) return;
 

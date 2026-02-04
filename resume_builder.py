@@ -428,11 +428,15 @@ def create_resume_pdf(data, output_path_or_buffer):
         new_exp = []
         for item in data['experience']:
             new_item = item.copy()
-            # Ensure 'role' field exists - use 'title' as fallback for backward compatibility
-            if 'role' not in new_item and 'title' in item:
-                new_item['role'] = item['title']
-            elif 'role' not in new_item:
-                new_item['role'] = ''  # Provide empty string as fallback
+            # Ensure 'role' field exists with robust fallback
+            if 'role' not in new_item:
+                for key in ['title', 'position', 'job_title', 'designation']:
+                    if key in item:
+                        new_item['role'] = item[key]
+                        break
+            
+            if 'role' not in new_item:
+                new_item['role'] = ''  # Fallback to empty string if absolutely nothing found
             new_exp.append(new_item)
         new_data['experience'] = new_exp
 

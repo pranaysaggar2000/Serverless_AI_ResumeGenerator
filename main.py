@@ -814,7 +814,9 @@ CRITICAL OBJECTIVE: Rewrite the resume to MAXIMIZE ATS keyword matching while ma
    - Prioritize 2-3 key categories derived from JD (e.g., Languages, Frameworks, Tools).
 
 4. **Experience Bullets**:
-   - **CRITICAL: DO NOT SUMMARIZE OR SHORTEN.** Maintain full depth and detail.
+   - **CRITICAL:** Strictly follow the bullet count limits specified in the "BULLET COUNT REQUIREMENTS" section above.
+   - If reducing the number of bullets, prioritize the most impactful ones (high metrics, JD relevance).
+   - Maintain full depth and detail for each retained bullet (do not summarize multiple bullets into one).
    - Each bullet should be SUBSTANTIVE (aim for 1-2 lines per bullet, ~15-20 words)
    - Integrate JD keywords ONLY where they fit naturally. Do not force them.
    - PRESERVE all metrics exactly (18%, 60%, 99.5%, 40%, 30%, 92.27%, 2000, 5+)

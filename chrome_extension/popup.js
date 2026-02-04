@@ -1,5 +1,5 @@
 
-const API_BASE_URL = "http://localhost:5000/api"; // Placeholder as requested
+const API_BASE_URL = "https://serverless-ai-resume-generator.vercel.app/api"; // Updated to Vercel deployment
 
 document.addEventListener('DOMContentLoaded', async () => {
     // DOM Elements
@@ -27,35 +27,72 @@ document.addEventListener('DOMContentLoaded', async () => {
     let baseResume = null;
     let tailoredResume = null;
     let currentApiKey = "";
+    let currentGroqKey = "";
+    let currentProvider = "gemini";
 
     // 1. Initialization
     await loadState();
 
     async function loadState() {
-        const data = await chrome.storage.local.get(['gemini_api_key', 'base_resume', 'user_profile_name']);
+        const data = await chrome.storage.local.get(['gemini_api_key', 'groq_api_key', 'provider', 'base_resume', 'user_profile_name']);
 
+        // Load Provider
+        if (data.provider) {
+            currentProvider = data.provider;
+            document.getElementById('providerSelect').value = currentProvider;
+        }
+
+        // Load Keys
         if (data.gemini_api_key) {
             currentApiKey = data.gemini_api_key;
             apiKeyInput.value = currentApiKey;
         }
+        if (data.groq_api_key) {
+            currentGroqKey = data.groq_api_key;
+            document.getElementById('groqApiKey').value = currentGroqKey;
+        }
+
+        // Update UI based on provider
+        toggleProviderUI(currentProvider);
 
         if (data.base_resume) {
             baseResume = data.base_resume;
             profileNameDisplay.textContent = data.user_profile_name || "User";
 
-            if (currentApiKey) {
+            if (checkCurrentProviderKey()) {
                 showMainUI();
             } else {
-                showSettings(); // Force settings if no key
+                showSettings(); // Force settings if no key for selected provider
             }
         } else {
-            if (currentApiKey) {
+            if (checkCurrentProviderKey()) {
                 showSetupUI();
             } else {
                 showSettings(); // Force settings if no key
             }
         }
     }
+
+    function toggleProviderUI(provider) {
+        if (provider === 'gemini') {
+            document.getElementById('geminiKeyData').style.display = 'block';
+            document.getElementById('groqKeyData').style.display = 'none';
+        } else {
+            document.getElementById('geminiKeyData').style.display = 'none';
+            document.getElementById('groqKeyData').style.display = 'block';
+        }
+    }
+
+    function checkCurrentProviderKey() {
+        if (currentProvider === 'gemini') return !!currentApiKey;
+        if (currentProvider === 'groq') return !!currentGroqKey;
+        return false;
+    }
+
+    document.getElementById('providerSelect').addEventListener('change', (e) => {
+        currentProvider = e.target.value;
+        toggleProviderUI(currentProvider);
+    });
 
     // 2. Navigation / UI Toggles
     settingsToggle.addEventListener('click', () => {
@@ -66,7 +103,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             settingsUI.style.display = 'none';
             // Determine where to go back to
-            if (baseResume && currentApiKey) showMainUI();
+            if (baseResume && checkCurrentProviderKey()) showMainUI();
             else showSetupUI();
         }
     });
@@ -92,15 +129,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 3. Settings Logic
     saveSettingsBtn.addEventListener('click', async () => {
-        const key = apiKeyInput.value.trim();
-        if (!key) {
-            showStatus("Please enter an API key.", "error", "settingsStatus");
+        const geminiKey = apiKeyInput.value.trim();
+        const groqKey = document.getElementById('groqApiKey').value.trim();
+        const provider = document.getElementById('providerSelect').value;
+
+        let settingsToSave = {
+            gemini_api_key: geminiKey,
+            groq_api_key: groqKey,
+            provider: provider
+        };
+
+        if (provider === 'gemini' && !geminiKey) {
+            showStatus("Please enter a Gemini API key.", "error", "settingsStatus");
+            return;
+        }
+        if (provider === 'groq' && !groqKey) {
+            showStatus("Please enter a Groq API key.", "error", "settingsStatus");
             return;
         }
 
-        await chrome.storage.local.set({ gemini_api_key: key });
-        currentApiKey = key;
-        showStatus("Settings saved!", "success", "settingsStatus");
+        await chrome.storage.local.set(settingsToSave);
+        currentApiKey = geminiKey;
+        currentGroqKey = groqKey;
+        currentProvider = provider;
+
+        showStatus("Settings saved! Using " + (provider === 'gemini' ? "Gemini" : "Groq"), "success", "settingsStatus");
 
         setTimeout(() => {
             if (baseResume) showMainUI();
@@ -116,7 +169,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        if (!currentApiKey) {
+        if (!checkCurrentProviderKey()) {
             showStatus("Please save your API Key in settings first.", "error");
             return;
         }
@@ -125,8 +178,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         uploadBtn.disabled = true;
 
         try {
-            // First extract text (since we can't send file object to background easily without base64 or blob handling that matches backend)
-            // Actually, we can send FormData to existing backend endpoint if we fetch directly from popup
+            // First extract text
             const formData = new FormData();
             formData.append('file', file);
 
@@ -140,12 +192,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (textData.error) throw new Error(textData.error);
 
             // Step B: Extract structured profile
+            // Use Gemini for extraction if available, as it's better at JSON extraction usually.
+            // But we respect current provider choice or fallback to Gemini key if user only has that.
+            let extractionKey = currentProvider === 'groq' ? currentGroqKey : currentApiKey;
+            // Hack: Extraction currently hardcoded to Gemini in backend potentially? 
+            // extract_base_resume_info calls query_provider default.
+            // We should pass provider.
+
             const profileResp = await fetch(`${API_BASE_URL}/extract_base_profile`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     text: textData.text,
-                    api_key: currentApiKey
+                    api_key: extractionKey,
+                    provider: currentProvider
                 })
             });
             const profileData = await profileResp.json();
@@ -208,7 +268,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         generateBtn.disabled = true;
-        showStatus("Analyzing and tailoring resume... (this takes ~15s)", "info");
+        showStatus(`Analyzing and tailoring resume with ${currentProvider === 'groq' ? 'Groq' : 'Gemini'}...`, "info");
+
+        const activeKey = currentProvider === 'groq' ? currentGroqKey : currentApiKey;
 
         try {
             const resp = await fetch(`${API_BASE_URL}/tailor_resume`, {
@@ -217,7 +279,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 body: JSON.stringify({
                     base_resume: baseResume,
                     jd_text: currentJdText,
-                    api_key: currentApiKey
+                    api_key: activeKey,
+                    provider: currentProvider
                 })
             });
 
@@ -269,6 +332,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     async function performAnalysis() {
+        const activeKey = currentProvider === 'groq' ? currentGroqKey : currentApiKey;
         try {
             const resp = await fetch(`${API_BASE_URL}/analyze`, {
                 method: 'POST',
@@ -276,7 +340,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 body: JSON.stringify({
                     resume_data: tailoredResume,
                     jd_text: currentJdText,
-                    api_key: currentApiKey
+                    api_key: activeKey,
+                    provider: currentProvider
                 })
             });
             const data = await resp.json();

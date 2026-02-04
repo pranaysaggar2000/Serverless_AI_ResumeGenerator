@@ -51,14 +51,16 @@ def call_gemini_api(prompt: str, api_key: str, model: str = "gemini-1.5-flash") 
 
 
 
-def query_groq(prompt: str, expect_json: bool = False) -> str:
+def query_groq(prompt: str, expect_json: bool = False, api_key: str = None) -> str:
     """
     Query Groq API with robust fallback chain.
     Chain: Llama 3.3 70B (Quality) -> Llama 3.1 8B (Speed/Volume) -> Qwen 32B (Backup)
     """
-    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        print("⚠️ GROQ_API_KEY not found in environment.")
+        api_key = os.getenv("GROQ_API_KEY")
+    
+    if not api_key:
+        print("⚠️ GROQ_API_KEY not found.")
         return ""
         
     models_chain = [

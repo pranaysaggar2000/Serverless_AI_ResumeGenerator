@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
-    "name": "Resume Generator",
-    "version": "1.0",
+    "name": "Resume Generator V2",
+    "version": "1.1",
     "description": "Generate ATS-optimized resumes from any job description.",
     "permissions": [
         "activeTab",

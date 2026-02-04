@@ -650,7 +650,7 @@ def clean_tailored_resume(resume_data: dict) -> dict:
         for exp in resume_data['experience']:
             if 'bullets' in exp:
                 # Enforce max 3 bullets for Intern roles
-                job_title = exp.get('title', exp.get('role', '')).lower()
+                job_title = exp.get('role', '').lower()
                 if 'intern' in job_title:
                     exp['bullets'] = exp['bullets'][:3]
                 else:

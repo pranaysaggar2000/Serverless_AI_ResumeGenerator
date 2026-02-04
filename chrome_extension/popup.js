@@ -257,8 +257,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <input type="text" data-field="experience.${idx}.role" value="${(exp.role || '').replace(/"/g, '&quot;')}" placeholder="Job Title">
                         </div>
                         <div class="edit-field">
-                            <label>Duration</label>
-                            <input type="text" data-field="experience.${idx}.duration" value="${(exp.duration || '').replace(/"/g, '&quot;')}" placeholder="e.g., Jan 2020 - Present">
+                            <label>Dates</label>
+                            <input type="text" data-field="experience.${idx}.dates" value="${(exp.dates || '').replace(/"/g, '&quot;')}" placeholder="e.g., Jan 2020 - Present">
                         </div>
                         <div class="edit-field">
                             <label>Bullets (one per line)</label>
@@ -293,6 +293,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <label>Project Name</label>
                             <input type="text" data-field="projects.${idx}.name" value="${proj.name || ''}" placeholder="Project Name">
                         </div>
+                         <div class="edit-field">
+                            <label>Dates</label>
+                            <input type="text" data-field="projects.${idx}.dates" value="${(proj.dates || '').replace(/"/g, '&quot;')}" placeholder="Date Range">
+                        </div>
                         <div class="edit-field">
                             <label>Bullets (one per line)</label>
                             <textarea data-field="projects.${idx}.bullets" rows="3" placeholder="Enter bullet points, one per line">${(proj.bullets || []).join('\\n')}</textarea>
@@ -306,12 +310,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 html += `
                     <div style="border: 1px solid #ddd; padding: 8px; margin-bottom: 8px; border-radius: 4px;">
                         <div class="edit-field">
-                            <label>Title</label>
-                            <input type="text" data-field="leadership.${idx}.title" value="${lead.title || ''}" placeholder="Leadership Role">
+                            <label>Role</label>
+                            <input type="text" data-field="leadership.${idx}.role" value="${lead.role || ''}" placeholder="Leadership Role">
                         </div>
                         <div class="edit-field">
-                            <label>Description</label>
-                            <textarea data-field="leadership.${idx}.description" rows="2" placeholder="Description">${(lead.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+                            <label>Dates</label>
+                            <input type="text" data-field="leadership.${idx}.dates" value="${(lead.dates || '').replace(/"/g, '&quot;')}" placeholder="e.g., 2020 - 2021">
+                        </div>
+                        <div class="edit-field">
+                            <label>Description (one per line)</label>
+                            <textarea data-field="leadership.${idx}.bullets" rows="2" placeholder="Description/Bullets">${(lead.bullets || []).join('\\n')}</textarea>
                         </div>
                     </div>
                 `;
@@ -358,6 +366,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             showMain();
         }, 1000);
     });
+
+
+
 
     // Cancel Profile Edit
     document.getElementById('cancelProfileEditBtn').addEventListener('click', () => {

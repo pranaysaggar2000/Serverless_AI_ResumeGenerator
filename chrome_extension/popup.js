@@ -1312,6 +1312,66 @@ document.addEventListener('DOMContentLoaded', async () => {
         return bulletCounts;
     }
 
+    async function generateAndDisplayPDF(resumeData, statusId = "status") {
+        try {
+            showStatus("Generating PDF...", "info", statusId);
+
+            const pdfResp = await fetch(`${API_BASE_URL}/generate_pdf`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ resume_data: resumeData })
+            });
+            const pdfData = await pdfResp.json();
+            if (pdfData.error) throw new Error(pdfData.error);
+
+            // Update Preview
+            const binary = atob(pdfData.pdf_base64);
+            const array = [];
+            for (let i = 0; i < binary.length; i++) array.push(binary.charCodeAt(i));
+            const blob = new Blob([new Uint8Array(array)], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+
+            previewBtn.onclick = () => window.open(url, '_blank');
+            downloadBtn.onclick = () => {
+                chrome.downloads.download({
+                    url: url,
+                    filename: 'Resume_Revised.pdf'
+                });
+            };
+
+            showStatus("✅ Resume updated successfully!", "success", statusId);
+
+            // Reset editor state and return to main view
+            currentEditingData = null;
+            if (typeof editorUI !== 'undefined') editorUI.style.display = 'none';
+            if (typeof showMain === 'function') showMain();
+            else actionsDiv.style.display = 'block';
+            actionsDiv.style.display = 'block';
+
+        } catch (e) {
+            showStatus("Error generating PDF: " + e.message, "error", statusId);
+        }
+    }
+
+    const saveManualBtn = document.getElementById('saveManualBtn');
+    if (saveManualBtn) {
+        saveManualBtn.addEventListener('click', async () => {
+            // Save current section to state
+            const section = sectionSelect.value;
+            const currentData = parseEditor(section);
+            if (currentData !== null) currentEditingData[section] = currentData;
+            tailoredResume = currentEditingData; // Update global state
+
+            saveManualBtn.disabled = true;
+            saveManualBtn.textContent = "Saving...";
+
+            await generateAndDisplayPDF(tailoredResume);
+
+            saveManualBtn.disabled = false;
+            saveManualBtn.textContent = "Save Changes";
+        });
+    }
+
     saveRegenBtn.addEventListener('click', async () => {
         // Save final section
         const section = sectionSelect.value;
@@ -1365,39 +1425,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             // Generate PDF with final resume
-            saveRegenBtn.textContent = "Generating PDF...";
-
-            const pdfResp = await fetch(`${API_BASE_URL}/generate_pdf`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ resume_data: finalResume })
-            });
-            const pdfData = await pdfResp.json();
-            if (pdfData.error) throw new Error(pdfData.error);
-
-            // Update Preview
-            const binary = atob(pdfData.pdf_base64);
-            const array = [];
-            for (let i = 0; i < binary.length; i++) array.push(binary.charCodeAt(i));
-            const blob = new Blob([new Uint8Array(array)], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
-
-            previewBtn.onclick = () => window.open(url, '_blank');
-            downloadBtn.onclick = () => {
-                chrome.downloads.download({
-                    url: url,
-                    filename: 'Resume_Revised.pdf'
-                });
-            };
-
-            showStatus("Resume updated!", "success");
-
-            // Reset editor state and return to main view
-            currentEditingData = null;
-            editorUI.style.display = 'none';
-            if (typeof showMain === 'function') showMain();
-            else actionsDiv.style.display = 'block'; // Fallback if showMain not found
-            actionsDiv.style.display = 'block';
+            await generateAndDisplayPDF(finalResume);
 
         } catch (e) {
             showStatus("Error regenerating: " + e.message, "error");

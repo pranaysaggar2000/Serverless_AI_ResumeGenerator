@@ -373,7 +373,8 @@ def generate_resume(data, filename_or_buffer):
         story.append(Spacer(1, 1))
         for lead in data['leadership']:
             story.append(create_aligned_row(lead['organization'], lead['dates'], styles['BoldEntry']))
-            story.append(create_aligned_row(lead['title'], lead['location'], styles['ItalicEntry']))
+            lead_role = lead.get('role', lead.get('title', ''))
+            story.append(create_aligned_row(lead_role, lead.get('location', ''), styles['ItalicEntry']))
             for bullet in lead.get('bullets', []):
                 story.append(Paragraph(f"• {bullet}", styles['BulletPoint']))
             story.append(Spacer(1, 2))

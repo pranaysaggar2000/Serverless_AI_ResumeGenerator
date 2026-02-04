@@ -37,16 +37,16 @@ def call_gemini_api(prompt: str, api_key: str, model: str = "gemini-1.5-flash") 
         if response.status_code == 200:
             data = response.json()
             try:
-                return data['candidates'][0]['content']['parts'][0]['text']
-            except (KeyError, IndexError):
-                print(f"⚠️ Gemini Unsafe/Empty Response: {data}")
-                return ""
+                content = data['candidates'][0]['content']['parts'][0]['text']
+                if not content:
+                    raise Exception(f"Empty content in Gemini response: {data}")
+                return content
+            except (KeyError, IndexError) as e:
+                raise Exception(f"Invalid Gemini response format: {data} - Error: {e}")
         else:
-            print(f"⚠️ Gemini API Error ({response.status_code}): {response.text}")
-            return ""
+            raise Exception(f"Gemini API Error {response.status_code}: {response.text}")
     except Exception as e:
-        print(f"⚠️ Gemini Connection Error: {e}")
-        return ""
+        raise Exception(f"Gemini Request Failed: {e}")
 
 
 
@@ -123,7 +123,7 @@ def query_groq(prompt: str, expect_json: bool = False, api_key: str = None) -> s
             print(f"   ⚠️ Groq Connection Error ({model_id}): {e}")
             continue
             
-    return "" # All failed
+    raise Exception("All Groq models failed. Check logs for details.")
 
 def query_provider(prompt: str, provider: str = "gemini", expect_json: bool = False, api_key: str = None) -> str:
     """Query the specified AI provider."""
@@ -180,7 +180,10 @@ def analyze_resume_with_jd(resume_data: dict, jd_text: str, provider: str = "gem
         
         # Force JSON mime type instruction in prompt is handled,
         # but for REST we just hope the model listens to "JSON ONLY".
-        response_text = query_provider(prompt, provider=provider, api_key=api_key)
+        try:
+            response_text = query_provider(prompt, provider=provider, api_key=api_key)
+        except Exception as e:
+            return {"error": f"AI Provider Error: {str(e)}"}
         
         # internal helper to clean json
         def clean_json_string(s):

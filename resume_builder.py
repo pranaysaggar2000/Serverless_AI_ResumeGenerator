@@ -400,8 +400,8 @@ def create_resume_pdf(data, output_path_or_buffer):
         linkedin = c.get('linkedin_url')
         portfolio = c.get('portfolio_url')
         
-        linkedin_str = f'<link href="{linkedin}">{linkedin}</link>' if linkedin else None
-        portfolio_str = f'<link href="{portfolio}">{portfolio}</link>' if portfolio else None
+        linkedin_str = f'<link href="{linkedin}">LinkedIn</link>' if linkedin else None
+        portfolio_str = f'<link href="{portfolio}">Portfolio</link>' if portfolio else None
         
         components = [
             c.get('location'),
@@ -422,13 +422,16 @@ def create_resume_pdf(data, output_path_or_buffer):
             new_edu.append(new_item)
         new_data['education'] = new_edu
         
-    # 3. Adapt Experience (title -> role)
+    # 3. Adapt Experience (ensure role field exists)
     if 'experience' in data:
         new_exp = []
         for item in data['experience']:
             new_item = item.copy()
-            if 'title' in item:
+            # Ensure 'role' field exists - use 'title' as fallback for backward compatibility
+            if 'role' not in new_item and 'title' in item:
                 new_item['role'] = item['title']
+            elif 'role' not in new_item:
+                new_item['role'] = ''  # Provide empty string as fallback
             new_exp.append(new_item)
         new_data['experience'] = new_exp
 

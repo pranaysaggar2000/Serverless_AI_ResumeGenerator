@@ -307,7 +307,7 @@ def extract_base_resume_info(resume_text: str, provider: str = "gemini", api_key
         "experience": [
             {{
                 "company": "Company Name",
-                "title": "Job Title",
+                "role": "Job Title",
                 "dates": "Start - End Date",
                 "location": "City, State",
                 "bullets": ["Bullet 1", "Bullet 2", "etc"]
@@ -323,7 +323,7 @@ def extract_base_resume_info(resume_text: str, provider: str = "gemini", api_key
         "leadership": [
             {{
                 "organization": "Org Name",
-                "title": "Role Title",
+                "role": "Role Title",
                 "dates": "Date Range",
                 "location": "City, State",
                 "bullets": ["Bullet 1"]

@@ -1037,8 +1037,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         let bulletsHtml = '';
         (item.bullets || []).forEach(b => bulletsHtml += createBulletRow(b));
 
-        // Get current bullet count
-        const currentBulletCount = (item.bullets || []).length;
+        // Get current bullet count - use preference if set, otherwise actual count
+        const currentBulletCount = item.bullet_count_preference !== undefined
+            ? item.bullet_count_preference
+            : (item.bullets || []).length;
 
         div.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
@@ -1046,9 +1048,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <label style="font-size: 11px; display: flex; align-items: center; gap: 5px;">
                         📊 Bullets: 
-                        <input type="number" class="bullet-count-input" min="0" max="5" value="${currentBulletCount}" 
-                               style="width: 50px; padding: 2px 5px; text-align: center;" 
-                               title="Number of bullets (0 to remove item)">
+                        <button class="bullet-count-decrease" style="width: 24px; height: 24px; padding: 0; font-size: 16px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; border-radius: 3px;" title="Decrease bullets">−</button>
+                        <span class="bullet-count-display" style="min-width: 20px; text-align: center; font-weight: bold;">${currentBulletCount}</span>
+                        <button class="bullet-count-increase" style="width: 24px; height: 24px; padding: 0; font-size: 16px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; border-radius: 3px;" title="Increase bullets">+</button>
+                        <input type="hidden" class="bullet-count-input" value="${currentBulletCount}">
                     </label>
                     <button class="remove-btn remove-item-btn">🗑️ Remove</button>
                 </div>
@@ -1069,6 +1072,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         bContainer.addEventListener('click', (e) => {
             if (e.target.classList.contains('remove-bullet-btn')) e.target.closest('.bullet-item').remove();
         });
+
+        // +/- button handlers
+        const countInput = div.querySelector('.bullet-count-input');
+        const countDisplay = div.querySelector('.bullet-count-display');
+        const decreaseBtn = div.querySelector('.bullet-count-decrease');
+        const increaseBtn = div.querySelector('.bullet-count-increase');
+
+        decreaseBtn.onclick = () => {
+            let count = parseInt(countInput.value) || 0;
+            if (count > 0) {
+                count--;
+                countInput.value = count;
+                countDisplay.textContent = count;
+            }
+        };
+
+        increaseBtn.onclick = () => {
+            let count = parseInt(countInput.value) || 0;
+            if (count < 5) {
+                count++;
+                countInput.value = count;
+                countDisplay.textContent = count;
+            }
+        };
+
         container.appendChild(div);
     }
 
@@ -1118,6 +1146,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 const bInputs = b.querySelectorAll('.bullet-input');
                 item.bullets = Array.from(bInputs).map(i => i.value).filter(t => t.trim().length > 0);
+
+                // Capture bullet count preference
+                const countInput = b.querySelector('.bullet-count-input');
+                if (countInput) {
+                    item.bullet_count_preference = parseInt(countInput.value) || item.bullets.length;
+                }
+
                 list.push(item);
             });
             return list;

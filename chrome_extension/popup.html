@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 100%;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 15px;
+      margin: 0;
+      background-color: #f8f9fa;
+      overflow-x: hidden;
+      /* Prevent horizontal scroll */
+    }
+
+    h1 {
+      font-size: 18px;
+      color: #333;
+      margin-top: 0;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+    }
+
+    .icon {
+      margin-right: 8px;
+      font-size: 20px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    #status {
+      margin-top: 15px;
+      font-size: 13px;
+      color: #666;
+      line-height: 1.4;
+      min-height: 40px;
+    }
+
+    .error {
+      color: #dc3545;
+      background-color: #f8d7da;
+      border: 1px solid #f5c6cb;
+      padding: 8px;
+      border-radius: 4px;
+      margin-top: 10px;
+      display: none;
+    }
+
+    .success {
+      color: #155724;
+      background-color: #d4edda;
+      border: 1px solid #c3e6cb;
+      padding: 8px;
+      border-radius: 4px;
+      margin-top: 10px;
+      display: none;
+    }
+
+    .tip {
+      font-size: 11px;
+      color: #888;
+      margin-top: 15px;
+      border-top: 1px solid #eee;
+      padding-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>
+    <div style="display: flex; align-items: center; flex-grow: 1;">
+      <span class="icon">📄</span> Resume Generator
+    </div>
+    <button id="settingsToggle"
+      style="width: auto; padding: 5px; background: transparent; color: #555; border: 1px solid #ddd; font-size: 16px;">⚙️</button>
+  </h1>
+
+  <p style="font-size: 13px; color: #555; margin-bottom: 15px;">
+    Navigate to a job posting and click Generate.
+  </p>
+
+  <!-- Settings UI (Hidden by default) -->
+  <div id="settingsUI"
+    style="display: none; margin-bottom: 20px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 6px;">
+    <h3 style="margin-top: 0; font-size: 14px;">⚙️ Settings</h3>
+
+    <label for="apiKey" style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Gemini API
+      Key</label>
+    <input type="password" id="apiKey" placeholder="Enter your Gemini API Key"
+      style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">
+
+    <div style="font-size: 11px; color: #666; margin-bottom: 15px;">
+      Get your key from <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.
+    </div>
+
+    <button id="saveSettingsBtn" style="background: #28a745;">Save Settings</button>
+    <div id="settingsStatus" style="font-size: 12px; margin-top: 5px;"></div>
+  </div>
+
+  <div id="jobContext"
+    style="display: none; background: #e3f2fd; color: #0d47a1; padding: 8px; border-radius: 4px; font-size: 12px; margin-bottom: 15px; border: 1px solid #bbdefb; text-align: center;">
+    Active Job: <strong>Loading...</strong>
+  </div>
+
+  <!-- Provider Dropdown (Hidden, using Settings instead) -->
+  <div style="display: none;">
+    <select id="providerSelect">
+      <option value="gemini">gemini</option>
+    </select>
+  </div>
+
+
+
+  <!-- Setup UI (Hidden by default) -->
+  <div id="setupUI" style="display: none; text-align: center; margin-bottom: 20px;">
+    <div style="background: #eef2f5; padding: 15px; border-radius: 8px; border: 1 dashed #ccc;">
+      <h3 style="margin: 0 0 10px 0; font-size: 14px;">Setup Your Profile</h3>
+      <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Upload your base resume to get started.</p>
+      <input type="file" id="resumeFile" accept=".pdf" style="font-size: 12px; margin-bottom: 10px; width: 100%;">
+      <button id="uploadBtn" style="background: #667eea;">Upload Resume</button>
+    </div>
+  </div>
+
+  <!-- Main UI (Hidden until profile confirmed) -->
+  <div id="mainUI" style="display: none;">
+    <div
+      style="font-size: 12px; color: #555; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+      <span>Using profile: <strong id="profileName">Loading...</strong></span>
+      <a href="#" id="updateProfileLink" style="color: #667eea; text-decoration: none;">Update</a>
+    </div>
+
+    <button id="generateBtn">Process Page & Generate Resume</button>
+
+    <div id="status"></div>
+
+    <!-- Action Buttons (Hidden by default) -->
+    <div id="actions" style="display: none; margin-top: 15px;">
+      <button id="previewBtn" style="background: #28a745; margin-bottom: 8px;">preview pdf</button>
+      <button id="downloadBtn" style="background: #17a2b8; margin-bottom: 8px;">Download PDF</button>
+      <button id="editBtn" style="background: #ffc107; color: #333; margin-bottom: 8px;">✏️ Edit Resume</button>
+      <button id="copyContentBtn" style="background: #17a2b8; margin-bottom: 8px;">📋 Copy Content</button>
+      <button id="analyzeBtn" style="background: linear-gradient(90deg, #8E2DE2, #4A00E0); margin-bottom: 8px;">📊
+        Analyze ATS Score</button>
+
+      <div style="font-size: 11px; color: #555; margin-top: 5px; text-align: center;">
+        Saved to: <span id="savePath" style="font-family: monospace;"></span>
+      </div>
+    </div>
+
+    <!-- Copy UI (Hidden by default) -->
+    <div id="copyUI" style="display: none; margin-top: 15px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h3 style="margin: 0; font-size: 14px;">Copy Resume Details</h3>
+        <button id="closeCopyBtn"
+          style="width: auto; padding: 5px 10px; background: #6c757d; font-size: 12px;">Back</button>
+      </div>
+      <div id="copyList" style="max-height: 400px; overflow-y: auto;"></div>
+    </div>
+
+    <!-- Editor UI (Hidden by default) -->
+    <div id="editorUI" style="display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+      <h3 style="margin: 0 0 10px 0; font-size: 14px;">Edit Resume Content</h3>
+
+      <label for="sectionSelect" style="display: block; font-size: 12px; margin-bottom: 5px;">Select Section:</label>
+      <select id="sectionSelect"
+        style="width: 100%; padding: 6px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        <optgroup label="Sections">
+          <option value="summary">Summary</option>
+          <option value="skills">Skills</option>
+          <option value="experience">Experience</option>
+          <option value="projects">Projects</option>
+          <option value="leadership">Leadership</option>
+          <option value="contact">Contact Info (Location/Links)</option>
+        </optgroup>
+      </select>
+
+      <!-- Dynamic Form Container -->
+      <div id="formContainer"
+        style="max-height: 300px; overflow-y: auto; margin-bottom: 10px; border: 1px solid #eee; padding: 5px;"></div>
+
+      <div style="display: flex; gap: 10px;">
+        <button id="saveRegenBtn" style="background: #28a745;">Save & Regenerate</button>
+        <button id="cancelEditBtn" style="background: #6c757d;">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Analysis Results (Hidden by default) -->
+    <div id="analysisResults"
+      style="display: none; margin-top: 15px; border: 1px solid #ddd; border-radius: 6px; padding: 10px; background: #fff;">
+      <h3 style="margin: 0 0 10px 0; font-size: 14px; border-bottom: 1px solid #eee; padding-bottom: 5px;">ATS Analysis
+      </h3>
+
+      <div style="display: flex; align-items: center; margin-bottom: 10px;">
+        <div style="font-size: 24px; font-weight: bold; color: #4A00E0; margin-right: 10px;" id="atsScore">--</div>
+        <div style="font-size: 12px; color: #666;">/ 100 Match Score</div>
+      </div>
+
+      <div id="analysisDetails" style="font-size: 12px; line-height: 1.4;">
+        <!-- Dynamic content here -->
+      </div>
+    </div>
+
+    <div id="error" class="error"></div>
+
+    <!-- Smart Q&A Section -->
+    <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+      <h2 style="font-size: 15px; margin: 0 0 10px 0; color: #333;">💡 Smart Q&A</h2>
+      <textarea id="questionInput" placeholder="Ask a question about this job..."
+        style="width: 100%; height: 60px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; font-size: 13px; margin-bottom: 8px; resize: vertical; box-sizing: border-box;"></textarea>
+      <button id="askBtn" style="background: linear-gradient(90deg, #ff9966 0%, #ff5e62 100%);">Ask Question</button>
+      <div id="answerOutput"
+        style="margin-top: 10px; font-size: 13px; color: #333; line-height: 1.4; background: #fff; padding: 10px; border-radius: 4px; border: 1px solid #eee; display: none; white-space: pre-wrap;">
+      </div>
+    </div>
+  </div>
+
+  <div class="tip">
+    <strong>Note:</strong> Ensure local server is running on port 8000.
+  </div>
+
+  <style>
+    /* Field Styles */
+    .edit-field {
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px dashed #eee;
+    }
+
+    .edit-field label {
+      display: block;
+      font-size: 11px;
+      font-weight: bold;
+      color: #555;
+      margin-bottom: 3px;
+    }
+
+    .edit-field input,
+    .edit-field textarea {
+      width: 100%;
+      padding: 5px;
+      font-size: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    .edit-field textarea {
+      resize: vertical;
+      min-height: 40px;
+    }
+
+    /* Nested Styles */
+    .item-block {
+      background: #f8f9fa;
+      padding: 8px;
+      margin-bottom: 8px;
+      border-radius: 4px;
+      border: 1px solid #e9ecef;
+    }
+
+    .item-header {
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 5px;
+      color: #007bff;
+    }
+
+    .bullet-list {
+      margin-top: 5px;
+      padding-left: 0;
+      list-style: none;
+    }
+
+    .bullet-item {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 3px;
+    }
+
+    .bullet-input {
+      flex: 1;
+    }
+
+    .remove-btn {
+      color: #dc3545;
+      font-size: 10px;
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
+  </style>
+
+  <script src="popup.js"></script>
+</body>
+
+</html>

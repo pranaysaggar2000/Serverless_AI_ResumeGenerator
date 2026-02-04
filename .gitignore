@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Logs
+*.log
+
+# System
+.DS_Store
+Thumbs.db
+
+# User specific
+user_profile.json
+
+# Generated files
+*.pdf

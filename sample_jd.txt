@@ -1,0 +1,21 @@
+Job Title: Senior Data Scientist
+
+Location: San Francisco, CA
+
+About Us:
+TechCorp is leading the way in AI-driven solutions. We are looking for a talented Data Scientist to join our team.
+
+Responsibilities:
+- Build and deploy machine learning models using Python and Scikit-learn.
+- Work with large datasets using SQL and Snowflake.
+- Develop NLP models and work with LLMs.
+- Collaborate with engineering teams to deploy models using Docker and Kubernetes.
+- Communicate findings to stakeholders.
+
+Requirements:
+- MS in Computer Science or related field.
+- Strong experience with Python, SQL, and Machine Learning libraries.
+- Experience with GCP or AWS.
+- Knowledge of MLOps practices (CI/CD, Airflow).
+- Excellent communication skills.
+END

@@ -1,0 +1,15 @@
+
+# Vercel Ignore
+.venv
+__pycache__
+*.pyc
+.git
+.gitignore
+.vercel
+generated_resumes
+chrome_extension
+jobright_Pranay_Saggar_Resume.pdf
+sample_jd.txt
+start_server.command
+README.md
+DEPLOYMENT.md

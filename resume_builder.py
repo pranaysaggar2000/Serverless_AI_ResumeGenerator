@@ -372,13 +372,19 @@ def generate_resume(data, filename_or_buffer):
         story.append(create_hr_line())
         story.append(Spacer(1, 1))
         for res in data['research']:
+            # Title and dates on first line
             story.append(create_aligned_row(res.get('title', 'Paper'), res.get('dates', ''), styles['BoldEntry']))
             
+            # Conference/journal on second line (italic)
             conf = res.get('conference', '')
+            if conf:
+                story.append(Paragraph(f"<i>{conf}</i>", styles['ItalicEntry']))
+            
+            # Link as a separate line if present
             if res.get('link'):
-                conf += f" [{res['link']}]"
+                story.append(Paragraph(f"Link: {res['link']}", styles['ItalicEntry']))
                 
-            story.append(create_aligned_row(conf, res.get('location', ''), styles['ItalicEntry']))
+            # Bullets
             for bullet in res.get('bullets', []):
                 story.append(Paragraph(f"• {bullet}", styles['BulletPoint']))
             story.append(Spacer(1, 2))

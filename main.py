@@ -163,7 +163,13 @@ def analyze_resume_with_jd(resume_data: dict, jd_text: str, provider: str = "gem
     3. Identify 3 strong matching areas.
     4. Provide 3 specific recommendations to improve the score.
     
-    OUTPUT FORMAT (JSON ONLY):
+    CRITICAL INSTRUCTIONS:
+    - RETURN ONLY VALID JSON.
+    - DO NOT use Markdown code blocks (e.g. ```json).
+    - DO NOT include ANY preamble, explanation, or extra text.
+    - The output must be directly parsable by Python json.loads().
+
+    OUTPUT FORMAT:
     {{
       "score": 85,
       "missing_keywords": ["keyword1", "keyword2"],

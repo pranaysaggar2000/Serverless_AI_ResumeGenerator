@@ -697,24 +697,12 @@ def tailor_resume(
                       0 means remove that item
     """
     # Pre-process resume: filter out items with bullet_count = 0
+    # UPDATE: Removed aggressive filtering. 0 bullets should mean "keep item, 0 bullets".
+    # User can delete items explicitly via the remove button in UI.
     if bullet_counts:
-        filtered_resume = base_resume.copy()
-        
-        for section in ['experience', 'projects', 'leadership']:
-            if section in bullet_counts and section in filtered_resume:
-                counts = bullet_counts[section]
-                items = filtered_resume[section]
-                
-                # Filter out items where count = 0
-                filtered_items = []
-                for i, item in enumerate(items):
-                    if i < len(counts) and counts[i] == 0:
-                        continue  # Skip this item (user wants to remove it)
-                    filtered_items.append(item)
-                
-                filtered_resume[section] = filtered_items
-        
-        base_resume = filtered_resume
+        # We perform a shallow copy just to be safe if we mutate deeper, 
+        # but here we are just reading.
+        pass
     
     # Build bullet count instructions dynamically
     bullet_instructions = ""
@@ -726,15 +714,10 @@ def tailor_resume(
                 counts = bullet_counts[section]
                 items = base_resume[section]
                 
-                # Map counts to items (after filtering)
-                count_idx = 0
                 for i, item in enumerate(items):
-                    # Find the corresponding count (accounting for removed items)
-                    while count_idx < len(counts) and counts[count_idx] == 0:
-                        count_idx += 1
-                    
-                    if count_idx < len(counts):
-                        desired_count = counts[count_idx]
+                    if i < len(counts):
+                        desired_count = counts[i]
+                        
                         if section == 'experience':
                             item_name = item.get('company', f'Item {i+1}')
                         elif section == 'projects':
@@ -743,7 +726,6 @@ def tailor_resume(
                             item_name = item.get('role', f'Item {i+1}')
                         
                         bullet_instructions += f"- {section.capitalize()} '{item_name}': Generate EXACTLY {desired_count} bullet(s)\n"
-                        count_idx += 1
     else:
         # Default: 3 bullets per item
         bullet_instructions = "\n=== BULLET COUNT REQUIREMENTS ===\nGenerate EXACTLY 3 bullets per experience/project/leadership item.\n"

@@ -12,8 +12,7 @@
     ],
     "host_permissions": [
         "http://localhost:5000/*",
-        "https://*.vercel.app/*",
-        "<all_urls>"
+        "https://*.vercel.app/*"
     ],
     "action": {
         "default_title": "Resume Generator",

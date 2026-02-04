@@ -880,6 +880,68 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // 8. Q&A Logic
+    const askBtn = document.getElementById('askBtn');
+    const questionInput = document.getElementById('questionInput');
+    const answerOutput = document.getElementById('answerOutput');
+
+    askBtn.addEventListener('click', async () => {
+        const question = questionInput.value.trim();
+        if (!question) {
+            showStatus("Please enter a question.", "error");
+            return;
+        }
+
+        if (!currentJdText) {
+            showStatus("No job description detected. Navigate to a job posting first.", "error");
+            return;
+        }
+
+        const resumeData = tailoredResume || baseResume;
+        if (!resumeData) {
+            showStatus("No resume data available. Generate a resume first.", "error");
+            return;
+        }
+
+        askBtn.disabled = true;
+        askBtn.textContent = "Thinking...";
+        answerOutput.style.display = 'none';
+
+        const activeKey = currentProvider === 'groq' ? currentGroqKey : currentApiKey;
+
+        try {
+            const resp = await fetch(`${API_BASE_URL}/ask`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    question: question,
+                    resume_data: resumeData,
+                    jd_text: currentJdText,
+                    api_key: activeKey,
+                    provider: currentProvider
+                })
+            });
+
+            const data = await resp.json();
+
+            if (data.error) {
+                showStatus(`Q&A Error: ${data.error}`, "error");
+                return;
+            }
+
+            answerOutput.textContent = data.answer || "No answer received.";
+            answerOutput.style.display = 'block';
+            showStatus("", "");
+
+        } catch (e) {
+            console.error("Q&A Failed", e);
+            showStatus(`Q&A Failed: ${e.message}`, "error");
+        } finally {
+            askBtn.disabled = false;
+            askBtn.textContent = "Ask Question";
+        }
+    });
+
     // Helper
     function showStatus(msg, type, elementId = "status") {
         const el = document.getElementById(elementId);

@@ -117,6 +117,25 @@ def api_extract_base_profile():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/ask', methods=['POST'])
+def api_ask():
+    try:
+        data = request.json
+        question = data.get('question')
+        resume_data = data.get('resume_data')
+        jd_text = data.get('jd_text')
+        api_key = data.get('api_key')
+        provider = data.get('provider', 'gemini')
+        
+        if not question or not resume_data or not jd_text or not api_key:
+            return jsonify({"error": "Missing required fields"}), 400
+        
+        from main import answer_question_with_context
+        result = answer_question_with_context(question, resume_data, jd_text, provider=provider, api_key=api_key)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # Health check
 @app.route('/api/health', methods=['GET'])
 def health():

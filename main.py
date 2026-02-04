@@ -205,6 +205,36 @@ def analyze_resume_with_jd(resume_data: dict, jd_text: str, provider: str = "gem
         return {"error": str(e)}
 
 
+def answer_question_with_context(question: str, resume_data: dict, jd_text: str, provider: str = "gemini", api_key: str = None) -> dict:
+    """
+    Answer a user's question about the job in the context of their resume.
+    """
+    prompt = f"""
+    You are a career advisor helping a job seeker understand how their background fits a specific role.
+    
+    JOB DESCRIPTION:
+    {jd_text}
+    
+    CANDIDATE'S RESUME:
+    {json.dumps(resume_data, indent=2)}
+    
+    QUESTION:
+    {question}
+    
+    Provide a helpful, specific answer based on the candidate's actual experience and skills as shown in their resume.
+    Be honest - if they don't have something, suggest how they might address it or frame existing experience.
+    Keep the answer concise (2-3 sentences) and actionable.
+    
+    Answer:
+    """
+    
+    try:
+        response_text = query_provider(prompt, provider=provider, api_key=api_key)
+        return {"answer": response_text.strip()}
+    except Exception as e:
+        return {"error": f"Failed to answer question: {str(e)}"}
+
+
 def extract_text_from_pdf(file_stream) -> str:
     """Extract text from a PDF file stream."""
     try:

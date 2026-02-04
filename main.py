@@ -941,10 +941,12 @@ CANDIDATE PROFILE (JSON):
 
 TASK: Reconstruct the resume JSON to best fit the JD.
 1. **Analyze** the candidate's full profile (Experience, Projects, Leadership, Research).
-2. **Reorganize** items to tell the best story:
+2. **Reorganize & Filter** items to tell the best story:
    - **MOVE** highly relevant items to the 'experience' or 'projects' sections.
-   - **MOVE** less relevant items (e.g. part-time jobs unrelated to JD) to 'leadership' or 'volunteer' sections, or remove them if totally irrelevant.
-   - **Research Items**: Can be their own 'research' section OR moved to 'projects' if practical application is key.
+   - **MOVE** less relevant items (e.g. part-time jobs unrelated to JD) to 'leadership' or 'volunteer' sections.
+   - **REMOVE ENTIRELY** any items that are extremely irrelevant or completely unrelated to the JD (e.g., retail jobs when applying for software engineering, high school projects for senior roles).
+   - **You are NOT required to include every item** - quality over quantity. A focused resume is better than a cluttered one.
+   - **Research Items**: Can be their own 'research' section OR moved to 'projects' if practical application is key, OR omitted if not relevant.
    - **REORDER** items within sections by impact and relevance.
 3. **Rewrite Bullets**:
    - Focus on impact, metrics, and JD keywords.
@@ -956,6 +958,7 @@ GENERAL RULES:
 3. Formatting: Use <b>tags</b> for bolding key achievements.
 4. JSON Output: Return the COMPLETE resume in valid JSON format.
 5. KEY NAMING: Use "role" for Experience job titles.
+6. **CRITICAL:** If an entire section (e.g., Research, Leadership) has NO relevant items, you may return an empty array [] for that section.
 """
 
     try:

@@ -641,9 +641,12 @@ def clean_tailored_resume(resume_data: dict) -> dict:
         resume_data['summary'] = convert_markdown_to_html(resume_data['summary'])
     
     # Clean skills
-    if 'skills' in resume_data:
+    if 'skills' in resume_data and isinstance(resume_data['skills'], dict):
         for category in resume_data['skills']:
-            resume_data['skills'][category] = convert_markdown_to_html(resume_data['skills'][category])
+            val = resume_data['skills'][category]
+            if isinstance(val, list):
+                val = ", ".join(str(v) for v in val)
+            resume_data['skills'][category] = convert_markdown_to_html(val)
     
     # Clean experience bullets
     if 'experience' in resume_data:
@@ -817,7 +820,7 @@ GENERAL RULES:
 """
 
     try:
-        response_text = query_provider(prompt, provider, api_key=api_key)
+        response_text = query_provider(prompt, provider, expect_json=True, api_key=api_key)
         
         # Extract JSON from response
         json_match = re.search(r'\{[\s\S]*\}', response_text)

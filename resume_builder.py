@@ -63,7 +63,7 @@ def calculate_exact_resume_height(data: dict, styles: dict = None) -> float:
         for edu in data['education']:
             # create_aligned_row for school/dates (BoldEntry)
             h_school = get_real_paragraph_height(edu['school'], styles['BoldEntry'], CONTENT_WIDTH * 0.75)
-            h_dates = get_real_paragraph_height(edu['dates'], styles['BoldEntry'], CONTENT_WIDTH * 0.25)
+            h_dates = get_real_paragraph_height(edu.get('dates', ''), styles['BoldEntry'], CONTENT_WIDTH * 0.25)
             total_height += max(h_school, h_dates)
             
             # create_aligned_row for degree/location (ItalicEntry)
@@ -93,7 +93,7 @@ def calculate_exact_resume_height(data: dict, styles: dict = None) -> float:
         for exp in data['experience']:
             # BoldEntry (company)
             h_comp = get_real_paragraph_height(exp['company'], styles['BoldEntry'], CONTENT_WIDTH * 0.75)
-            h_dates = get_real_paragraph_height(exp['dates'], styles['BoldEntry'], CONTENT_WIDTH * 0.25)
+            h_dates = get_real_paragraph_height(exp.get('dates', ''), styles['BoldEntry'], CONTENT_WIDTH * 0.25)
             total_height += max(h_comp, h_dates)
             
             # ItalicEntry (role)
@@ -322,7 +322,7 @@ def generate_resume(data, filename_or_buffer):
     story.append(create_hr_line())
     story.append(Spacer(1, 3))
     for edu in data['education']:
-        story.append(create_aligned_row(edu['school'], edu['dates'], styles['BoldEntry']))
+        story.append(create_aligned_row(edu['school'], edu.get('dates', ''), styles['BoldEntry']))
         story.append(create_aligned_row(edu['degree'], edu['location'], styles['ItalicEntry']))
         story.append(Paragraph(f"• {edu['gpa']}", styles['BulletPoint']))
         story.append(Spacer(1, 2))
@@ -344,7 +344,7 @@ def generate_resume(data, filename_or_buffer):
     story.append(create_hr_line())
     story.append(Spacer(1, 1))
     for exp in data['experience']:
-        story.append(create_aligned_row(exp['company'], exp['dates'], styles['BoldEntry']))
+        story.append(create_aligned_row(exp['company'], exp.get('dates', ''), styles['BoldEntry']))
         story.append(create_aligned_row(exp['role'], exp['location'], styles['ItalicEntry']))
         for bullet in exp['bullets']:
             story.append(Paragraph(f"• {bullet}", styles['BulletPoint']))
@@ -372,7 +372,7 @@ def generate_resume(data, filename_or_buffer):
         story.append(create_hr_line())
         story.append(Spacer(1, 1))
         for lead in data['leadership']:
-            story.append(create_aligned_row(lead['organization'], lead['dates'], styles['BoldEntry']))
+            story.append(create_aligned_row(lead['organization'], lead.get('dates', ''), styles['BoldEntry']))
             lead_role = lead.get('role', lead.get('title', ''))
             story.append(create_aligned_row(lead_role, lead.get('location', ''), styles['ItalicEntry']))
             for bullet in lead.get('bullets', []):

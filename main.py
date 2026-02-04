@@ -686,7 +686,7 @@ def restore_immutable_fields(original_data: dict, generated_data: dict) -> dict:
             if i < len(generated_data['experience']):
                 gen_item = generated_data['experience'][i]
                 # Restore constants
-                for field in ['role', 'company', 'duration', 'location']:
+                for field in ['role', 'company', 'duration', 'dates', 'location']:
                     if field in orig_item:
                         gen_item[field] = orig_item[field]
 
@@ -695,18 +695,19 @@ def restore_immutable_fields(original_data: dict, generated_data: dict) -> dict:
         for i, orig_item in enumerate(original_data['projects']):
             if i < len(generated_data['projects']):
                 gen_item = generated_data['projects'][i]
-                for field in ['name', 'link']: # Keep name and link constant
+                for field in ['name', 'link', 'dates']: # Keep name, link, dates constant
                     if field in orig_item:
                          gen_item[field] = orig_item[field]
                 
     # Leadership
     if 'leadership' in original_data and 'leadership' in generated_data:
         for i, orig_item in enumerate(original_data['leadership']):
-             if i < len(generated_data['leadership']):
+            if i < len(generated_data['leadership']):
                 gen_item = generated_data['leadership'][i]
-                for field in ['role', 'organization', 'duration']:
+                for field in ['role', 'organization', 'duration', 'dates', 'location']:
                     if field in orig_item:
                         gen_item[field] = orig_item[field]
+
 
     return generated_data
 

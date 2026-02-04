@@ -1263,6 +1263,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (hasChanges && currentJdAnalysis) {
                 saveRegenBtn.textContent = "Regenerating content...";
 
+                const activeKey = currentProvider === 'groq' ? currentGroqKey : currentApiKey;
+
                 const regenResp = await fetch(`${API_BASE_URL}/regenerate_resume`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1270,7 +1272,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         tailored_resume: tailoredResume,
                         bullet_counts: bulletCounts,
                         jd_analysis: currentJdAnalysis,
-                        api_key: currentApiKey,
+                        api_key: activeKey,
                         provider: currentProvider,
                         tailoring_strategy: tailoringStrategy
                     })

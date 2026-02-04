@@ -641,7 +641,7 @@ def clean_tailored_resume(resume_data: dict) -> dict:
         resume_data['summary'] = convert_markdown_to_html(resume_data['summary'])
     
     # Clean skills
-    if 'skills' in resume_data and isinstance(resume_data['skills'], dict):
+    if 'skills' in resume_data:
         for category in resume_data['skills']:
             val = resume_data['skills'][category]
             if isinstance(val, list):
@@ -669,6 +669,65 @@ def clean_tailored_resume(resume_data: dict) -> dict:
         for lead in resume_data['leadership']:
             if 'bullets' in lead:
                 lead['bullets'] = [convert_markdown_to_html(b) for b in lead['bullets']]
+    
+    return resume_data
+
+
+
+
+def restore_immutable_fields(original_data: dict, generated_data: dict) -> dict:
+    """
+    Overwrites generated metadata (role, company, dates) with values 
+    from the original input to prevent hallucination.
+    """
+    # Experience
+    if 'experience' in original_data and 'experience' in generated_data:
+        for i, orig_item in enumerate(original_data['experience']):
+            if i < len(generated_data['experience']):
+                gen_item = generated_data['experience'][i]
+                # Restore constants
+                for field in ['role', 'company', 'duration', 'location']:
+                    if field in orig_item:
+                        gen_item[field] = orig_item[field]
+
+    # Projects
+    if 'projects' in original_data and 'projects' in generated_data:
+        for i, orig_item in enumerate(original_data['projects']):
+            if i < len(generated_data['projects']):
+                gen_item = generated_data['projects'][i]
+                for field in ['name', 'link']: # Keep name and link constant
+                    if field in orig_item:
+                         gen_item[field] = orig_item[field]
+                
+    # Leadership
+    if 'leadership' in original_data and 'leadership' in generated_data:
+        for i, orig_item in enumerate(original_data['leadership']):
+             if i < len(generated_data['leadership']):
+                gen_item = generated_data['leadership'][i]
+                for field in ['role', 'organization', 'duration']:
+                    if field in orig_item:
+                        gen_item[field] = orig_item[field]
+
+    return generated_data
+
+
+def enforce_bullet_limits(resume_data: dict, bullet_counts: dict) -> dict:
+    """
+    Strictly enforce bullet counts by trimming excess bullets.
+    """
+    if not bullet_counts:
+        return resume_data
+        
+    for section in ['experience', 'projects', 'leadership']:
+        if section in bullet_counts and section in resume_data:
+            counts = bullet_counts[section]
+            items = resume_data[section]
+            for i, item in enumerate(items):
+                if i < len(counts):
+                    limit = counts[i]
+                    if 'bullets' in item and isinstance(item['bullets'], list):
+                        # Trim excess bullets to strict limit
+                        item['bullets'] = item['bullets'][:limit]
     
     return resume_data
 
@@ -820,7 +879,7 @@ GENERAL RULES:
 """
 
     try:
-        response_text = query_provider(prompt, provider, expect_json=True, api_key=api_key)
+        response_text = query_provider(prompt, provider, api_key=api_key)
         
         # Extract JSON from response
         json_match = re.search(r'\{[\s\S]*\}', response_text)
@@ -832,21 +891,16 @@ GENERAL RULES:
                     # Post-process to convert any remaining markdown to HTML
                     cleaned = clean_tailored_resume(tailored)
                     
+                    # RESTORE CONSTANTS (Role, Company, Dates)
+                    cleaned = restore_immutable_fields(base_resume, cleaned)
+                    
                     # STRICTLY ENFORCE bullet counts if provided
-                    if bullet_counts:
-                        for section in ['experience', 'projects', 'leadership']:
-                            if section in bullet_counts and section in cleaned:
-                                counts = bullet_counts[section]
-                                items = cleaned[section]
-                                for i, item in enumerate(items):
-                                    if i < len(counts):
-                                        limit = counts[i]
-                                        if 'bullets' in item and isinstance(item['bullets'], list):
-                                            # Trim excess bullets to strict limit
-                                            item['bullets'] = item['bullets'][:limit]
+                    cleaned = enforce_bullet_limits(cleaned, bullet_counts)
                     
                     return cleaned
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
+                print(f"⚠️ JSON Decode Error: {e}")
+                print(f"Raw Response: {response_text[:500]}...") # Print first 500 chars for debug
                 pass
     except Exception as e:
         print(f"⚠️ API Error (Tailoring): {e}")
@@ -856,6 +910,9 @@ GENERAL RULES:
     # If location detection also failed, it usually defaults to 'Remote' or 'N/A'
     if jd_analysis and 'location' in jd_analysis and jd_analysis['location'] not in ["Remote", "N/A"]:
          base_resume['contact']['location'] = jd_analysis['location']
+         
+    # Enforce limits on base resume as well (fallback)
+    base_resume = enforce_bullet_limits(base_resume, bullet_counts)
          
     return base_resume
 

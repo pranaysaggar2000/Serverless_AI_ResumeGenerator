@@ -242,6 +242,45 @@ def api_ask():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/regenerate_resume', methods=['POST'])
+@rate_limit
+def api_regenerate_resume():
+    """
+    Regenerate resume with user-specified bullet counts.
+    Reuses tailor_resume function with bullet_counts parameter.
+    """
+    try:
+        data = request.json
+        tailored_resume = data.get('tailored_resume')
+        bullet_counts = data.get('bullet_counts', {})
+        jd_analysis = data.get('jd_analysis')
+        api_key = data.get('api_key')
+        provider = data.get('provider', 'gemini')
+        tailoring_strategy = data.get('tailoring_strategy', 'balanced')
+        
+        if not tailored_resume:
+            return jsonify({"error": "Missing tailored_resume"}), 400
+        
+        # Validate input size
+        valid, error = validate_json_size(tailored_resume)
+        if not valid:
+            return jsonify({"error": error}), 400
+        
+        # Call tailor_resume with bullet_counts parameter
+        # This will filter out items with count=0 and adjust bullet counts
+        updated_resume = tailor_resume(
+            tailored_resume, 
+            jd_analysis,
+            provider=provider,
+            api_key=api_key,
+            tailoring_strategy=tailoring_strategy,
+            bullet_counts=bullet_counts
+        )
+        
+        return jsonify({"resume": updated_resume})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # Health check
 @app.route('/api/health', methods=['GET'])
 def health():

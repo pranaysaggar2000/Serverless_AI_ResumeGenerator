@@ -386,11 +386,10 @@ def generate_resume(data, filename_or_buffer):
 def create_resume_pdf(data, output_path_or_buffer):
     """
     Adapter to convert main.py's data structure to the new generate_resume format.
-    Includes automatic height estimation and trimming to ensure single-page output.
-    """
-    # Import trimming functions from main
-    from main import trim_projects_to_fit, trim_projects_further, trim_skills_to_fit
     
+    NOTE: Automatic trimming has been disabled. Resume is generated with data as provided.
+    Users control bullet counts manually through the editor.
+    """
     new_data = data.copy()
     
     # 1. Adapt Contact (Dict -> String)
@@ -400,9 +399,6 @@ def create_resume_pdf(data, output_path_or_buffer):
         # Create clickable links
         linkedin = c.get('linkedin_url')
         portfolio = c.get('portfolio_url')
-        
-        linkedin_str = f'<link href="{linkedin}" color="blue">LinkedIn</link>' if linkedin else None
-        portfolio_str = f'<link href="{portfolio}" color="blue">Portfolio</link>' if portfolio else None
         
         components = [
             c.get('location'),
@@ -420,8 +416,6 @@ def create_resume_pdf(data, output_path_or_buffer):
             new_item = item.copy()
             if 'institution' in item:
                 new_item['school'] = item['institution']
-            if 'gpa' in item and not str(item['gpa']).startswith('GPA'):
-                new_item['gpa'] = f"GPA: {item['gpa']}"
             new_edu.append(new_item)
         new_data['education'] = new_edu
         
@@ -435,31 +429,6 @@ def create_resume_pdf(data, output_path_or_buffer):
             new_exp.append(new_item)
         new_data['experience'] = new_exp
 
-    # 4. Initial trimming - start with 3 bullets per project (will trim further if needed)
-    new_data = trim_projects_to_fit(new_data, max_bullets_initial=3)
-    
-    # 5. Trim skills to max 5 lines
-    new_data = trim_skills_to_fit(new_data, max_lines=5)
-    
-    # 6. Iteratively trim until the resume fits on one page
-    estimated_height = estimate_resume_height(new_data)
-    print(f"   📏 Estimated height: {estimated_height:.0f}pt / {USABLE_HEIGHT:.0f}pt max")
-    
-    # Keep trimming until it fits (max 10 iterations to prevent infinite loop)
-    iterations = 0
-    while estimated_height > USABLE_HEIGHT and iterations < 10:
-        overflow = estimated_height - USABLE_HEIGHT
-        print(f"   ⚠️ Overflow by {overflow:.0f}pt - trimming projects (iteration {iterations + 1})...")
-        
-        # Trim at least 1 bullet per iteration
-        new_data = trim_projects_further(new_data, max(int(overflow), 14))
-        
-        # Re-estimate after trimming
-        estimated_height = estimate_resume_height(new_data)
-        iterations += 1
-    
-    print(f"   📏 Final height: {estimated_height:.0f}pt")
-
+    # Generate PDF with data as-is (no automatic trimming)
     generate_resume(new_data, output_path_or_buffer)
     return output_path_or_buffer
-

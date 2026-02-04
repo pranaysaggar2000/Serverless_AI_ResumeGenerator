@@ -1,6 +1,6 @@
 """
-Automated Resume Generator
-Tailors a resume based on a Job Description using Google Gemini API.
+AI Resume Generator - Main Module
+Handles resume parsing, tailoring, and PDF generation.
 """
 
 import os
@@ -11,7 +11,7 @@ import pypdf
 import requests
 from resume_builder import create_resume_pdf
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Dict, Any, Optional
 
 # Model provider options
 PROVIDERS = ["gemini", "groq"]
@@ -674,7 +674,14 @@ def clean_tailored_resume(resume_data: dict) -> dict:
     return resume_data
 
 
-def tailor_resume(base_resume: dict, jd_analysis: dict, provider: str = "gemini", api_key: str = None, tailoring_strategy: str = "balanced") -> dict:
+def tailor_resume(
+    base_resume: dict, 
+    jd_analysis: dict, 
+    provider: str = "gemini", 
+    api_key: str = None, 
+    tailoring_strategy: str = "balanced",
+    bullet_counts: dict = None
+) -> dict:
     """
     Use AI provider to tailor the resume content for ATS optimization.
     Preserves all metrics and facts, only adjusts vocabulary.
@@ -682,8 +689,65 @@ def tailor_resume(base_resume: dict, jd_analysis: dict, provider: str = "gemini"
     Args:
         base_resume: The base resume data
         jd_analysis: Analysis from parse_job_description
-        provider: One of 'gemini', 'ollama', or 'openrouter'
+        provider: One of 'gemini', 'groq'
+        api_key: API key for the provider
+        tailoring_strategy: 'profile_focus', 'balanced', or 'jd_focus'
+        bullet_counts: Optional dict with desired bullet counts per section
+                      Example: {'experience': [3, 4, 2], 'projects': [3, 0]}
+                      0 means remove that item
     """
+    # Pre-process resume: filter out items with bullet_count = 0
+    if bullet_counts:
+        filtered_resume = base_resume.copy()
+        
+        for section in ['experience', 'projects', 'leadership']:
+            if section in bullet_counts and section in filtered_resume:
+                counts = bullet_counts[section]
+                items = filtered_resume[section]
+                
+                # Filter out items where count = 0
+                filtered_items = []
+                for i, item in enumerate(items):
+                    if i < len(counts) and counts[i] == 0:
+                        continue  # Skip this item (user wants to remove it)
+                    filtered_items.append(item)
+                
+                filtered_resume[section] = filtered_items
+        
+        base_resume = filtered_resume
+    
+    # Build bullet count instructions dynamically
+    bullet_instructions = ""
+    if bullet_counts:
+        bullet_instructions = "\n=== BULLET COUNT REQUIREMENTS ===\n"
+        
+        for section in ['experience', 'projects', 'leadership']:
+            if section in bullet_counts and section in base_resume:
+                counts = bullet_counts[section]
+                items = base_resume[section]
+                
+                # Map counts to items (after filtering)
+                count_idx = 0
+                for i, item in enumerate(items):
+                    # Find the corresponding count (accounting for removed items)
+                    while count_idx < len(counts) and counts[count_idx] == 0:
+                        count_idx += 1
+                    
+                    if count_idx < len(counts):
+                        desired_count = counts[count_idx]
+                        if section == 'experience':
+                            item_name = item.get('company', f'Item {i+1}')
+                        elif section == 'projects':
+                            item_name = item.get('name', f'Item {i+1}')
+                        else:
+                            item_name = item.get('role', f'Item {i+1}')
+                        
+                        bullet_instructions += f"- {section.capitalize()} '{item_name}': Generate EXACTLY {desired_count} bullet(s)\n"
+                        count_idx += 1
+    else:
+        # Default: 3 bullets per item
+        bullet_instructions = "\n=== BULLET COUNT REQUIREMENTS ===\nGenerate EXACTLY 3 bullets per experience/project/leadership item.\n"
+    
     # Strategy-specific instructions
     if tailoring_strategy == "profile_focus":
         strategy_note = """
@@ -736,6 +800,8 @@ You are a Strategic Resume Architect. Your PRIMARY GOAL is to achieve a 95+ ATS 
 
 {strategy_note}
 
+{bullet_instructions}
+
 TARGET JOB ANALYSIS:
 {json.dumps(jd_analysis, indent=2)}
 
@@ -761,42 +827,38 @@ CRITICAL OBJECTIVE: Rewrite the resume to MAXIMIZE ATS keyword matching while ma
 3. **Skills Section** (RANKED for trimming):
    - For EACH category, list skills as a comma-separated string
    - ORDER skills by JD relevance (most relevant FIRST)
-   - Include 10-13 skills per category (extras will be trimmed to fit 2 lines)
-   - Prioritize mandatory_keywords, then preferred_keywords
-
-   - For EACH category, list skills as a comma-separated string
-   - ORDER skills by JD relevance (most relevant FIRST)
    - Include 8-10 skills per category (extras will be trimmed)
    - **CONSTRAINT:** The entire Skills section must NOT exceed 5 lines total.
    - Prioritize 2-3 key categories derived from JD (e.g., Languages, Frameworks, Tools).
 
 4. **Experience Bullets**:
-   - Full-time roles: Generate EXACTLY 4 bullet points. Do not generate more.
-   - Intern roles: Generate EXACTLY 3 bullet points. Do not generate more.
-   - **CRITICAL: DO NOT SUMMARIZE OR SHORTEN.** Maintain the full depth and detail of the original bullets.
-   - Each bullet should be SUBSTANTIVE (aim for 1-2 lines per bullet).
+   - **CRITICAL: DO NOT SUMMARIZE OR SHORTEN.** Maintain full depth and detail.
+   - Each bullet should be SUBSTANTIVE (aim for 1-2 lines per bullet, ~15-20 words)
    - Integrate JD keywords ONLY where they fit naturally. Do not force them.
    - PRESERVE all metrics exactly (18%, 60%, 99.5%, 40%, 30%, 92.27%, 2000, 5+)
    - **METRICS PRIORITY:** Emphasize system performance (throughput, latency, concurrency) over simple volume (user counts) where possible.
    - Each bullet = complete sentence ending with period (.)
 
-5. **Project Bullets** (RANKED - select TOP 2 projects):
-   - **CRITICAL:** Choose ONLY the 2 most relevant projects for this job. Omit the others.
-   - For EACH of the 2 selected projects, generate exactly 3 bullet points ranked by importance
-   - Top 2 bullets will be used (extras for trimming flexibility)
-   - STRICT LIMIT: Max 2 lines per bullet.
+5. **Project Bullets**:
+   - STRICT LIMIT: Max 2 lines per bullet (~15-20 words)
    - Be concise. Only explain details necessary for context/impact.
    - Integrate keywords naturally
    - Each bullet = complete sentence ending with period (.)
    - Preserve all original metrics
 
-6. **Formatting**:
+6. **Leadership Bullets** (if present):
+   - Follow same guidelines as Projects
+   - Each bullet = complete sentence ending with period (.)
+
+
+
+7. **Formatting**:
    - Use <b>tags</b> for bold (NOT **asterisks**)
    - Bold ONLY the most significant metric or achievement in a bullet (Max 0-1 bold phrases per bullet).
    - DO NOT bold random keywords or technologies. Use bolding sparingly for impact.
    - Every bullet MUST end with a period (.)
 
-7. **Tone & Style**:
+8. **Tone & Style**:
    - Write in a PROFESSIONAL, NATURAL human voice.
    - Avoid "AI-like" or flowery language (e.g., instead of "Spearheaded the implementation...", use "Led the implementation..." or "Implemented...").
    - Sentences should be clear, direct, and fact-based.
@@ -808,7 +870,7 @@ CRITICAL OBJECTIVE: Rewrite the resume to MAXIMIZE ATS keyword matching while ma
      * Use simple, direct verbs: "built", "created", "improved", "reduced", "increased"
      * Sound like a real person wrote this, not an AI
 
-8. **ATS Optimization & Keyword Enrichment (CRITICAL)**:
+9. **ATS Optimization & Keyword Enrichment (CRITICAL)**:
    - **Expansion**: Use `tech_stack_nuances` to map broad skills to specifics. If the user lists "GCP" and `tech_stack_nuances` includes "BigQuery ML", **explicitly list BigQuery ML**.
    - **Specificity**: Replace generic terms with JD-specific techniques (e.g., change "fine-tuning LLMs" to "PEFT/LoRA fine-tuning" if JD asks for LoRA).
    - **Domain Alignment**: Use `domain_context` to rephrase experience. Ensure the resume reflects the language of the **{jd_analysis.get('domain_context', 'target industry')}**.

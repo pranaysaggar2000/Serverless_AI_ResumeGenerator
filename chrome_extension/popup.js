@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentProvider = "gemini";
     let hasAnalyzed = false; // Track if analysis has been performed
     let tailoringStrategy = "balanced"; // Track tailoring strategy: profile_focus, balanced, jd_focus
+    let currentJdAnalysis = null; // Store JD analysis for regeneration
 
     // 1. Initialization
     await loadState();
@@ -564,6 +565,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (data.error) throw new Error(data.error);
 
             tailoredResume = data.tailored_resume;
+            currentJdAnalysis = data.jd_analysis; // Store for regeneration
 
             // Show Analysis Score if available or trigger separate analysis
             // For now, let's just show success and enable PDF generation
@@ -1031,10 +1033,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         let bulletsHtml = '';
         (item.bullets || []).forEach(b => bulletsHtml += createBulletRow(b));
 
+        // Get current bullet count
+        const currentBulletCount = (item.bullets || []).length;
+
         div.innerHTML = `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                 <span style="font-weight: bold; color: #555;">Item</span>
-                <button class="remove-btn remove-item-btn">🗑️ Remove</button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="font-size: 11px; display: flex; align-items: center; gap: 5px;">
+                        📊 Bullets: 
+                        <input type="number" class="bullet-count-input" min="0" max="5" value="${currentBulletCount}" 
+                               style="width: 50px; padding: 2px 5px; text-align: center;" 
+                               title="Number of bullets (0 to remove item)">
+                    </label>
+                    <button class="remove-btn remove-item-btn">🗑️ Remove</button>
+                </div>
             </div>
             ${headerHtml}
             <div class="edit-field">
@@ -1108,6 +1121,44 @@ document.addEventListener('DOMContentLoaded', async () => {
         return null;
     }
 
+    function collectBulletCounts() {
+        /**
+         * Collect bullet count preferences from the UI.
+         * Returns object like: {experience: [3, 4, 2], projects: [3, 0, 2]}
+         */
+        const bulletCounts = {
+            experience: [],
+            projects: [],
+            leadership: []
+        };
+
+        // Get current section being edited
+        const section = sectionSelect.value;
+
+        // If editing experience, projects, or leadership, collect counts
+        if (['experience', 'projects', 'leadership'].includes(section)) {
+            const itemBlocks = formContainer.querySelectorAll('.item-block');
+            itemBlocks.forEach(block => {
+                const countInput = block.querySelector('.bullet-count-input');
+                if (countInput) {
+                    const count = parseInt(countInput.value) || 0;
+                    bulletCounts[section].push(count);
+                }
+            });
+        }
+
+        // For sections not being edited, use current bullet counts from tailoredResume
+        ['experience', 'projects', 'leadership'].forEach(sec => {
+            if (sec !== section && tailoredResume && tailoredResume[sec]) {
+                bulletCounts[sec] = tailoredResume[sec].map(item =>
+                    (item.bullets || []).length
+                );
+            }
+        });
+
+        return bulletCounts;
+    }
+
     saveRegenBtn.addEventListener('click', async () => {
         // Save final section
         const section = sectionSelect.value;
@@ -1117,13 +1168,54 @@ document.addEventListener('DOMContentLoaded', async () => {
         tailoredResume = currentEditingData; // Update global state
 
         saveRegenBtn.disabled = true;
-        saveRegenBtn.textContent = "Regenerating PDF...";
+        saveRegenBtn.textContent = "Adjusting bullets...";
 
         try {
+            // Collect bullet count preferences from UI
+            const bulletCounts = collectBulletCounts();
+
+            // Check if user changed any bullet counts
+            const hasChanges = Object.values(bulletCounts).some(counts =>
+                counts.some((count, idx) => {
+                    const section = Object.keys(bulletCounts).find(k => bulletCounts[k] === counts);
+                    const items = tailoredResume[section] || [];
+                    return count !== (items[idx]?.bullets?.length || 0);
+                })
+            );
+
+            let finalResume = tailoredResume;
+
+            // If bullet counts changed, call regenerate API
+            if (hasChanges && currentJdAnalysis) {
+                saveRegenBtn.textContent = "Regenerating content...";
+
+                const regenResp = await fetch(`${API_BASE_URL}/regenerate_resume`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tailored_resume: tailoredResume,
+                        bullet_counts: bulletCounts,
+                        jd_analysis: currentJdAnalysis,
+                        api_key: currentApiKey,
+                        provider: currentProvider,
+                        tailoring_strategy: tailoringStrategy
+                    })
+                });
+
+                const regenData = await regenResp.json();
+                if (regenData.error) throw new Error(regenData.error);
+
+                finalResume = regenData.resume;
+                tailoredResume = finalResume; // Update global state
+            }
+
+            // Generate PDF with final resume
+            saveRegenBtn.textContent = "Generating PDF...";
+
             const pdfResp = await fetch(`${API_BASE_URL}/generate_pdf`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ resume_data: tailoredResume })
+                body: JSON.stringify({ resume_data: finalResume })
             });
             const pdfData = await pdfResp.json();
             if (pdfData.error) throw new Error(pdfData.error);

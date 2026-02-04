@@ -649,13 +649,9 @@ def clean_tailored_resume(resume_data: dict) -> dict:
     if 'experience' in resume_data:
         for exp in resume_data['experience']:
             if 'bullets' in exp:
-                # Enforce max 3 bullets for Intern roles
-                job_title = exp.get('role', '').lower()
-                if 'intern' in job_title:
-                    exp['bullets'] = exp['bullets'][:3]
-                else:
-                    # Enforce max 4 bullets for Full-time roles
-                    exp['bullets'] = exp['bullets'][:4]
+                # UPDATE: Removed hardcoded trimming (max 3/4). 
+                # Bullet counts are now strictly enforced by tailor_resume based on user preference.
+                pass
                 
                 exp['bullets'] = [convert_markdown_to_html(b) for b in exp['bullets']]
     
@@ -704,31 +700,9 @@ def tailor_resume(
         # but here we are just reading.
         pass
     
-    # Build bullet count instructions dynamically
-    bullet_instructions = ""
-    if bullet_counts:
-        bullet_instructions = "\n=== BULLET COUNT REQUIREMENTS ===\n"
-        
-        for section in ['experience', 'projects', 'leadership']:
-            if section in bullet_counts and section in base_resume:
-                counts = bullet_counts[section]
-                items = base_resume[section]
-                
-                for i, item in enumerate(items):
-                    if i < len(counts):
-                        desired_count = counts[i]
-                        
-                        if section == 'experience':
-                            item_name = item.get('company', f'Item {i+1}')
-                        elif section == 'projects':
-                            item_name = item.get('name', f'Item {i+1}')
-                        else:
-                            item_name = item.get('role', f'Item {i+1}')
-                        
-                        bullet_instructions += f"- {section.capitalize()} '{item_name}': Generate EXACTLY {desired_count} bullet(s)\n"
-    else:
-        # Default: 3 bullets per item
-        bullet_instructions = "\n=== BULLET COUNT REQUIREMENTS ===\nGenerate EXACTLY 3 bullets per experience/project/leadership item.\n"
+    # [Dynamic Prompt Construction enabled]
+    # Old bullet_instructions logic removed in favor of itemized instructions below.
+    pass
     
     # Strategy-specific instructions
     if tailoring_strategy == "profile_focus":
@@ -777,93 +751,70 @@ CRITICAL RULES FOR THIS STRATEGY:
 - This is the DEFAULT behavior - good mix of authenticity and optimization
 """
     
+    # Build Dynamic Itemized Prompt Content
+    current_resume_content = ""
+    
+    # Contact & Summary
+    current_resume_content += "--- SECTION: CONTACT & SUMMARY ---\n"
+    base_info = {k: v for k, v in base_resume.items() if k not in ['experience', 'projects', 'leadership', 'skills']}
+    current_resume_content += json.dumps(base_info, indent=2) + "\n\n"
+    
+    # Skills
+    if 'skills' in base_resume:
+        current_resume_content += "--- SECTION: SKILLS ---\n"
+        current_resume_content += json.dumps(base_resume['skills'], indent=2) + "\n"
+        current_resume_content += "INSTRUCTION: Optimize skills for JD relevance. Keep within 5 lines.\n\n"
+
+    # Experience
+    if 'experience' in base_resume:
+        current_resume_content += "--- SECTION: EXPERIENCE ---\n"
+        exp_counts = bullet_counts.get('experience', []) if bullet_counts else []
+        for i, item in enumerate(base_resume['experience']):
+            target = exp_counts[i] if i < len(exp_counts) else 3
+            current_resume_content += f"ITEM {i+1} [Role: {item.get('role', 'N/A')}]:\n"
+            current_resume_content += f"Current Bullets: {json.dumps(item.get('bullets', []), indent=2)}\n"
+            current_resume_content += f"ACTION: Rewrite these bullets into EXACTLY {target} high-impact bullets optimized for the JD.\n\n"
+
+    # Projects
+    if 'projects' in base_resume:
+        current_resume_content += "--- SECTION: PROJECTS ---\n"
+        proj_counts = bullet_counts.get('projects', []) if bullet_counts else []
+        for i, item in enumerate(base_resume['projects']):
+            target = proj_counts[i] if i < len(proj_counts) else 3
+            current_resume_content += f"ITEM {i+1} [Name: {item.get('name', 'N/A')}]:\n"
+            current_resume_content += f"Current Bullets: {json.dumps(item.get('bullets', []), indent=2)}\n"
+            current_resume_content += f"ACTION: Rewrite into EXACTLY {target} bullets.\n\n"
+
+    # Leadership
+    if 'leadership' in base_resume:
+        current_resume_content += "--- SECTION: LEADERSHIP ---\n"
+        lead_counts = bullet_counts.get('leadership', []) if bullet_counts else []
+        for i, item in enumerate(base_resume['leadership']):
+            target = lead_counts[i] if i < len(lead_counts) else 3
+            current_resume_content += f"ITEM {i+1}:\n"
+            current_resume_content += f"Current Bullets: {json.dumps(item.get('bullets', []), indent=2)}\n"
+            current_resume_content += f"ACTION: Rewrite into EXACTLY {target} bullets.\n\n"
+
     prompt = f"""
-You are a Strategic Resume Architect. Your PRIMARY GOAL is to achieve a 95+ ATS (Applicant Tracking System) match score.
+You are a Strategic Resume Architect.
+JOB ANALYSIS:
+{json.dumps(jd_analysis, indent=2)}
 
 {strategy_note}
 
-{bullet_instructions}
+TASK: Rewrite the resume sections below.
+STRICTLY follow the ACTION INSTRUCTION for each item regarding bullet counts.
 
-TARGET JOB ANALYSIS:
-{json.dumps(jd_analysis, indent=2)}
+{current_resume_content}
 
-CURRENT RESUME DATA:
-{json.dumps(base_resume, indent=2)}
-
-CRITICAL OBJECTIVE: Rewrite the resume to MAXIMIZE ATS keyword matching while maintaining authenticity.
-
-=== STRICT RULES ===
-
-1. **Contact Info**:
-   - Set contact.location to: "{jd_analysis.get('location', 'Remote')}"
-   - **CRITICAL:** You MUST preserve `email`, `phone`, `linkedin_url`, and `portfolio_url` EXACTLY as they appear in the CURRENT RESUME DATA. Do not omit them.
-
-2. **Summary** (Target: 2-3 full sentences, ~35-45 words):
-   - Start with the exact Job Title from the JD.
-   - Synthesize the candidate's **ACTUAL** years of experience (calculate strictly from the provided 'experience' section) with the **top 4 relevant skills**.
-   - **CRITICAL:** DO NOT HALLUCINATE YEARS OF EXPERIENCE to match the JD. If the candidate has 2 years, state "2+ years" or "Experienced", NEVER "5+" unless supported by data.
-   - Craft a cohesive, professional narrative (avoid fragmented or overly brief sentences).
-   - Aim to fill ~2-3 lines to maximize impact without overflowing.
-   - End with a period
-
-3. **Skills Section** (RANKED for trimming):
-   - For EACH category, list skills as a comma-separated string
-   - ORDER skills by JD relevance (most relevant FIRST)
-   - Include 8-10 skills per category (extras will be trimmed)
-   - **CONSTRAINT:** The entire Skills section must NOT exceed 5 lines total.
-   - Prioritize 2-3 key categories derived from JD (e.g., Languages, Frameworks, Tools).
-
-4. **Experience Bullets**:
-   - **CRITICAL:** Strictly follow the bullet count limits specified in the "BULLET COUNT REQUIREMENTS" section above.
-   - If reducing the number of bullets, prioritize the most impactful ones (high metrics, JD relevance).
-   - Maintain full depth and detail for each retained bullet (do not summarize multiple bullets into one).
-   - Each bullet should be SUBSTANTIVE (aim for 1-2 lines per bullet, ~15-20 words)
-   - Integrate JD keywords ONLY where they fit naturally. Do not force them.
-   - PRESERVE all metrics exactly (18%, 60%, 99.5%, 40%, 30%, 92.27%, 2000, 5+)
-   - **METRICS PRIORITY:** Emphasize system performance (throughput, latency, concurrency) over simple volume (user counts) where possible.
-   - Each bullet = complete sentence ending with period (.)
-
-5. **Project Bullets**:
-   - STRICT LIMIT: Max 2 lines per bullet (~15-20 words)
-   - Be concise. Only explain details necessary for context/impact.
-   - Integrate keywords naturally
-   - Each bullet = complete sentence ending with period (.)
-   - Preserve all original metrics
-
-6. **Leadership Bullets** (if present):
-   - Follow same guidelines as Projects
-   - Each bullet = complete sentence ending with period (.)
-
-
-
-7. **Formatting**:
-   - Use <b>tags</b> for bold (NOT **asterisks**)
-   - Bold ONLY the most significant metric or achievement in a bullet (Max 0-1 bold phrases per bullet).
-   - DO NOT bold random keywords or technologies. Use bolding sparingly for impact.
-   - Every bullet MUST end with a period (.)
-
-8. **Tone & Style**:
-   - Write in a PROFESSIONAL, NATURAL human voice.
-   - Avoid "AI-like" or flowery language (e.g., instead of "Spearheaded the implementation...", use "Led the implementation..." or "Implemented...").
-   - Sentences should be clear, direct, and fact-based.
-   - When describing AI/ML projects for a generalist Software Engineer role, emphasize the engineering lifecycle (deployment, latency, APIs, Docker, testing) over the theoretical modeling, unless the JD specifically asks for model training.
-   - **CRITICAL - Avoid AI Tells:**
-     * NEVER use em dashes (—) - use regular hyphens (-), commas, or periods instead
-     * NO phrases like "passionate about", "excited to", "leverage", "utilize", "spearheaded"
-     * NO overly formal or corporate jargon
-     * Use simple, direct verbs: "built", "created", "improved", "reduced", "increased"
-     * Sound like a real person wrote this, not an AI
-
-9. **ATS Optimization & Keyword Enrichment (CRITICAL)**:
-   - **Expansion**: Use `tech_stack_nuances` to map broad skills to specifics. If the user lists "GCP" and `tech_stack_nuances` includes "BigQuery ML", **explicitly list BigQuery ML**.
-   - **Specificity**: Replace generic terms with JD-specific techniques (e.g., change "fine-tuning LLMs" to "PEFT/LoRA fine-tuning" if JD asks for LoRA).
-   - **Domain Alignment**: Use `domain_context` to rephrase experience. Ensure the resume reflects the language of the **{jd_analysis.get('domain_context', 'target industry')}**.
-   - **Tech Alternatives**: If a JD requirement is missing (e.g., "Spring"), heavily emphasize the user's equivalent strong alternative (e.g., "FastAPI/Flask") to show transferability.
-   - Use exact keyword matches from JD (not synonyms).
-   - Match industry terminology exactly.
-
-Return the complete resume as valid JSON with the same structure. 
-IMPORTANT: Ensure experience and leadership items use the key "role" for job titles (do NOT use "title")."""
+GENERAL RULES:
+1. Contact Info: Preserve email, phone, links EXACTLY. Update location if needed.
+2. Summary: Optimize for JD (2-3 sentences).
+3. Skills: Optimize for JD (max 5 lines).
+4. Formatting: Use <b>tags</b> for bolding.
+5. JSON Output: Return the COMPLETE resume in valid JSON format matching the input structure.
+6. KEY NAMING: Use "role" for Experience job titles.
+"""
 
     try:
         response_text = query_provider(prompt, provider, api_key=api_key)
@@ -876,7 +827,22 @@ IMPORTANT: Ensure experience and leadership items use the key "role" for job tit
                 # Ensure we have all required fields
                 if 'name' in tailored and 'contact' in tailored:
                     # Post-process to convert any remaining markdown to HTML
-                    return clean_tailored_resume(tailored)
+                    cleaned = clean_tailored_resume(tailored)
+                    
+                    # STRICTLY ENFORCE bullet counts if provided
+                    if bullet_counts:
+                        for section in ['experience', 'projects', 'leadership']:
+                            if section in bullet_counts and section in cleaned:
+                                counts = bullet_counts[section]
+                                items = cleaned[section]
+                                for i, item in enumerate(items):
+                                    if i < len(counts):
+                                        limit = counts[i]
+                                        if 'bullets' in item and isinstance(item['bullets'], list):
+                                            # Trim excess bullets to strict limit
+                                            item['bullets'] = item['bullets'][:limit]
+                    
+                    return cleaned
             except json.JSONDecodeError:
                 pass
     except Exception as e:

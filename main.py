@@ -688,30 +688,47 @@ def tailor_resume(base_resume: dict, jd_analysis: dict, provider: str = "gemini"
     if tailoring_strategy == "profile_focus":
         strategy_note = """
 === TAILORING STRATEGY: PROFILE FOCUS ===
-**PRIORITY: Preserve original content and authenticity**
-- Only add JD keywords where they naturally fit without forcing changes
-- Maintain original wording, phrasing, and structure from base resume
-- Keep all original metrics, numbers, and accomplishments exactly as written
-- Only rephrase if it significantly improves clarity WITHOUT changing meaning
-- Prefer authenticity over aggressive keyword optimization
+**PRIORITY: Preserve original content and authenticity - TARGET ATS: 75-85%**
+
+CRITICAL RULES FOR THIS STRATEGY:
+- PRESERVE original bullet point wording unless it's grammatically incorrect
+- KEEP original metrics, numbers, and phrasing exactly as written
+- DO NOT add keywords that weren't in the original resume
+- DO NOT rephrase bullets just to match JD terminology
+- ONLY make changes if: (1) fixing grammar, (2) adding missing contact info, (3) adjusting summary to match JD title
+- Skills section: Keep original skills, only reorder by JD relevance (don't add new ones)
+- Experience bullets: Change NOTHING except fixing typos
+- This strategy values AUTHENTICITY over ATS score - resist the urge to optimize
 """
     elif tailoring_strategy == "jd_focus":
         strategy_note = """
 === TAILORING STRATEGY: JD FOCUS ===
-**PRIORITY: Maximize ATS keyword matching**
-- Aggressively integrate JD keywords and terminology throughout resume
-- Rephrase bullets to include more keyword matches where possible
-- Prioritize ATS score over preserving original wording
-- Use JD-specific terminology even if it differs from original phrasing
-- Ensure every mandatory and preferred keyword appears at least once
+**PRIORITY: Maximize ATS keyword matching - TARGET ATS: 95%+**
+
+CRITICAL RULES FOR THIS STRATEGY:
+- AGGRESSIVELY rephrase every bullet to include more JD keywords
+- ADD JD-specific terminology even if it changes original meaning slightly
+- REPLACE generic terms with exact JD terminology (e.g., "database" → "PostgreSQL", "cloud" → "AWS Lambda")
+- ENSURE every mandatory_keyword appears at least 2-3 times across resume
+- ENSURE every preferred_keyword appears at least once
+- Skills section: Add ALL relevant JD keywords, even if not in original resume
+- Experience bullets: Rewrite to maximize keyword density while staying truthful
+- Prioritize keyword matching over natural language flow
+- This strategy values ATS SCORE over readability - be aggressive
 """
     else:  # balanced (default)
         strategy_note = """
 === TAILORING STRATEGY: BALANCED ===
-**PRIORITY: Integrate JD keywords while maintaining authenticity**
-- Add relevant JD keywords naturally throughout resume
-- Maintain authenticity and original metrics
-- Rephrase only where it improves both clarity and ATS matching
+**PRIORITY: Integrate JD keywords while maintaining authenticity - TARGET ATS: 88-92%**
+
+CRITICAL RULES FOR THIS STRATEGY:
+- ADD relevant JD keywords where they fit naturally
+- REPHRASE bullets to include JD terminology while keeping original meaning
+- MAINTAIN original metrics and accomplishments
+- Skills section: Add important JD keywords, keep original skills
+- Experience bullets: Enhance with JD keywords but preserve core message
+- Balance keyword optimization with genuine representation
+- This is the DEFAULT behavior - good mix of authenticity and optimization
 """
     
     prompt = f"""

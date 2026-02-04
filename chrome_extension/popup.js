@@ -21,6 +21,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const previewBtn = document.getElementById('previewBtn');
     const downloadBtn = document.getElementById('downloadBtn');
 
+    // Tailoring Strategy Slider elements (must be declared early)
+    const tailoringSlider = document.getElementById('tailoringSlider');
+    const strategyDescription = document.getElementById('strategyDescription');
+
     // State
     let currentJdText = "";
     let baseResume = null;
@@ -78,7 +82,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (data.tailoring_strategy) {
             tailoringStrategy = data.tailoring_strategy;
             const sliderValue = tailoringStrategy === 'profile_focus' ? 0 : tailoringStrategy === 'balanced' ? 1 : 2;
-            document.getElementById('tailoringSlider').value = sliderValue;
+            if (tailoringSlider) {
+                tailoringSlider.value = sliderValue;
+            }
             updateStrategyDescription(sliderValue);
         }
     }
@@ -118,17 +124,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Tailoring Strategy Slider
-    const tailoringSlider = document.getElementById('tailoringSlider');
-    const strategyDescription = document.getElementById('strategyDescription');
-
     function updateStrategyDescription(value) {
         const descriptions = [
             '📝 Profile Focus - Preserves original content, minimal keyword forcing',
             '⚖️ Balanced - Integrates JD keywords while maintaining authenticity',
             '🎯 JD Focus - Aggressive keyword matching for maximum ATS score'
         ];
-        strategyDescription.textContent = descriptions[value];
+        if (strategyDescription) {
+            strategyDescription.textContent = descriptions[value];
+        }
     }
 
     tailoringSlider.addEventListener('input', async (e) => {

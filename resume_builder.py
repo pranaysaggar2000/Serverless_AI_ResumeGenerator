@@ -400,6 +400,9 @@ def create_resume_pdf(data, output_path_or_buffer):
         linkedin = c.get('linkedin_url')
         portfolio = c.get('portfolio_url')
         
+        linkedin_str = f'<link href="{linkedin}">{linkedin}</link>' if linkedin else None
+        portfolio_str = f'<link href="{portfolio}">{portfolio}</link>' if portfolio else None
+        
         components = [
             c.get('location'),
             c.get('phone'),

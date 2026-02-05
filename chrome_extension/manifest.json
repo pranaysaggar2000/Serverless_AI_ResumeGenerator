@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "Resume Generator V2",
+    "name": "ForgeCV: AI powered resume generator",
     "version": "1.1",
     "description": "Generate ATS-optimized resumes from any job description.",
     "permissions": [
@@ -15,7 +15,7 @@
         "https://*.vercel.app/*"
     ],
     "action": {
-        "default_title": "Resume Generator",
+        "default_title": "ForgeCV",
         "default_icon": {
             "16": "icon.png",
             "48": "icon.png",

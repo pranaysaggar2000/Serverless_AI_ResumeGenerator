@@ -262,6 +262,7 @@
 
 
     <button id="generateBtn">Process Page & Generate Resume</button>
+    <button id="generateBaseBtn" style="background: #17a2b8; margin-top: 10px;">Generate Base Resume (No AI)</button>
 
     <div id="status"></div>
 
@@ -317,6 +318,7 @@
         style="width: 100%; padding: 6px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px;">
         <optgroup label="Sections">
           <option value="summary">Summary</option>
+          <option value="education">Education</option>
           <option value="skills">Skills</option>
           <option value="experience">Experience</option>
           <option value="projects">Projects</option>
@@ -450,17 +452,26 @@
     /* Sortable Styles */
     .sortable-item {
       padding: 10px;
-      margin-bottom: 6px;
-      background: #fff;
+      margin-bottom: 5px;
+      background: #f8f9fa;
       border: 1px solid #ddd;
       border-radius: 4px;
-      cursor: grab;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 13px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: grab;
+    }
+
+    .sortable-item.dragging,
+    .item-block.dragging {
+      opacity: 0.4;
+      border: 1px dashed #667eea;
+    }
+
+    .sortable-item.over,
+    .item-block.over {
+      border: 2px solid #667eea;
+      background: #eef2f5;
     }
 
     .sortable-item:hover {

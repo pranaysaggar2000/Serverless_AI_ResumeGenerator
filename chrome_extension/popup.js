@@ -826,6 +826,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // Generate Base Resume (No AI)
+    const generateBaseBtn = document.getElementById('generateBaseBtn');
+    if (generateBaseBtn) {
+        generateBaseBtn.addEventListener('click', async () => {
+            if (!baseResume) {
+                showStatus("No base resume profile found. Please upload one in the Setup tab.", "error");
+                return;
+            }
+
+            // Sync state so editing/analysis works on the base resume
+            tailoredResume = JSON.parse(JSON.stringify(baseResume));
+            currentEditingData = tailoredResume; // Also update editor state
+
+            generateBaseBtn.textContent = "Generating...";
+            generateBaseBtn.disabled = true;
+
+            try {
+                await generateAndDisplayPDF(baseResume);
+
+                showStatus("✅ Base resume generated! You can now Edit or Analyze it.", "success");
+
+                // Show actions
+                const actionsDiv = document.getElementById('actions');
+                if (actionsDiv) actionsDiv.style.display = 'block';
+
+            } catch (e) {
+                showStatus("Error generating base resume: " + e.message, "error");
+            } finally {
+                generateBaseBtn.textContent = "Generate Base Resume (No AI)";
+                generateBaseBtn.disabled = false;
+            }
+        });
+    }
+
     async function performAnalysis() {
         const activeKey = currentProvider === 'groq' ? currentGroqKey : currentApiKey;
         try {
@@ -1200,16 +1234,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             listDiv.id = 'skillsList';
 
             for (const [category, skills] of Object.entries(data)) {
-                const div = document.createElement('div');
-                div.className = 'item-block';
-                div.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                        <input type="text" class="skill-category-input" value="${category}" style="font-weight: bold; width: 60%;" placeholder="Category Name">
-                        <button class="remove-btn remove-category-btn">🗑️ Remove</button>
-                    </div>
-                    <textarea class="skill-values-input" style="height: 60px;">${skills}</textarea>
-                 `;
-                listDiv.appendChild(div);
+                renderSkillBlock(listDiv, category, skills);
             }
             formContainer.appendChild(listDiv);
 
@@ -1217,24 +1242,60 @@ document.addEventListener('DOMContentLoaded', async () => {
             addBtn.textContent = "➕ Add Skill Category";
             addBtn.style.cssText = "width: 100%; padding: 8px; background: #e9ecef; border: 1px dashed #ccc; color: #333; cursor: pointer; margin-top: 10px;";
             addBtn.onclick = () => {
-                const div = document.createElement('div');
-                div.className = 'item-block';
-                div.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                        <input type="text" class="skill-category-input" value="New Category" style="font-weight: bold; width: 60%;">
-                        <button class="remove-btn remove-category-btn">🗑️ Remove</button>
-                    </div>
-                    <textarea class="skill-values-input" style="height: 60px;"></textarea>
-                `;
-                document.getElementById('skillsList').appendChild(div);
+                renderSkillBlock(listDiv, "New Category", "");
             };
             formContainer.appendChild(addBtn);
 
-            formContainer.addEventListener('click', (e) => {
-                if (e.target.classList.contains('remove-category-btn')) {
-                    e.target.closest('.item-block').remove();
+            // Replaces the old delegation listener with individual listeners in renderSkillBlock
+            // to ensure consistency with arrow logic
+        }
+
+        // Helper for Skills Rendering to support Arrows
+        function renderSkillBlock(container, category, skills) {
+            const div = document.createElement('div');
+            div.className = 'item-block';
+            div.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <input type="text" class="skill-category-input" value="${category}" style="font-weight: bold; width: 50%;" placeholder="Category Name">
+                    
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <div style="display:flex; gap:2px;">
+                            <button class="move-up-btn" title="Move Up" style="cursor:pointer; padding:2px 6px;">⬆️</button>
+                            <button class="move-down-btn" title="Move Down" style="cursor:pointer; padding:2px 6px;">⬇️</button>
+                        </div>
+                        <button class="remove-btn remove-category-btn">🗑️ Remove</button>
+                    </div>
+                </div>
+                <textarea class="skill-values-input" style="height: 60px;">${skills}</textarea>
+            `;
+
+            // Remove handler
+            div.querySelector('.remove-category-btn').onclick = () => {
+                div.remove();
+                updateArrowVisibility(container);
+            };
+
+            // Arrow handlers
+            const upBtn = div.querySelector('.move-up-btn');
+            const downBtn = div.querySelector('.move-down-btn');
+
+            if (upBtn) upBtn.onclick = () => {
+                if (div.previousElementSibling) {
+                    div.parentNode.insertBefore(div, div.previousElementSibling);
+                    updateArrowVisibility(container);
                 }
-            });
+            };
+
+            if (downBtn) downBtn.onclick = () => {
+                if (div.nextElementSibling) {
+                    div.parentNode.insertBefore(div.nextElementSibling, div);
+                    updateArrowVisibility(container);
+                }
+            };
+
+            container.appendChild(div);
+            updateArrowVisibility(container);
+
 
         }
         else if (section === 'languages') {
@@ -1253,7 +1314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <textarea id="edit_languages_text" style="height: 60px;">${data || ''}</textarea>`;
             formContainer.appendChild(div);
         }
-        else if (['experience', 'projects', 'leadership', 'research', 'certifications', 'awards', 'volunteering'].includes(section)) {
+        else if (['experience', 'projects', 'leadership', 'research', 'certifications', 'awards', 'volunteering', 'education'].includes(section)) {
             if (!data) data = [];
 
             // GENERIC LISTS TITLE INPUT
@@ -1264,7 +1325,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 research: "Research & Publications",
                 certifications: "Certifications",
                 awards: "Awards & Honors",
-                volunteering: "Volunteering"
+                volunteering: "Volunteering",
+                education: "Education"
             };
 
             const titleDiv = document.createElement('div');
@@ -1291,6 +1353,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             else if (section === 'certifications') btnLabel = "Certification";
             else if (section === 'awards') btnLabel = "Award";
             else if (section === 'volunteering') btnLabel = "Volunteering";
+            else if (section === 'education') btnLabel = "School";
 
             const addBtn = document.createElement('button');
             addBtn.textContent = `➕ Add ${btnLabel}`;
@@ -1305,6 +1368,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (section === 'volunteering') newItem = { organization: "Organization", role: "Volunteer", location: "", dates: "", bullets: ["New bullet"] };
                 if (section === 'certifications') newItem = { name: "Certification Name", issuer: "Issuer", dates: "Date" };
                 if (section === 'awards') newItem = { name: "Award Name", organization: "Organization", dates: "Date" };
+                if (section === 'education') newItem = { institution: "University Name", degree: "Degree", gpa: "", dates: "Dates" };
 
                 renderItemBlock(listDiv, newItem, section);
             };
@@ -1374,10 +1438,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <input type="text" class="item-org" value="${item.organization || ''}" placeholder="Organization">
                     <input type="text" class="item-dates" value="${item.dates || ''}" placeholder="Date" style="grid-column: span 2;">
                 </div>`;
+        } else if (section === 'education') {
+            headerHtml = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 5px;">
+                    <input type="text" class="item-institution" value="${item.institution || ''}" placeholder="Institution" style="font-weight:bold;">
+                    <input type="text" class="item-degree" value="${item.degree || ''}" placeholder="Degree/Major">
+                    <input type="text" class="item-gpa" value="${item.gpa || ''}" placeholder="GPA">
+                    <input type="text" class="item-dates" value="${item.dates || ''}" placeholder="Dates">
+                </div>`;
         }
 
         let bulletsHtml = '';
-        const hasBullets = !['certifications', 'awards'].includes(section);
+        const hasBullets = !['certifications', 'awards', 'education'].includes(section);
 
         if (hasBullets) {
             (item.bullets || []).forEach(b => bulletsHtml += createBulletRow(b));
@@ -1397,13 +1469,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <button class="bullet-count-increase" style="width: 24px; height: 24px; padding: 0; font-size: 16px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; border-radius: 3px;" title="Increase bullets">+</button>
                     <input type="hidden" class="bullet-count-input" value="${currentBulletCount}">
                 </label>
+                <div style="display:flex; gap:2px;">
+                    <button class="move-up-btn" title="Move Up" style="cursor:pointer; padding:2px 6px;">⬆️</button>
+                    <button class="move-down-btn" title="Move Down" style="cursor:pointer; padding:2px 6px;">⬇️</button>
+                </div>
                 <button class="remove-btn remove-item-btn">🗑️ Remove</button>
             </div>
-        ` : `<button class="remove-btn remove-item-btn">🗑️ Remove</button>`;
+        ` : `
+            <div style="display:flex; gap:10px; align-items:center;">
+                 <div style="display:flex; gap:2px;">
+                    <button class="move-up-btn" title="Move Up" style="cursor:pointer; padding:2px 6px;">⬆️</button>
+                    <button class="move-down-btn" title="Move Down" style="cursor:pointer; padding:2px 6px;">⬇️</button>
+                </div>
+                <button class="remove-btn remove-item-btn">🗑️ Remove</button>
+            </div>
+        `;
 
         div.innerHTML = `
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                                    <span style="font-weight: bold; color: #555;">Item</span>
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <span class="item-handle" style="cursor:grab; font-size:16px; color:#aaa; user-select:none;">☰</span>
+                                        <span style="font-weight: bold; color: #555;">Item</span>
+                                    </div>
                                     ${bulletControls}
                                 </div>
                                 ${headerHtml}
@@ -1415,7 +1502,37 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 </div>` : ''}
                                 `;
 
-        div.querySelector('.remove-item-btn').onclick = () => div.remove();
+        div.querySelector('.remove-item-btn').onclick = () => {
+            div.remove();
+            updateArrowVisibility(container);
+        };
+
+        // Remove Drag & Drop listeners (replaced with arrows)
+        // div.setAttribute('draggable', 'true');
+        // div.addEventListener('dragstart', handleItemDragStart);
+        // div.addEventListener('dragover', handleItemDragOver);
+        // div.addEventListener('drop', handleItemDrop);
+        // div.addEventListener('dragenter', handleItemDragEnter);
+        // div.addEventListener('dragleave', handleItemDragLeave);
+        // div.addEventListener('dragend', handleItemDragEnd);
+
+        // Arrow Logic
+        const upBtn = div.querySelector('.move-up-btn');
+        const downBtn = div.querySelector('.move-down-btn');
+
+        if (upBtn) upBtn.onclick = () => {
+            if (div.previousElementSibling) {
+                div.parentNode.insertBefore(div, div.previousElementSibling);
+                updateArrowVisibility(container);
+            }
+        };
+
+        if (downBtn) downBtn.onclick = () => {
+            if (div.nextElementSibling) {
+                div.parentNode.insertBefore(div.nextElementSibling, div); // Insert next before current = swap
+                updateArrowVisibility(container);
+            }
+        };
 
         if (hasBullets) {
             const bContainer = div.querySelector('.bullet-list-container');
@@ -1452,6 +1569,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         container.appendChild(div);
+        updateArrowVisibility(container);
+    }
+
+    function updateArrowVisibility(container) {
+        const items = container.querySelectorAll('.item-block');
+        items.forEach((item, index) => {
+            const upBtn = item.querySelector('.move-up-btn');
+            const downBtn = item.querySelector('.move-down-btn');
+
+            if (upBtn) upBtn.style.visibility = index === 0 ? 'hidden' : 'visible';
+            if (downBtn) downBtn.style.visibility = index === items.length - 1 ? 'hidden' : 'visible';
+        });
     }
 
     function createBulletRow(text) {
@@ -1499,7 +1628,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             return skills;
-        } else if (['experience', 'projects', 'leadership', 'research', 'certifications', 'awards', 'volunteering'].includes(section)) {
+        } else if (['experience', 'projects', 'leadership', 'research', 'certifications', 'awards', 'volunteering', 'education'].includes(section)) {
             // Save Title
             const titleInput = document.getElementById('sectionTitleInput');
             if (titleInput && currentEditingData) {
@@ -1535,6 +1664,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     item.name = getVal('.item-name');
                     item.organization = getVal('.item-org');
                     item.dates = getVal('.item-dates');
+                } else if (section === 'education') {
+                    item.institution = getVal('.item-institution');
+                    item.degree = getVal('.item-degree');
+                    item.gpa = getVal('.item-gpa');
+                    item.dates = getVal('.item-dates');
                 } else {
                     item.name = getVal('.item-name');
                     item.tech = getVal('.item-tech');
@@ -1542,7 +1676,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 // Only sections with bullets
-                if (!['certifications', 'awards'].includes(section)) {
+                if (!['certifications', 'awards', 'education'].includes(section)) {
                     const bInputs = b.querySelectorAll('.bullet-input');
                     item.bullets = Array.from(bInputs).map(i => i.value).filter(t => t.trim().length > 0);
 
@@ -1986,4 +2120,64 @@ document.addEventListener('DOMContentLoaded', async () => {
             item.classList.remove('over');
         });
     }
+
+    // --- Item Drag & Drop Handlers (Projects, Experience, etc.) ---
+    let dragItemSrcEl = null;
+
+    function handleItemDragStart(e) {
+        dragItemSrcEl = this;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', this.innerHTML);
+        this.classList.add('dragging');
+        e.stopPropagation(); // Prevent bubbling to section reorder if any
+    }
+
+    function handleItemDragOver(e) {
+        if (e.preventDefault) {
+            e.preventDefault();
+        }
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+    }
+
+    function handleItemDragEnter(e) {
+        this.classList.add('over');
+    }
+
+    function handleItemDragLeave(e) {
+        this.classList.remove('over');
+    }
+
+    function handleItemDrop(e) {
+        if (e.stopPropagation) {
+            e.stopPropagation();
+        }
+
+        if (dragItemSrcEl !== this) {
+            const list = this.parentNode;
+            const items = Array.from(list.children);
+            const fromIndex = items.indexOf(dragItemSrcEl);
+            const toIndex = items.indexOf(this);
+
+            if (fromIndex < toIndex) {
+                this.after(dragItemSrcEl);
+            } else {
+                this.before(dragItemSrcEl);
+            }
+        }
+        return false;
+    }
+
+    function handleItemDragEnd(e) {
+        this.classList.remove('dragging');
+
+        // Clean up 'over' class from all potential siblings
+        const container = this.parentNode;
+        if (container) {
+            container.querySelectorAll('.item-block').forEach(item => {
+                item.classList.remove('over');
+            });
+        }
+    }
+
 });

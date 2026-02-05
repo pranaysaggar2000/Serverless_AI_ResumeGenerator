@@ -952,7 +952,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    async function performAnalysis() {
+    async function performAnalysis(resumeData = tailoredResume) {
         const activeKey = currentProvider === 'groq' ? currentGroqKey : currentApiKey;
         if (!currentJdText) {
             showStatus("No Job Description detected. Refresh the page.", "error");
@@ -964,7 +964,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    resume_data: tailoredResume,
+                    resume_data: resumeData,
                     jd_text: currentJdText,
                     api_key: activeKey,
                     provider: currentProvider
@@ -1035,14 +1035,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
     analyzeBtn.addEventListener('click', async () => {
-        if (!tailoredResume) {
-            showStatus("No resume generated to analyze.", "error");
+        const resumeToAnalyze = tailoredResume || baseResume;
+
+        if (!resumeToAnalyze) {
+            showStatus("No resume loaded to analyze.", "error");
             return;
         }
         const statusMessage = hasAnalyzed ? "Re-analyzing ATS Score..." : "Analyzing ATS Score...";
         showStatus(statusMessage, "info");
 
-        const success = await performAnalysis();
+        const success = await performAnalysis(resumeToAnalyze);
 
         if (success) {
             hasAnalyzed = true; // Mark as analyzed

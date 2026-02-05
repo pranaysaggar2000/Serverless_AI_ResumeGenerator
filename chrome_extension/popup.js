@@ -369,7 +369,53 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
+        if (section === 'research') {
+            html += `
+                <div style="margin-bottom: 20px; padding: 10px; background: #eef; border-radius: 4px; border: 1px solid #cce;">
+                    <p style="margin: 0 0 10px 0; font-size: 11px; color: #557;">Prefer to list these as Projects instead?</p>
+                    <button id="moveResearchToProjectsBtn" class="secondary-btn" style="width: 100%;">Move All Research to Projects Section</button>
+                </div>
+            `;
+        }
+
         container.innerHTML = html || '<p style="font-size: 11px; color: #999;">No data for this section.</p>';
+
+        // Attach event listener for the move button if it exists
+        const moveBtn = document.getElementById('moveResearchToProjectsBtn');
+        if (moveBtn) {
+            moveBtn.addEventListener('click', async () => {
+                if (!confirm("This will move all Research items to the Projects section and clear the Research section. Continue?")) return;
+
+                if (!baseResume.projects) baseResume.projects = [];
+                const researchItems = baseResume.research || [];
+
+                if (researchItems.length === 0) {
+                    alert("No research items to move.");
+                    return;
+                }
+
+                researchItems.forEach(item => {
+                    const newBullets = [...(item.bullets || [])];
+                    if (item.conference) newBullets.unshift(`Published in: ${item.conference}`);
+                    if (item.link) newBullets.push(`Link: ${item.link}`);
+
+                    baseResume.projects.push({
+                        name: item.title || "Research Project",
+                        dates: item.dates || "",
+                        bullets: newBullets
+                    });
+                });
+
+                baseResume.research = [];
+                await chrome.storage.local.set({ base_resume: baseResume });
+
+                showStatus(`Moved ${researchItems.length} items to Projects.`, 'success', 'profileStatus');
+
+                // Switch to projects view to show the result
+                document.getElementById('profileSectionSelect').value = 'projects';
+                renderProfileEditor('projects');
+            });
+        }
     }
 
     // Save Profile Changes

@@ -696,6 +696,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             tailoredResume = data.tailored_resume;
             currentJdAnalysis = data.jd_analysis; // Store for regeneration
 
+            // Check for API warnings (fallback usage)
+            if (tailoredResume.warning) {
+                showStatus(`⚠️ ${tailoredResume.warning}`, "warning");
+                // Keep warning visible for a moment before "Generating PDF"
+                await new Promise(r => setTimeout(r, 2000));
+
+                // Remove warning from object to avoid cluttering PDF data (though likely ignored)
+                delete tailoredResume.warning;
+            }
+
             // Show Analysis Score if available or trigger separate analysis
             // For now, let's just show success and enable PDF generation
             showStatus("Resume tailored! Generating PDF...", "info");

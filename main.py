@@ -988,6 +988,8 @@ GENERAL RULES:
     except Exception as e:
         print(f"⚠️ API Error (Tailoring): {e}")
         print("   Using base resume without AI tailoring.")
+        # Inject warning for UI to handle
+        base_resume['warning'] = f"AI Tailoring Failed ({provider}). Using Base Resume."
 
     # If parsing fails or API error, return base resume with just location updated (if valid)
     # If location detection also failed, it usually defaults to 'Remote' or 'N/A'

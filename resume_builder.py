@@ -197,7 +197,7 @@ def get_styles():
         leading=12
     ))
     
-    # The "JobRight" Bullet: Proper Hanging Indents
+    """Generates the crisp 0.5pt line used in templates."""
     styles.add(ParagraphStyle(
         name='BulletPoint',
         fontName='Times-Roman',
@@ -241,7 +241,7 @@ def remove_html_tags(text):
     return re.sub(r'<[^>]+>', '', str(text))
 
 def create_hr_line():
-    """Generates the crisp 0.5pt line used in JobRight templates."""
+    """Generates the crisp 0.5pt line used in templates."""
     # Horizontal line using a table - no extra spacing
     # Set rowHeights to 2 to minimize vertical space
     line_table = Table([['']], colWidths=[CONTENT_WIDTH], rowHeights=[2])

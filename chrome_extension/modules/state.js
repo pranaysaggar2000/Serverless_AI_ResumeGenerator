@@ -11,7 +11,9 @@ export const state = {
     tailoringStrategy: "balanced",
     currentJdAnalysis: null,
     lastAnalysis: null,
-    currentEditingData: null
+    currentEditingData: null,
+    detectedJobTitle: null,
+    detectedCompany: null
 };
 
 // Helper to update state to trigger potential listeners if we add them later

@@ -20,6 +20,7 @@ import {
     analyzeResume
 } from './modules/api.js';
 import { renderProfileEditor, saveProfileChanges, collectBulletCounts } from './modules/editor.js';
+import { extractJobDescription } from './modules/jd_extractor.js';
 
 // DOM Elements
 const setupUI = document.getElementById('setupUI');
@@ -830,6 +831,8 @@ function handleDragEnd(e) {
     sortableSections.querySelectorAll('.sortable-item').forEach(item => item.classList.remove('over'));
 }
 
+
+
 // Job Detection
 async function detectJobDescription() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -838,18 +841,29 @@ async function detectJobDescription() {
     try {
         const results = await chrome.scripting.executeScript({
             target: { tabId: tab.id },
-            func: () => document.body.innerText
+            func: extractJobDescription
         });
 
-        if (results && results[0]) {
-            const text = results[0].result;
-            updateState({ currentJdText: text });
+        if (results && results[0] && results[0].result) {
+            const data = results[0].result;
 
-            // UPDATE UI
-            showStatus(`Detected Job: ${tab.title.substring(0, 30)}...`, "success");
-            setTimeout(() => showStatus('', ''), 3000);
+            if (data.text && data.text.length > 50) {
+                updateState({
+                    currentJdText: data.text,
+                    detectedJobTitle: data.title,
+                    detectedCompany: data.company
+                });
+
+                // UPDATE UI
+                const jobTitle = data.title || "Job";
+                const company = data.company || "Unknown";
+                showStatus(`Detected: ${jobTitle} @ ${company}`, "success");
+                setTimeout(() => showStatus('', ''), 4000); // slightly longer timeout
+            } else {
+                console.log("Extracted text too short.");
+            }
         }
     } catch (e) {
-        console.log("Could not read tab", e);
+        console.log("Could not extract JD", e);
     }
 }

@@ -286,5 +286,20 @@ def api_regenerate_resume():
 def health():
     return jsonify({"status": "ok", "version": "2.0.0"})
 
+@app.route('/privacy.html', methods=['GET'])
+@app.route('/privacy', methods=['GET'])
+def privacy():
+    """Serve the privacy policy HTML."""
+    try:
+        # Read the file from the root directory
+        # In Vercel, the root is usually where the function is running or one level up depending on structure
+        # We try explicit path first
+        privacy_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'privacy.html')
+        with open(privacy_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return content, 200, {'Content-Type': 'text/html'}
+    except Exception as e:
+        return f"Error loading privacy policy: {str(e)}", 500
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

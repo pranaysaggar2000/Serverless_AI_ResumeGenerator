@@ -368,6 +368,8 @@ def generate_resume(data, filename_or_buffer):
                 story.append(create_aligned_row(edu.get('degree', ''), edu.get('location', ''), styles['ItalicEntry']))
                 if edu.get('gpa'):
                      story.append(Paragraph(f"• {edu['gpa']}", styles['BulletPoint']))
+                for bullet in edu.get('bullets', []):
+                    story.append(Paragraph(f"• {bullet}", styles['BulletPoint']))
                 story.append(Spacer(1, 2))
 
         elif section == "skills":

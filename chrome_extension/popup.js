@@ -254,6 +254,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <input type="text" data-field="contact.portfolio_url" value="${contact.portfolio_url || ''}" placeholder="Portfolio URL">
                 </div>
             `;
+        } else if (section === 'education') {
+            const education = baseResume.education || [];
+            education.forEach((edu, idx) => {
+                html += `
+                    <div style="border: 1px solid #ddd; padding: 8px; margin-bottom: 8px; border-radius: 4px;">
+                        <strong style="font-size: 12px;">${edu.institution || 'Education'} #${idx + 1}</strong>
+                        <div class="edit-field">
+                            <label>Institution</label>
+                            <input type="text" data-field="education.${idx}.institution" value="${edu.institution || ''}" placeholder="University Name">
+                        </div>
+                        <div class="edit-field">
+                            <label>Degree</label>
+                            <input type="text" data-field="education.${idx}.degree" value="${(edu.degree || '').replace(/"/g, '&quot;')}" placeholder="Degree/Major">
+                        </div>
+                        <div class="edit-field">
+                            <label>GPA</label>
+                            <input type="text" data-field="education.${idx}.gpa" value="${(edu.gpa || '').replace(/"/g, '&quot;')}" placeholder="GPA">
+                        </div>
+                        <div class="edit-field">
+                            <label>Dates</label>
+                            <input type="text" data-field="education.${idx}.dates" value="${(edu.dates || '').replace(/"/g, '&quot;')}" placeholder="e.g., 2016 - 2020">
+                        </div>
+                    </div>
+                `;
+            });
         } else if (section === 'experience') {
             const experiences = baseResume.experience || [];
             experiences.forEach((exp, idx) => {
@@ -381,13 +406,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         container.innerHTML = html || '<p style="font-size: 11px; color: #999;">No data for this section.</p>';
 
         // Add "Add Item" buttons for list sections
-        if (['experience', 'projects', 'leadership', 'research'].includes(section)) {
+        if (['experience', 'projects', 'leadership', 'research', 'education'].includes(section)) {
             const addBtn = document.createElement('button');
             const labels = {
                 experience: "Experience",
                 projects: "Project",
                 leadership: "Leadership Role",
-                research: "Research Paper"
+                research: "Research Paper",
+                education: "Education"
             };
             addBtn.textContent = `➕ Add ${labels[section]}`;
             addBtn.className = "secondary-btn";
@@ -398,6 +424,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Initialize empty item based on section
                 const newItem = { bullets: ["New bullet point"] };
                 if (section === 'experience') Object.assign(newItem, { company: "New Company", role: "Role", location: "", dates: "Dates" });
+                if (section === 'education') Object.assign(newItem, { institution: "University Name", degree: "Degree", gpa: "", dates: "Dates", location: "", bullets: [] });
                 if (section === 'projects') Object.assign(newItem, { name: "New Project", dates: "Dates" });
                 if (section === 'leadership') Object.assign(newItem, { organization: "New Org", role: "Role", dates: "Dates" });
                 if (section === 'research') Object.assign(newItem, { title: "New Paper Title", conference: "Conference/Journal", dates: "Date", link: "" });
@@ -1251,53 +1278,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Helper for Skills Rendering to support Arrows
-        function renderSkillBlock(container, category, skills) {
-            const div = document.createElement('div');
-            div.className = 'item-block';
-            div.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                    <input type="text" class="skill-category-input" value="${category}" style="font-weight: bold; width: 50%;" placeholder="Category Name">
-                    
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <div style="display:flex; gap:2px;">
-                            <button class="move-up-btn" title="Move Up" style="cursor:pointer; padding:2px 6px;">⬆️</button>
-                            <button class="move-down-btn" title="Move Down" style="cursor:pointer; padding:2px 6px;">⬇️</button>
-                        </div>
-                        <button class="remove-btn remove-category-btn">🗑️ Remove</button>
-                    </div>
-                </div>
-                <textarea class="skill-values-input" style="height: 60px;">${skills}</textarea>
-            `;
 
-            // Remove handler
-            div.querySelector('.remove-category-btn').onclick = () => {
-                div.remove();
-                updateArrowVisibility(container);
-            };
-
-            // Arrow handlers
-            const upBtn = div.querySelector('.move-up-btn');
-            const downBtn = div.querySelector('.move-down-btn');
-
-            if (upBtn) upBtn.onclick = () => {
-                if (div.previousElementSibling) {
-                    div.parentNode.insertBefore(div, div.previousElementSibling);
-                    updateArrowVisibility(container);
-                }
-            };
-
-            if (downBtn) downBtn.onclick = () => {
-                if (div.nextElementSibling) {
-                    div.parentNode.insertBefore(div.nextElementSibling, div);
-                    updateArrowVisibility(container);
-                }
-            };
-
-            container.appendChild(div);
-            updateArrowVisibility(container);
-
-
-        }
         else if (section === 'languages') {
             if (!data) data = "";
             if (Array.isArray(data)) data = data.join(", ");
@@ -1367,8 +1348,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (section === 'projects') newItem = { name: "New Project", tech: "", dates: "", bullets: ["New bullet"] };
                 if (section === 'volunteering') newItem = { organization: "Organization", role: "Volunteer", location: "", dates: "", bullets: ["New bullet"] };
                 if (section === 'certifications') newItem = { name: "Certification Name", issuer: "Issuer", dates: "Date" };
-                if (section === 'awards') newItem = { name: "Award Name", organization: "Organization", dates: "Date" };
-                if (section === 'education') newItem = { institution: "University Name", degree: "Degree", gpa: "", dates: "Dates" };
+                if (section === 'education') newItem = { institution: "University Name", degree: "Degree", gpa: "", location: "", dates: "Dates", bullets: [] };
 
                 renderItemBlock(listDiv, newItem, section);
             };
@@ -1444,7 +1424,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <input type="text" class="item-institution" value="${item.institution || ''}" placeholder="Institution" style="font-weight:bold;">
                     <input type="text" class="item-degree" value="${item.degree || ''}" placeholder="Degree/Major">
                     <input type="text" class="item-gpa" value="${item.gpa || ''}" placeholder="GPA">
-                    <input type="text" class="item-dates" value="${item.dates || ''}" placeholder="Dates">
+                    <input type="text" class="item-location" value="${item.location || ''}" placeholder="Location">
+                    <input type="text" class="item-dates" value="${item.dates || ''}" placeholder="Dates" style="grid-column: span 2;">
                 </div>`;
         }
 
@@ -1668,6 +1649,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     item.institution = getVal('.item-institution');
                     item.degree = getVal('.item-degree');
                     item.gpa = getVal('.item-gpa');
+                    item.location = getVal('.item-location');
                     item.dates = getVal('.item-dates');
                 } else {
                     item.name = getVal('.item-name');
@@ -2178,6 +2160,53 @@ document.addEventListener('DOMContentLoaded', async () => {
                 item.classList.remove('over');
             });
         }
+    }
+
+    // Helper for Skills Rendering to support Arrows
+    function renderSkillBlock(container, category, skills) {
+        const div = document.createElement('div');
+        div.className = 'item-block';
+        div.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <input type="text" class="skill-category-input" value="${category}" style="font-weight: bold; width: 50%;" placeholder="Category Name">
+                
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <div style="display:flex; gap:2px;">
+                        <button class="move-up-btn" title="Move Up" style="cursor:pointer; padding:2px 6px;">⬆️</button>
+                        <button class="move-down-btn" title="Move Down" style="cursor:pointer; padding:2px 6px;">⬇️</button>
+                    </div>
+                    <button class="remove-btn remove-category-btn">🗑️ Remove</button>
+                </div>
+            </div>
+            <textarea class="skill-values-input" style="height: 60px;">${skills}</textarea>
+        `;
+
+        // Remove handler
+        div.querySelector('.remove-category-btn').onclick = () => {
+            div.remove();
+            updateArrowVisibility(container);
+        };
+
+        // Arrow handlers
+        const upBtn = div.querySelector('.move-up-btn');
+        const downBtn = div.querySelector('.move-down-btn');
+
+        if (upBtn) upBtn.onclick = () => {
+            if (div.previousElementSibling) {
+                div.parentNode.insertBefore(div, div.previousElementSibling);
+                updateArrowVisibility(container);
+            }
+        };
+
+        if (downBtn) downBtn.onclick = () => {
+            if (div.nextElementSibling) {
+                div.parentNode.insertBefore(div.nextElementSibling, div);
+                updateArrowVisibility(container);
+            }
+        };
+
+        container.appendChild(div);
+        updateArrowVisibility(container);
     }
 
 });

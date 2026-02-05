@@ -977,6 +977,10 @@ GENERAL RULES:
                     # RESTORE CONSTANTS (Role, Company, Dates) using fuzzy matching
                     cleaned = restore_immutable_fields(base_resume, cleaned)
                     
+                    # PRESERVE SECTION TITLES
+                    if 'section_titles' in base_resume:
+                        cleaned['section_titles'] = base_resume['section_titles']
+                    
                     # Note: We rely on AI to respect bullet counts now, as strict enforcement
                     # by index is impossible after reordering.
                     

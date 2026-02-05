@@ -305,12 +305,27 @@ def generate_resume(data, filename_or_buffer):
     styles = get_styles()
     story = []
 
+    # Default Titles
+    titles = {
+        "summary": "Summary",
+        "education": "Education",
+        "skills": "Technical Knowledge",
+        "experience": "Work Experience",
+        "projects": "Research and Projects",
+        "research": "Research & Publications",
+        "leadership": "Leadership Experience"
+    }
+    
+    # Override with user preferences
+    if 'section_titles' in data:
+        titles.update(data['section_titles'])
+
     # 1. Header
     story.append(Paragraph(data['name'], styles['NameHeader']))
     story.append(Paragraph(data['contact'], styles['ContactLine']))
 
     # 2. Summary
-    story.append(Paragraph("Summary", styles['SectionHeader']))
+    story.append(Paragraph(titles["summary"], styles['SectionHeader']))
     story.append(create_hr_line())
     story.append(Spacer(1, 3))
     # Use SummaryStyle instead of BulletPoint to fix indentation issue
@@ -318,7 +333,7 @@ def generate_resume(data, filename_or_buffer):
     story.append(Spacer(1, 2))
 
     # 3. Education
-    story.append(Paragraph("Education", styles['SectionHeader']))
+    story.append(Paragraph(titles["education"], styles['SectionHeader']))
     story.append(create_hr_line())
     story.append(Spacer(1, 3))
     for edu in data['education']:
@@ -329,7 +344,7 @@ def generate_resume(data, filename_or_buffer):
 
     # 4. Technical Knowledge
     # Moved above Work Experience as requested
-    story.append(Paragraph("Technical Knowledge", styles['SectionHeader']))
+    story.append(Paragraph(titles["skills"], styles['SectionHeader']))
     story.append(create_hr_line())
     story.append(Spacer(1, 3))
     for category, skills in data['skills'].items():
@@ -340,7 +355,7 @@ def generate_resume(data, filename_or_buffer):
     story.append(Spacer(1, 2))
     
     # 5. Work Experience
-    story.append(Paragraph("Work Experience", styles['SectionHeader']))
+    story.append(Paragraph(titles["experience"], styles['SectionHeader']))
     story.append(create_hr_line())
     story.append(Spacer(1, 1))
     for exp in data['experience']:
@@ -352,7 +367,7 @@ def generate_resume(data, filename_or_buffer):
 
     # 6. Research and Projects
     if 'projects' in data and data['projects']:
-        story.append(Paragraph("Research and Projects", styles['SectionHeader']))
+        story.append(Paragraph(titles["projects"], styles['SectionHeader']))
         story.append(create_hr_line())
         story.append(Spacer(1, 1))
         for proj in data['projects']:
@@ -368,7 +383,7 @@ def generate_resume(data, filename_or_buffer):
 
     # 7. Research & Publications
     if 'research' in data and data['research']:
-        story.append(Paragraph("Research & Publications", styles['SectionHeader']))
+        story.append(Paragraph(titles["research"], styles['SectionHeader']))
         story.append(create_hr_line())
         story.append(Spacer(1, 1))
         for res in data['research']:
@@ -391,7 +406,7 @@ def generate_resume(data, filename_or_buffer):
 
     # 8. Leadership Experience
     if 'leadership' in data and data['leadership']:
-        story.append(Paragraph("Leadership Experience", styles['SectionHeader']))
+        story.append(Paragraph(titles["leadership"], styles['SectionHeader']))
         story.append(create_hr_line())
         story.append(Spacer(1, 1))
         for lead in data['leadership']:

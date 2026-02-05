@@ -1147,11 +1147,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (section === 'summary') {
             const div = document.createElement('div');
             div.className = 'edit-field';
-            div.innerHTML = `<label>Summary Text</label>
-                             <textarea id="edit_summary_text" style="height: 100px;">${data || ''}</textarea>`;
+
+            // Section Title Input
+            const currentTitle = (baseResume.section_titles && baseResume.section_titles[section]) || "Summary";
+            div.innerHTML = `
+                <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+                    <label>Section Title (vs "Summary")</label>
+                    <input type="text" id="sectionTitleInput" value="${currentTitle}" placeholder="Summary">
+                </div>
+                <label>Summary Text</label>
+                <textarea id="edit_summary_text" style="height: 100px;">${data || ''}</textarea>`;
             formContainer.appendChild(div);
         }
         else if (section === 'contact') {
+            // ... (Contact doesn't need a section title usually, it's the header)
             // Handle raw string case just in case
             if (typeof data !== 'object') data = { location: data || "" };
 
@@ -1173,7 +1182,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
         else if (section === 'skills') {
+            // ... already handled ...
             if (!data) data = {};
+
+            // Section Title Input
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'edit-field';
+            titleDiv.style.marginBottom = "15px";
+            titleDiv.style.paddingBottom = "10px";
+            titleDiv.style.borderBottom = "1px solid #eee";
+            const currentTitle = (baseResume.section_titles && baseResume.section_titles[section]) || "Technical Knowledge";
+            titleDiv.innerHTML = `<label>Section Title (vs "Technical Knowledge")</label>
+                                  <input type="text" id="sectionTitleInput" value="${currentTitle}" placeholder="Technical Knowledge">`;
+            formContainer.appendChild(titleDiv);
+
             const listDiv = document.createElement('div');
             listDiv.id = 'skillsList';
 
@@ -1204,7 +1226,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
                     <textarea class="skill-values-input" style="height: 60px;"></textarea>
                 `;
-                listDiv.appendChild(div);
+                document.getElementById('skillsList').appendChild(div);
             };
             formContainer.appendChild(addBtn);
 
@@ -1213,9 +1235,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                     e.target.closest('.item-block').remove();
                 }
             });
+
         }
         else if (['experience', 'projects', 'leadership', 'research'].includes(section)) {
             if (!data) data = [];
+
+            // GENERIC LISTS TITLE INPUT
+            const defaultTitles = {
+                experience: "Work Experience",
+                projects: "Research and Projects",
+                leadership: "Leadership Experience",
+                research: "Research & Publications"
+            };
+
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'edit-field';
+            titleDiv.style.marginBottom = "15px";
+            titleDiv.style.paddingBottom = "10px";
+            titleDiv.style.borderBottom = "1px solid #eee";
+            const currentTitle = (baseResume.section_titles && baseResume.section_titles[section]) || defaultTitles[section];
+            titleDiv.innerHTML = `<label>Section Title (vs "${defaultTitles[section]}")</label>
+                                  <input type="text" id="sectionTitleInput" value="${currentTitle}" placeholder="${defaultTitles[section]}">`;
+            formContainer.appendChild(titleDiv);
+
+
             const listDiv = document.createElement('div');
             listDiv.id = 'itemsList';
 
@@ -1384,8 +1427,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const v = b.querySelector('.skill-values-input').value;
                 if (k) skills[k] = v;
             });
+
+            // Save Title
+            const titleInput = document.getElementById('sectionTitleInput');
+            if (titleInput && currentEditingData) {
+                if (!currentEditingData.section_titles) currentEditingData.section_titles = {};
+                currentEditingData.section_titles[section] = titleInput.value;
+            }
+
             return skills;
         } else if (['experience', 'projects', 'leadership', 'research'].includes(section)) {
+            // Save Title
+            const titleInput = document.getElementById('sectionTitleInput');
+            if (titleInput && currentEditingData) {
+                if (!currentEditingData.section_titles) currentEditingData.section_titles = {};
+                currentEditingData.section_titles[section] = titleInput.value;
+            }
+
             const blocks = formContainer.querySelectorAll('.item-block');
             const list = [];
             blocks.forEach(b => {

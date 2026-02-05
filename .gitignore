@@ -25,12 +25,16 @@ user_profile.json
 
 # Assets & Build
 ForgeCV-*.zip
-screenshots/
-store_screenshots/
 promo_*.png
 icon128.png
 demo_resume.txt
 demo_resume.pdf
+
+# Test & Dev
 test_*.py
 convert_*.py
 create_*.py
+mock_*.js
+
+# Temporary
+popup original.js

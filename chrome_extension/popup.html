@@ -3,187 +3,85 @@
 
 <head>
   <meta charset="UTF-8">
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      width: 100%;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      padding: 15px;
-      margin: 0;
-      background-color: #f8f9fa;
-      overflow-x: hidden;
-      /* Prevent horizontal scroll */
-    }
-
-    h1 {
-      font-size: 18px;
-      color: #333;
-      margin-top: 0;
-      margin-bottom: 15px;
-      display: flex;
-      align-items: center;
-    }
-
-    .icon {
-      margin-right: 8px;
-      font-size: 20px;
-    }
-
-    button {
-      width: 100%;
-      padding: 12px;
-      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: opacity 0.2s;
-    }
-
-    button:hover {
-      opacity: 0.9;
-    }
-
-    button:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-
-    #status {
-      margin-top: 15px;
-      font-size: 13px;
-      color: #666;
-      line-height: 1.4;
-      min-height: 40px;
-    }
-
-    .error {
-      color: #dc3545;
-      background-color: #f8d7da;
-      border: 1px solid #f5c6cb;
-      padding: 8px;
-      border-radius: 4px;
-      margin-top: 10px;
-      display: none;
-    }
-
-    .success {
-      color: #155724;
-      background-color: #d4edda;
-      border: 1px solid #c3e6cb;
-      padding: 8px;
-      border-radius: 4px;
-      margin-top: 10px;
-      display: none;
-    }
-
-    .tip {
-      font-size: 11px;
-      color: #888;
-      margin-top: 15px;
-      border-top: 1px solid #eee;
-      padding-top: 10px;
-    }
-  </style>
+  <link rel="stylesheet" href="popup.css">
 </head>
 
 <body>
-  <h1>
-    <div style="display: flex; align-items: center; flex-grow: 1;">
-      <span class="icon">📄</span> Resume Generator
+  <header>
+    <div class="logo">
+      <span>📄</span> ForgeCV
     </div>
-    <button id="profileToggle"
-      style="width: auto; padding: 5px; background: transparent; color: #555; border: 1px solid #ddd; font-size: 16px; margin-right: 5px;">👤</button>
-    <button id="settingsToggle"
-      style="width: auto; padding: 5px; background: transparent; color: #555; border: 1px solid #ddd; font-size: 16px;">⚙️</button>
-  </h1>
+    <div class="controls">
+      <button id="profileToggle" class="icon-btn" title="Manage Profile">👤</button>
+      <button id="settingsToggle" class="icon-btn" title="Settings">⚙️</button>
+    </div>
+  </header>
 
-  <p style="font-size: 13px; color: #555; margin-bottom: 15px;">
-    Navigate to a job posting and click Generate.
-  </p>
+  <div id="status"></div>
 
-  <div id="settingsUI"
-    style="display: none; margin-bottom: 20px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 6px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-      <h3 style="margin: 0; font-size: 14px;">⚙️ Settings</h3>
-      <button id="backFromSettings" style="width: auto; padding: 5px 10px; background: #6c757d; font-size: 12px;">←
-        Back</button>
+  <!-- Settings UI -->
+  <div id="settingsUI" class="hidden">
+    <div class="flex-between" style="margin-bottom: 16px;">
+      <h3>Settings</h3>
+      <button id="backFromSettings" class="secondary-btn icon-btn"
+        style="width:auto; padding: 4px 8px; font-size:11px;">✕</button>
     </div>
 
-    <!-- AI Provider Selection -->
-    <label for="providerSelect" style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">AI
-      Provider</label>
-    <select id="providerSelect"
-      style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">
-      <option value="gemini">Google Gemini (Recommended)</option>
-      <option value="groq">Groq (Llama 3)</option>
-    </select>
-
-    <!-- Gemini Key -->
-    <div id="geminiKeyData">
-      <label for="apiKey" style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Gemini API
-        Key</label>
-      <input type="password" id="apiKey" placeholder="Enter your Gemini API Key"
-        style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">
-      <div style="font-size: 11px; color: #666; margin-bottom: 15px;">
-        Get your key from <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.
+    <div class="settings-card">
+      <div class="edit-field">
+        <label for="providerSelect">AI Provider</label>
+        <select id="providerSelect">
+          <option value="gemini">Google Gemini (Recommended)</option>
+          <option value="groq">Groq (Llama 3)</option>
+        </select>
       </div>
-    </div>
 
-    <!-- Groq Key -->
-    <div id="groqKeyData" style="display: none;">
-      <label for="groqApiKey" style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Groq API
-        Key</label>
-      <input type="password" id="groqApiKey" placeholder="Enter your Groq API Key"
-        style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">
-      <div style="font-size: 11px; color: #666; margin-bottom: 15px;">
-        Get your key from <a href="https://console.groq.com/keys" target="_blank">Groq Console</a>.
+      <div id="geminiKeyData" class="key-section">
+        <label for="apiKey">Gemini API Key</label>
+        <div style="position:relative;">
+          <input type="password" id="apiKey" placeholder="Enter Gemini API Key">
+        </div>
+        <div class="text-sm text-muted" style="margin-top:4px;">
+          Get key from <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.
+        </div>
       </div>
-    </div>
 
-    <button id="saveSettingsBtn" style="background: #28a745;">Save Settings</button>
-    <div id="settingsStatus" style="font-size: 12px; margin-top: 5px;"></div>
+      <div id="groqKeyData" class="key-section hidden">
+        <label for="groqApiKey">Groq API Key</label>
+        <input type="password" id="groqApiKey" placeholder="Enter Groq API Key">
+        <div class="text-sm text-muted" style="margin-top:4px;">
+          Get key from <a href="https://console.groq.com/keys" target="_blank">Groq Console</a>.
+        </div>
+      </div>
+
+      <button id="saveSettingsBtn" class="primary-btn" style="width:100%; margin-top:16px;">Save Settings</button>
+      <div id="settingsStatus"></div>
+    </div>
   </div>
 
-  <!-- Profile Management UI (Hidden by default) -->
-  <div id="profileUI"
-    style="display: none; margin-bottom: 20px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 6px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-      <h3 style="margin: 0; font-size: 14px;">👤 Manage Profile</h3>
-      <button id="backFromProfile" style="width: auto; padding: 5px 10px; background: #6c757d; font-size: 12px;">←
-        Back</button>
+  <!-- Profile Management UI -->
+  <div id="profileUI" class="hidden">
+    <div class="flex-between" style="margin-bottom: 16px;">
+      <h3>Manage Profile</h3>
+      <button id="backFromProfile" class="secondary-btn icon-btn"
+        style="width:auto; padding: 4px 8px; font-size:11px;">✕</button>
     </div>
 
-    <!-- Re-upload Resume Option -->
-    <div style="background: #f8f9fa; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
-      <h4 style="margin: 0 0 8px 0; font-size: 13px;">📄 Re-upload Base Resume</h4>
-      <input type="file" id="reuploadResumeFile" accept=".pdf"
-        style="font-size: 12px; margin-bottom: 8px; width: 100%;">
-      <button id="reuploadBtn" style="background: #667eea; font-size: 12px; padding: 6px 12px;">Upload New
-        Resume</button>
+    <div class="card">
+      <h4 style="margin-bottom:12px;">📄 Re-upload Base Resume</h4>
+      <input type="file" id="reuploadResumeFile" accept=".pdf" style="margin-bottom:10px;">
+      <button id="reuploadBtn" class="primary-btn" style="width:100%;">Upload New Resume</button>
 
-      <div style="text-align: center; margin: 10px 0; font-size: 11px; color: #888;">- OR -</div>
+      <div class="divider-or"><span>OR PASTE TEXT</span></div>
 
-      <textarea id="reuploadResumeText" placeholder="Paste your full resume text here..."
-        style="width: 100%; height: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; font-size: 11px; margin-bottom: 8px; resize: vertical;"></textarea>
-      <button id="reuploadTextBtn" style="background: #667eea; font-size: 12px; padding: 6px 12px;">Process
-        Text</button>
+      <textarea id="reuploadResumeText" placeholder="Paste full resume text..." style="height: 80px;"></textarea>
+      <button id="reuploadTextBtn" class="primary-btn" style="width:100%; margin-top:8px;">Process Text</button>
     </div>
 
-    <!-- Manual Edit Option -->
-    <div style="background: #f8f9fa; padding: 10px; border-radius: 4px;">
-      <h4 style="margin: 0 0 8px 0; font-size: 13px;">✏️ Edit Profile Manually</h4>
-      <p style="font-size: 11px; color: #666; margin-bottom: 10px;">Edit your base profile information directly.</p>
-
-      <label for="profileSectionSelect" style="display: block; font-size: 12px; margin-bottom: 5px;">Select
-        Section:</label>
-      <select id="profileSectionSelect"
-        style="width: 100%; padding: 6px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px;">
+    <div class="card">
+      <h4 style="margin-bottom:12px;">✏️ Manual Edit</h4>
+      <label for="profileSectionSelect" class="text-sm text-muted">Select Section:</label>
+      <select id="profileSectionSelect" style="margin-bottom:12px;">
         <option value="contact">Contact Info</option>
         <option value="education">Education</option>
         <option value="experience">Experience</option>
@@ -197,303 +95,167 @@
         <option value="languages">Languages</option>
       </select>
 
-      <div id="profileFormContainer"
-        style="max-height: 300px; overflow-y: auto; margin-bottom: 10px; border: 1px solid #eee; padding: 5px; border-radius: 4px;">
-        <!-- Dynamic form will be rendered here -->
-      </div>
+      <div id="profileFormContainer" style="max-height: 400px; overflow-y: auto;"></div>
 
-      <div style="display: flex; gap: 10px;">
-        <button id="saveProfileBtn" style="background: #28a745; font-size: 12px; padding: 6px 12px;">Save Profile
-          Changes</button>
-        <button id="cancelProfileEditBtn"
-          style="background: #6c757d; font-size: 12px; padding: 6px 12px;">Cancel</button>
+      <div class="flex-between" style="gap:10px; margin-top:16px;">
+        <button id="saveProfileBtn" class="primary-btn" style="flex:1;">Save Changes</button>
+        <button id="cancelProfileEditBtn" class="secondary-btn" style="flex:1;">Cancel</button>
       </div>
     </div>
-
-    <div id="profileStatus" style="font-size: 12px; margin-top: 10px;"></div>
+    <div id="profileStatus"></div>
   </div>
 
+  <!-- Setup UI -->
+  <div id="setupUI" class="hidden">
+    <div class="upload-zone">
+      <h2 style="font-size:18px; margin-bottom:8px;">Welcome to ForgeCV</h2>
+      <p class="text-muted" style="margin-bottom:20px;">Upload your resume to get started.</p>
 
-
-  <div id="setupUI" style="display: none; text-align: center; margin-bottom: 20px;">
-    <div style="background: #eef2f5; padding: 15px; border-radius: 8px; border: 1 dashed #ccc;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <h3 style="margin: 0; font-size: 14px;">Setup Your Profile</h3>
-        <button id="backFromSetup"
-          style="width: auto; padding: 5px 10px; background: #6c757d; font-size: 12px; display: none;">← Back</button>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">Setup</h3>
+        <button id="backFromSetup" class="secondary-btn" style="font-size:11px; padding:4px 8px;">Back</button>
       </div>
-      <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Upload your base resume to get started.</p>
-      <input type="file" id="resumeFile" accept=".pdf" style="font-size: 12px; margin-bottom: 10px; width: 100%;">
-      <button id="uploadBtn" style="background: #667eea;">Upload Resume</button>
 
-      <div style="margin: 15px 0; font-size: 12px; color: #888;">- OR -</div>
+      <input type="file" id="resumeFile" accept=".pdf" style="margin: 16px 0;">
+      <button id="uploadBtn" class="primary-btn" style="width:100%;">Upload Resume</button>
+      <div id="uploadStatus"></div>
 
-      <textarea id="resumeTextInit" placeholder="Paste your full resume text here..."
-        style="width: 100%; height: 100px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; font-size: 11px; margin-bottom: 10px; resize: vertical;"></textarea>
-      <button id="processTextInitBtn" style="background: #667eea;">Process Text</button>
+      <div class="divider-or"><span>OR PASTE TEXT</span></div>
+
+      <textarea id="resumeTextInit" placeholder="Paste resume text..." style="height: 100px;"></textarea>
+      <button id="processTextInitBtn" class="primary-btn" style="width:100%; margin-top:8px;">Process Text</button>
+      <div id="textStatus" style="margin-top:8px;"></div>
     </div>
   </div>
 
-  <!-- Main UI (Hidden until profile confirmed) -->
-  <div id="mainUI" style="display: none;">
-    <div style="font-size: 12px; color: #555; margin-bottom: 10px;">
-      <span>Using profile: <strong id="profileName">Loading...</strong></span>
+  <!-- Main UI -->
+  <div id="mainUI" class="hidden">
+    <div class="profile-pill">
+      <span>Using:</span> <strong id="profileName">Loading...</strong>
     </div>
 
-    <!-- Tailoring Strategy Slider -->
-    <div
-      style="margin-bottom: 15px; padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e0e0e0;">
-      <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #333;">
-        📊 Tailoring Strategy
-      </label>
-      <div style="position: relative; margin-bottom: 8px;">
-        <input type="range" id="tailoringSlider" min="0" max="2" value="1" step="1"
-          style="width: 100%; cursor: pointer; accent-color: #667eea;">
-        <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 11px; color: #666;">
-          <span style="text-align: left; width: 33%;">📝 Profile<br>Focus</span>
-          <span style="text-align: center; width: 33%;">⚖️ Balanced</span>
-          <span style="text-align: right; width: 33%;">🎯 JD<br>Focus</span>
-        </div>
+    <!-- Tailoring Strategy -->
+    <div class="card">
+      <label class="text-sm font-bold text-muted" style="display:block; margin-bottom:8px;">TAILORING BASIS</label>
+      <input type="range" id="tailoringSlider" min="0" max="2" value="1" step="1">
+      <div class="strategy-labels">
+        <span>Profile Focus</span>
+        <span>Balanced</span>
+        <span>JD Focus</span>
       </div>
-      <div id="strategyDescription"
-        style="font-size: 11px; color: #555; margin-top: 8px; padding: 6px; background: #fff; border-radius: 4px; border: 1px solid #e0e0e0;">
-        Balanced approach - integrates JD keywords while maintaining authenticity
+      <div id="strategyDescription" class="text-sm text-muted" style="margin-top:12px; font-style:italic;">
+        Balanced approach - integrates JD keywords...
       </div>
     </div>
 
-
-    <button id="generateBtn">Process Page & Generate Resume</button>
-    <button id="generateBaseBtn" style="background: #17a2b8; margin-top: 10px;">Generate Base Resume (No AI)</button>
-
-    <div id="status"></div>
-
-    <!-- Action Buttons (Hidden by default) -->
-    <div id="actions" style="display: none; margin-top: 15px;">
-      <button id="previewBtn" style="background: #28a745; margin-bottom: 8px;">preview pdf</button>
-      <button id="downloadBtn" style="background: #17a2b8; margin-bottom: 8px;">Download PDF</button>
-      <button id="editBtn" style="background: #ffc107; color: #333; margin-bottom: 8px;">✏️ Edit Resume</button>
-      <button id="copyContentBtn" style="background: #17a2b8; margin-bottom: 8px;">📋 Copy Content</button>
-      <button id="analyzeBtn" style="background: linear-gradient(90deg, #8E2DE2, #4A00E0); margin-bottom: 8px;">📊
-        Analyze ATS Score</button>
-
-
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <button id="generateBtn" class="primary-btn" style="padding:14px;">⚡ Process Page & Generate Resume</button>
+      <button id="generateBaseBtn" class="secondary-btn">Generate Base Resume (No AI)</button>
     </div>
 
-    <!-- Copy UI (Hidden by default) -->
-    <div id="copyUI" style="display: none; margin-top: 15px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <h3 style="margin: 0; font-size: 14px;">Copy Resume Details</h3>
-        <button id="closeCopyBtn"
-          style="width: auto; padding: 5px 10px; background: #6c757d; font-size: 12px;">Back</button>
+    <!-- Actions (Post-Generation) -->
+    <div id="actions" class="hidden">
+      <div class="actions-grid">
+        <button id="previewBtn">👁️ Preview PDF</button>
+        <button id="downloadBtn">📥 Download PDF</button>
+        <button id="editBtn">✏️ Edit Resume</button>
+        <button id="copyContentBtn">📋 Copy Content</button>
+        <button id="analyzeBtn">📊 Analyze ATS Score</button>
       </div>
-      <div id="copyList" style="max-height: 400px; overflow-y: auto;"></div>
     </div>
 
-    <!-- Editor UI (Hidden by default) -->
-    <div id="editorUI" style="display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
-      <h3 style="margin: 0 0 10px 0; font-size: 14px;">Edit Resume Content</h3>
+    <!-- Copy UI -->
+    <div id="copyUI" class="hidden card">
+      <div class="flex-between">
+        <h3>Copy Content</h3>
+        <button id="closeCopyBtn" class="secondary-btn icon-btn">✕</button>
+      </div>
+      <div id="copyList"></div>
+    </div>
 
-      <!-- Section Reordering (Moved here) -->
-      <div style="margin-bottom: 10px;">
-        <button id="reorderBtn" style="background: #6c757d; font-size: 12px; padding: 8px; width: 100%;">⇅ Reorder
+    <!-- Editor UI -->
+    <div id="editorUI" class="hidden">
+      <div class="flex-between" style="margin-bottom:12px;">
+        <h3>Edit Resume Content</h3>
+        <button id="reorderBtn"
+          style="background:none; border:none; color:var(--primary); font-size:12px; cursor:pointer;">⇅ Reorder
           Sections</button>
       </div>
 
-      <!-- Reorder UI (Hidden) -->
-      <div id="reorderUI"
-        style="display: none; background: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px;">
-        <h3 style="margin: 0 0 10px 0; font-size: 14px;">Drag to Reorder</h3>
-        <p style="font-size: 11px; color: #666; margin-bottom: 10px;">Only populated sections are shown.</p>
-        <ul id="sortableSections" style="list-style: none; padding: 0; margin: 0 0 10px 0;">
-          <!-- Items will be injected here -->
-        </ul>
-        <div style="display: flex; gap: 10px;">
-          <button id="saveOrderBtn" style="background: #28a745; font-size: 12px; padding: 8px;">Save Order
-            (Quick)</button>
-          <button id="cancelOrderBtn" style="background: #dc3545; font-size: 12px; padding: 8px;">Cancel</button>
+      <!-- Reorder Box -->
+      <div id="reorderUI" class="hidden card" style="background:#f1f5f9;">
+        <h4 style="font-size:13px; margin-bottom:10px;">Drag to Reorder</h4>
+        <ul id="sortableSections" style="list-style:none; padding:0; margin:0 0 10px 0;"></ul>
+        <div class="flex-between" style="gap:8px;">
+          <button id="saveOrderBtn" class="primary-btn" style="flex:1;">Save</button>
+          <button id="cancelOrderBtn" class="secondary-btn" style="flex:1;">Cancel</button>
         </div>
       </div>
 
-      <label for="sectionSelect" style="display: block; font-size: 12px; margin-bottom: 5px;">Select Section:</label>
-      <select id="sectionSelect"
-        style="width: 100%; padding: 6px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px;">
-        <optgroup label="Sections">
-          <option value="summary">Summary</option>
-          <option value="education">Education</option>
-          <option value="skills">Skills</option>
-          <option value="experience">Experience</option>
-          <option value="projects">Projects</option>
-          <option value="leadership">Leadership</option>
-          <option value="research">Research & Publications</option>
-          <option value="certifications">Certifications</option>
-          <option value="awards">Awards & Honors</option>
-          <option value="volunteering">Volunteering</option>
-          <option value="languages">Languages</option>
-          <option value="contact">Contact Info (Location/Links)</option>
-        </optgroup>
-      </select>
+      <div class="edit-field">
+        <select id="sectionSelect">
+          <optgroup label="Sections">
+            <option value="summary">Summary</option>
+            <option value="education">Education</option>
+            <option value="skills">Skills</option>
+            <option value="experience">Experience</option>
+            <option value="projects">Projects</option>
+            <option value="leadership">Leadership</option>
+            <option value="research">Research & Publications</option>
+            <option value="certifications">Certifications</option>
+            <option value="awards">Awards & Honors</option>
+            <option value="volunteering">Volunteering</option>
+            <option value="languages">Languages</option>
+            <option value="contact">Contact Info (Location/Links)</option>
+          </optgroup>
+        </select>
+      </div>
 
-      <!-- Dynamic Form Container -->
-      <div id="formContainer"
-        style="max-height: 300px; overflow-y: auto; margin-bottom: 10px; border: 1px solid #eee; padding: 5px;"></div>
+      <div id="formContainer" style="max-height: 400px; overflow-y: auto; padding-bottom: 20px;"></div>
 
-      <div style="display: flex; gap: 10px;">
-        <button id="saveManualBtn" style="background: #17a2b8;">Save Changes</button>
-        <button id="saveRegenBtn" style="background: #28a745;">Save & Regenerate</button>
-        <button id="cancelEditBtn" style="background: #6c757d;">Cancel</button>
+      <div class="editor-footer">
+        <button id="saveManualBtn" style="background:var(--primary); color:white;">Save Changes</button>
+        <button id="saveRegenBtn" style="background:var(--success); color:white;">Save & Regenerate</button>
+        <button id="cancelEditBtn" class="secondary-btn">Cancel</button>
       </div>
     </div>
 
-    <!-- Analysis Results (Hidden by default) -->
-    <div id="analysisResults"
-      style="display: none; margin-top: 15px; border: 1px solid #ddd; border-radius: 6px; padding: 10px; background: #fff;">
-      <h3 style="margin: 0 0 10px 0; font-size: 14px; border-bottom: 1px solid #eee; padding-bottom: 5px;">ATS Analysis
-      </h3>
-
-      <div style="display: flex; align-items: center; margin-bottom: 10px;">
-        <div style="font-size: 24px; font-weight: bold; color: #4A00E0; margin-right: 10px;" id="atsScore">--</div>
-        <div style="font-size: 12px; color: #666;">/ 100 Match Score</div>
+    <!-- Analysis Results -->
+    <div id="analysisResults" class="hidden card" style="margin-top:16px;">
+      <h3 style="border-bottom:1px solid #e2e8f0; padding-bottom:8px;">ATS Analysis</h3>
+      <div style="display: flex; align-items: center; gap:16px; margin-bottom: 12px;">
+        <div id="atsScore">--</div>
+        <div>
+          <div style="font-weight:700; font-size:14px;">Match Score</div>
+          <div class="text-sm text-muted">Analysis based on basic keywords</div>
+        </div>
       </div>
-
-      <div id="analysisDetails" style="font-size: 12px; line-height: 1.4;">
-        <!-- Dynamic content here -->
-      </div>
+      <div id="analysisDetails"></div>
     </div>
 
-    <div id="error" class="error"></div>
-
-    <!-- Smart Q&A Section -->
-    <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
-      <h2 style="font-size: 15px; margin: 0 0 10px 0; color: #333;">💡 Application Question Helper</h2>
-      <textarea id="questionInput"
-        placeholder="Paste an application question here (e.g., 'Why do you want to work here?')..."
-        style="width: 100%; height: 60px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; font-size: 13px; margin-bottom: 8px; resize: vertical; box-sizing: border-box;"></textarea>
-      <button id="askBtn" style="background: linear-gradient(90deg, #ff9966 0%, #ff5e62 100%);">Generate Answer</button>
-      <div id="answerOutput"
-        style="margin-top: 10px; font-size: 13px; color: #333; line-height: 1.4; background: #fff; padding: 10px; border-radius: 4px; border: 1px solid #eee; display: none; white-space: pre-wrap;">
-      </div>
+    <!-- Question Helper -->
+    <div style="margin-top: 20px;">
+      <details class="card" style="padding:0; overflow:hidden;">
+        <summary
+          style="padding:12px; font-weight:600; cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center;">
+          💡 Application Question Helper <span style="font-size:10px;">▼</span>
+        </summary>
+        <div style="padding:16px; border-top:1px solid #f1f5f9;">
+          <textarea id="questionInput" placeholder="Paste application question..."
+            style="height:60px; margin-bottom:8px;"></textarea>
+          <div style="display:flex; justify-content:flex-end;">
+            <button id="askBtn" class="primary-btn" style="font-size:12px; padding:6px 12px;">Generate Answer</button>
+          </div>
+          <div id="answerOutput" class="hidden" style="margin-top:12px;"></div>
+        </div>
+      </details>
     </div>
   </div>
 
-  <div class="tip">
-    <strong>Note:</strong> Using Serverless API (Gemini/Groq).
-  </div>
+  <div id="error" class="error"></div>
 
-  <style>
-    /* Field Styles */
-    .edit-field {
-      margin-bottom: 10px;
-      padding-bottom: 10px;
-      border-bottom: 1px dashed #eee;
-    }
-
-    .edit-field label {
-      display: block;
-      font-size: 11px;
-      font-weight: bold;
-      color: #555;
-      margin-bottom: 3px;
-    }
-
-    .edit-field input,
-    .edit-field textarea {
-      width: 100%;
-      padding: 5px;
-      font-size: 12px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      box-sizing: border-box;
-    }
-
-    .edit-field textarea {
-      resize: vertical;
-      min-height: 40px;
-    }
-
-    /* Nested Styles */
-    .item-block {
-      background: #f8f9fa;
-      padding: 8px;
-      margin-bottom: 8px;
-      border-radius: 4px;
-      border: 1px solid #e9ecef;
-    }
-
-    .item-header {
-      font-size: 12px;
-      font-weight: bold;
-      margin-bottom: 5px;
-      color: #007bff;
-    }
-
-    .bullet-list {
-      margin-top: 5px;
-      padding-left: 0;
-      list-style: none;
-    }
-
-    .bullet-item {
-      display: flex;
-      gap: 5px;
-      margin-bottom: 3px;
-    }
-
-    .bullet-input {
-      flex: 1;
-    }
-
-    .remove-btn {
-      color: #dc3545;
-      font-size: 10px;
-      cursor: pointer;
-      border: none;
-      background: none;
-    }
-
-    /* Sortable Styles */
-    .sortable-item {
-      padding: 10px;
-      margin-bottom: 5px;
-      background: #f8f9fa;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: grab;
-    }
-
-    .sortable-item.dragging,
-    .item-block.dragging {
-      opacity: 0.4;
-      border: 1px dashed #667eea;
-    }
-
-    .sortable-item.over,
-    .item-block.over {
-      border: 2px solid #667eea;
-      background: #eef2f5;
-    }
-
-    .sortable-item:hover {
-      background: #f8f9fa;
-    }
-
-    .sortable-item.dragging {
-      opacity: 0.6;
-      background: #e9ecef;
-      border: 1px dashed #999;
-      transform: scale(0.98);
-    }
-
-    .sortable-item .handle {
-      color: #999;
-      margin-right: 10px;
-      font-size: 16px;
-    }
-  </style>
-
-  <script src="popup.js"></script>
+  <!-- Scripts -->
+  <script src="loader.js"></script>
 </body>
 
 </html>

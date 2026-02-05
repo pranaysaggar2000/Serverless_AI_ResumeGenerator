@@ -367,18 +367,51 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
                 `;
             });
-        }
-
-        if (section === 'research') {
-            html += `
-                <div style="margin-bottom: 20px; padding: 10px; background: #eef; border-radius: 4px; border: 1px solid #cce;">
-                    <p style="margin: 0 0 10px 0; font-size: 11px; color: #557;">Prefer to list these as Projects instead?</p>
-                    <button id="moveResearchToProjectsBtn" class="secondary-btn" style="width: 100%;">Move All Research to Projects Section</button>
-                </div>
-            `;
+            const hasItems = (baseResume.research && baseResume.research.length > 0);
+            if (hasItems) {
+                html = `
+                    <div style="margin-bottom: 20px; padding: 10px; background: #eef; border-radius: 4px; border: 1px solid #cce;">
+                        <p style="margin: 0 0 10px 0; font-size: 11px; color: #557;">Prefer to list these as Projects instead?</p>
+                        <button id="moveResearchToProjectsBtn" class="secondary-btn" style="width: 100%;">Move All Research to Projects Section</button>
+                    </div>
+                ` + html;
+            }
         }
 
         container.innerHTML = html || '<p style="font-size: 11px; color: #999;">No data for this section.</p>';
+
+        // Add "Add Item" buttons for list sections
+        if (['experience', 'projects', 'leadership', 'research'].includes(section)) {
+            const addBtn = document.createElement('button');
+            const labels = {
+                experience: "Experience",
+                projects: "Project",
+                leadership: "Leadership Role",
+                research: "Research Paper"
+            };
+            addBtn.textContent = `➕ Add ${labels[section]}`;
+            addBtn.className = "secondary-btn";
+            addBtn.style.width = "100%";
+            addBtn.style.marginTop = "10px";
+
+            addBtn.onclick = async () => {
+                // Initialize empty item based on section
+                const newItem = { bullets: ["New bullet point"] };
+                if (section === 'experience') Object.assign(newItem, { company: "New Company", role: "Role", location: "", dates: "Dates" });
+                if (section === 'projects') Object.assign(newItem, { name: "New Project", dates: "Dates" });
+                if (section === 'leadership') Object.assign(newItem, { organization: "New Org", role: "Role", dates: "Dates" });
+                if (section === 'research') Object.assign(newItem, { title: "New Paper Title", conference: "Conference/Journal", dates: "Date", link: "" });
+
+                if (!baseResume[section]) baseResume[section] = [];
+                baseResume[section].push(newItem);
+
+                // Save and re-render
+                await chrome.storage.local.set({ base_resume: baseResume });
+                renderProfileEditor(section);
+            };
+
+            container.appendChild(addBtn);
+        }
 
         // Attach event listener for the move button if it exists
         const moveBtn = document.getElementById('moveResearchToProjectsBtn');

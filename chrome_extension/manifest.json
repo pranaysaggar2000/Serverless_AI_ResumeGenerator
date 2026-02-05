@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "ForgeCV: AI powered resume generator",
-    "version": "1.1",
+    "version": "1.0.0",
     "description": "Generate ATS-optimized resumes from any job description.",
     "permissions": [
         "activeTab",
@@ -12,7 +12,7 @@
     ],
     "host_permissions": [
         "http://localhost:5000/*",
-        "https://*.vercel.app/*"
+        "https://serverless-ai-resume-generator.vercel.app/*"
     ],
     "action": {
         "default_title": "ForgeCV",

@@ -112,6 +112,7 @@ async function loadState() {
             showMainUI();
             if (state.tailoredResume) actionsDiv.style.display = 'block';
             if (data.last_analysis) renderAnalysis(data.last_analysis);
+            else document.getElementById('analysisResults').classList.add('hidden'); // Ensure hidden by default
         } else {
             showSettings();
         }

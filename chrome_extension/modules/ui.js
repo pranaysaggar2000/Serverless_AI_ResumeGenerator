@@ -48,6 +48,8 @@ export function showMainUI() {
         getEl('actions').style.display = 'block';
     } else {
         getEl('actions').style.display = 'none';
+        // Also ensure analysis results are hidden if not explicitly shown/rendered later
+        if (getEl('analysisResults')) getEl('analysisResults').classList.add('hidden');
     }
 }
 

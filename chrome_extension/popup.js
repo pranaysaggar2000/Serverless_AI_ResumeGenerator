@@ -942,98 +942,153 @@ document.addEventListener('DOMContentLoaded', async () => {
         copyList.innerHTML = "";
         const data = tailoredResume;
 
-        // Helper to create sections
-        const createSection = (title, items, type) => {
-            if (!items || items.length === 0) return;
+        // Use dynamic section order or fallback to default
+        const sections = data.section_order || [
+            "summary", "education", "experience", "projects", "leadership",
+            "research", "certifications", "awards", "volunteering", "languages", "skills"
+        ];
 
+        // Titles mapping
+        const defaultTitles = {
+            summary: "Summary",
+            education: "Education",
+            experience: "Work Experience",
+            projects: "Research and Projects",
+            leadership: "Leadership Experience",
+            research: "Research & Publications",
+            certifications: "Certifications",
+            awards: "Awards & Honors",
+            volunteering: "Volunteering",
+            languages: "Languages",
+            skills: "Technical Knowledge"
+        };
+        const activeTitles = data.section_titles || {};
+
+        sections.forEach(section => {
+            if (!data[section] || (Array.isArray(data[section]) && data[section].length === 0)) return;
+            if (section === 'skills' && Object.keys(data.skills).length === 0) return;
+
+            // Section Header
             const header = document.createElement('h4');
             header.style.cssText = "margin: 10px 0 5px 0; color: #555; text-transform: uppercase; font-size: 11px; border-bottom: 1px solid #eee; padding-bottom: 2px;";
-            header.textContent = title;
+            header.textContent = activeTitles[section] || defaultTitles[section] || section;
             copyList.appendChild(header);
 
-            items.forEach((item, index) => {
-                const div = document.createElement('div');
-                div.style.cssText = "background: #fff; border: 1px solid #eee; border-radius: 4px; padding: 8px; margin-bottom: 8px;";
+            // Handle Summary
+            if (section === 'summary') {
+                const div = createCopyItemDiv("Professional Summary", "", "summary", 0);
+                div.querySelector('.copy-content-preview').innerText = data.summary;
+                copyList.appendChild(div);
+                return;
+            }
 
-                // Title Construction
-                let titleText = "";
-                let subtitleText = "";
+            // Handle Languages (String or Array)
+            if (section === 'languages') {
+                const langText = Array.isArray(data.languages) ? data.languages.join(', ') : data.languages;
+                const div = createCopyItemDiv("Languages", "", "languages", 0);
+                div.querySelector('.copy-content-preview').innerText = langText;
+                copyList.appendChild(div);
+                return;
+            }
 
-                if (type === 'experience') {
-                    titleText = item.company || "Company";
-                    subtitleText = item.role || item.title || "Role";
-                } else if (type === 'project') {
-                    titleText = item.name || "Project";
-                    subtitleText = item.tech || ""; // item.tech might not exist in new schema, check if needed
+            // Handle Skills (Dict or List)
+            if (section === 'skills') {
+                const div = createCopyItemDiv("All Skills", "Formatted List", "skills", 0);
+                let skillText = "";
+                if (Array.isArray(data.skills)) {
+                    skillText = data.skills.join(', ');
+                } else {
+                    skillText = Object.entries(data.skills).map(([cat, val]) => `${cat}: ${val}`).join('\n');
                 }
+                div.querySelector('.copy-content-preview').innerText = skillText;
+                copyList.appendChild(div);
+                return;
+            }
 
-                div.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 5px;">
-                        <div>
-                            <div style="font-weight: bold; font-size: 12px;">${titleText}</div>
-                            <div style="font-size: 11px; color: #666;">${subtitleText}</div>
-                        </div>
-                        <button class="copy-btn" data-type="${type}" data-index="${index}" 
-                            style="width: auto; padding: 4px 8px; font-size: 11px; background: #e9ecef; color: #333; border: 1px solid #ccc; cursor: pointer;">
-                            📋 Copy Desc.
-                        </button>
-                    </div>
-                    <div style="font-size: 10px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        ${(item.bullets || []).join(' ')}
-                    </div>
-                `;
+            // Handle List Sections
+            data[section].forEach((item, index) => {
+                let title = item.name || item.institution || item.company || item.organization || item.title || "Item";
+                let subtitle = item.role || item.degree || item.conference || item.issuer || "";
+
+                const div = createCopyItemDiv(title, subtitle, section, index);
+
+                // Preview text (bullets or dates)
+                let preview = "";
+                if (item.bullets && item.bullets.length > 0) preview = item.bullets.join(' ');
+                else if (item.dates) preview = item.dates;
+
+                div.querySelector('.copy-content-preview').innerText = preview;
                 copyList.appendChild(div);
             });
-        };
+        });
 
-        // Summary (Special Case)
-        if (data.summary) {
-            const header = document.createElement('h4');
-            header.style.cssText = "margin: 10px 0 5px 0; color: #555; text-transform: uppercase; font-size: 11px; border-bottom: 1px solid #eee; padding-bottom: 2px;";
-            header.textContent = "Summary";
-            copyList.appendChild(header);
-
+        // Helper to create the item UI
+        function createCopyItemDiv(title, subtitle, type, index) {
             const div = document.createElement('div');
             div.style.cssText = "background: #fff; border: 1px solid #eee; border-radius: 4px; padding: 8px; margin-bottom: 8px;";
             div.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 5px;">
-                    <div style="font-weight: bold; font-size: 12px;">Professional Summary</div>
-                    <button class="copy-btn" data-type="summary" 
+                    <div>
+                        <div style="font-weight: bold; font-size: 12px;">${title}</div>
+                        <div style="font-size: 11px; color: #666;">${subtitle}</div>
+                    </div>
+                    <button class="copy-btn" data-type="${type}" data-index="${index}" 
                         style="width: auto; padding: 4px 8px; font-size: 11px; background: #e9ecef; color: #333; border: 1px solid #ccc; cursor: pointer;">
                         📋 Copy
                     </button>
                 </div>
-                <div style="font-size: 10px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                    ${data.summary}
-                </div>
+                <div class="copy-content-preview" style="font-size: 10px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
             `;
-            copyList.appendChild(div);
+            return div;
         }
 
-        createSection('Experience', data.experience, 'experience');
-        createSection('Projects', data.projects, 'project');
-
         // Add Event Listeners
-        const matchBtns = copyList.querySelectorAll('.copy-btn');
-        matchBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
+        const btns = copyList.querySelectorAll('.copy-btn');
+        btns.forEach(btn => {
+            btn.addEventListener('click', () => {
                 const type = btn.dataset.type;
-                const index = btn.dataset.index;
+                const index = parseInt(btn.dataset.index);
                 let textToCopy = "";
 
-                if (type === 'summary') {
-                    textToCopy = data.summary;
-                } else if (type === 'experience') {
-                    const item = data.experience[index];
-                    if (item.bullets) textToCopy = item.bullets.map(b => `• ${b}`).join('\n');
-                } else if (type === 'project') {
-                    const item = data.projects[index];
-                    if (item.bullets) textToCopy = item.bullets.map(b => `• ${b}`).join('\n');
+                if (type === 'summary') textToCopy = data.summary;
+                else if (type === 'languages') textToCopy = Array.isArray(data.languages) ? data.languages.join(', ') : data.languages;
+                else if (type === 'skills') {
+                    if (Array.isArray(data.skills)) textToCopy = data.skills.join(', ');
+                    else textToCopy = Object.entries(data.skills).map(([cat, val]) => `${cat}: ${val}`).join('\n');
+                }
+                else {
+                    // List Item
+                    const item = data[type][index];
+
+                    // Smart Copy Format based on Section
+                    const parts = [];
+
+                    // Header Line
+                    const title = item.name || item.institution || item.company || item.organization || item.title;
+                    const sub = item.role || item.degree || item.conference || item.issuer;
+                    const date = item.dates;
+                    const loc = item.location;
+                    const gpa = item.gpa;
+
+                    let headerLine = "";
+                    if (title) headerLine += title;
+                    if (sub) headerLine += ` - ${sub}`;
+                    if (loc) headerLine += ` (${loc})`;
+                    if (date) headerLine += ` | ${date}`;
+                    if (headerLine) parts.push(headerLine);
+
+                    if (gpa) parts.push(`GPA: ${gpa}`);
+
+                    if (item.bullets && item.bullets.length > 0) {
+                        item.bullets.forEach(b => parts.push(`• ${b}`));
+                    }
+
+                    textToCopy = parts.join('\n');
                 }
 
                 if (textToCopy) {
                     navigator.clipboard.writeText(textToCopy).then(() => {
-                        const originalText = btn.innerHTML; // Store HTML (icon + text)
+                        const originalText = btn.innerHTML;
                         btn.innerHTML = "✅ Copied!";
                         btn.style.background = "#d4edda";
                         setTimeout(() => {

@@ -313,108 +313,151 @@ def generate_resume(data, filename_or_buffer):
         "experience": "Work Experience",
         "projects": "Research and Projects",
         "research": "Research & Publications",
-        "leadership": "Leadership Experience"
+        "leadership": "Leadership Experience",
+        "certifications": "Certifications",
+        "awards": "Awards & Honors",
+        "volunteering": "Volunteering",
+        "languages": "Languages"
     }
     
     # Override with user preferences
     if 'section_titles' in data:
         titles.update(data['section_titles'])
 
-    # 1. Header
-    story.append(Paragraph(data['name'], styles['NameHeader']))
-    story.append(Paragraph(data['contact'], styles['ContactLine']))
+    # 1. Header (Always first)
+    story.append(Paragraph(data.get('name', 'Name'), styles['NameHeader']))
+    story.append(Paragraph(data.get('contact', ''), styles['ContactLine']))
 
-    # 2. Summary
-    story.append(Paragraph(titles["summary"], styles['SectionHeader']))
-    story.append(create_hr_line())
-    story.append(Spacer(1, 3))
-    # Use SummaryStyle instead of BulletPoint to fix indentation issue
-    story.append(Paragraph(data['summary'], styles['SummaryStyle']))
-    story.append(Spacer(1, 2))
-
-    # 3. Education
-    story.append(Paragraph(titles["education"], styles['SectionHeader']))
-    story.append(create_hr_line())
-    story.append(Spacer(1, 3))
-    for edu in data['education']:
-        story.append(create_aligned_row(edu['school'], edu.get('dates', ''), styles['BoldEntry']))
-        story.append(create_aligned_row(edu['degree'], edu['location'], styles['ItalicEntry']))
-        story.append(Paragraph(f"• {edu['gpa']}", styles['BulletPoint']))
-        story.append(Spacer(1, 2))
-
-    # 4. Technical Knowledge
-    # Moved above Work Experience as requested
-    story.append(Paragraph(titles["skills"], styles['SectionHeader']))
-    story.append(create_hr_line())
-    story.append(Spacer(1, 3))
-    for category, skills in data['skills'].items():
-        # Strip all HTML tags from skills to ensure they are NOT bold
-        # Only the category should be bold
-        clean_skills = remove_html_tags(skills)
-        story.append(Paragraph(f"• <b>{category}:</b> {clean_skills}", styles['BulletPoint']))
-    story.append(Spacer(1, 2))
+    # Default Section Order
+    default_order = [
+        "summary", 
+        "education", 
+        "skills", 
+        "experience", 
+        "projects", 
+        "research", 
+        "leadership",
+        "certifications",
+        "awards",
+        "volunteering",
+        "languages"
+    ]
     
-    # 5. Work Experience
-    story.append(Paragraph(titles["experience"], styles['SectionHeader']))
-    story.append(create_hr_line())
-    story.append(Spacer(1, 1))
-    for exp in data['experience']:
-        story.append(create_aligned_row(exp['company'], exp.get('dates', ''), styles['BoldEntry']))
-        story.append(create_aligned_row(exp['role'], exp['location'], styles['ItalicEntry']))
-        for bullet in exp['bullets']:
-            story.append(Paragraph(f"• {bullet}", styles['BulletPoint']))
-        story.append(Spacer(1, 2))
+    section_order = data.get('section_order', default_order)
 
-    # 6. Research and Projects
-    if 'projects' in data and data['projects']:
-        story.append(Paragraph(titles["projects"], styles['SectionHeader']))
+    # Render Sections
+    for section in section_order:
+        if section not in data or not data[section]:
+            continue
+
+        # Common Header for all sections
+        story.append(Paragraph(titles.get(section, section.title()), styles['SectionHeader']))
         story.append(create_hr_line())
-        story.append(Spacer(1, 1))
-        for proj in data['projects']:
-            # Use create_aligned_row to show Name and Duration (if available)
-            proj_name = proj.get('name', 'Project')
-            proj_dates = proj.get('dates', '') # User requested dates on right
-            
-            story.append(create_aligned_row(proj_name, proj_dates, styles['BoldEntry']))
-            
-            for bullet in proj.get('bullets', []):
-                story.append(Paragraph(f"• {bullet}", styles['BulletPoint']))
+        
+        # Section Specific Logic
+        if section == "summary":
+            story.append(Spacer(1, 3))
+            story.append(Paragraph(data['summary'], styles['SummaryStyle']))
             story.append(Spacer(1, 2))
 
-    # 7. Research & Publications
-    if 'research' in data and data['research']:
-        story.append(Paragraph(titles["research"], styles['SectionHeader']))
-        story.append(create_hr_line())
-        story.append(Spacer(1, 1))
-        for res in data['research']:
-            # Title and dates on first line
-            story.append(create_aligned_row(res.get('title', 'Paper'), res.get('dates', ''), styles['BoldEntry']))
-            
-            # Conference/journal on second line (italic)
-            conf = res.get('conference', '')
-            if conf:
-                story.append(Paragraph(f"<i>{conf}</i>", styles['ItalicEntry']))
-            
-            # Link as a separate line if present
-            if res.get('link'):
-                story.append(Paragraph(f"Link: {res['link']}", styles['ItalicEntry']))
-                
-            # Bullets
-            for bullet in res.get('bullets', []):
-                story.append(Paragraph(f"• {bullet}", styles['BulletPoint']))
+        elif section == "education":
+            story.append(Spacer(1, 3))
+            for edu in data['education']:
+                school = edu.get('school', edu.get('institution', ''))
+                story.append(create_aligned_row(school, edu.get('dates', ''), styles['BoldEntry']))
+                story.append(create_aligned_row(edu.get('degree', ''), edu.get('location', ''), styles['ItalicEntry']))
+                if edu.get('gpa'):
+                     story.append(Paragraph(f"• {edu['gpa']}", styles['BulletPoint']))
+                story.append(Spacer(1, 2))
+
+        elif section == "skills":
+            story.append(Spacer(1, 3))
+            if isinstance(data['skills'], dict):
+                for category, skills in data['skills'].items():
+                    clean_skills = remove_html_tags(skills)
+                    story.append(Paragraph(f"• <b>{category}:</b> {clean_skills}", styles['BulletPoint']))
+            elif isinstance(data['skills'], list):
+                 # Fallback for flat list of skills
+                 skills_str = ", ".join(data['skills'])
+                 story.append(Paragraph(f"• {skills_str}", styles['BulletPoint']))
             story.append(Spacer(1, 2))
 
-    # 8. Leadership Experience
-    if 'leadership' in data and data['leadership']:
-        story.append(Paragraph(titles["leadership"], styles['SectionHeader']))
-        story.append(create_hr_line())
-        story.append(Spacer(1, 1))
-        for lead in data['leadership']:
-            story.append(create_aligned_row(lead['organization'], lead.get('dates', ''), styles['BoldEntry']))
-            lead_role = lead.get('role', lead.get('title', ''))
-            story.append(create_aligned_row(lead_role, lead.get('location', ''), styles['ItalicEntry']))
-            for bullet in lead.get('bullets', []):
-                story.append(Paragraph(f"• {bullet}", styles['BulletPoint']))
+        elif section == "experience":
+            story.append(Spacer(1, 1))
+            for exp in data['experience']:
+                story.append(create_aligned_row(exp.get('company', ''), exp.get('dates', ''), styles['BoldEntry']))
+                story.append(create_aligned_row(exp.get('role', ''), exp.get('location', ''), styles['ItalicEntry']))
+                for bullet in exp.get('bullets', []):
+                    story.append(Paragraph(f"• {bullet}", styles['BulletPoint']))
+                story.append(Spacer(1, 2))
+
+        elif section == "projects":
+            story.append(Spacer(1, 1))
+            for proj in data['projects']:
+                proj_name = proj.get('name', 'Project')
+                proj_dates = proj.get('dates', '')
+                story.append(create_aligned_row(proj_name, proj_dates, styles['BoldEntry']))
+                for bullet in proj.get('bullets', []):
+                    story.append(Paragraph(f"• {bullet}", styles['BulletPoint']))
+                story.append(Spacer(1, 2))
+
+        elif section == "research":
+            story.append(Spacer(1, 1))
+            for res in data['research']:
+                story.append(create_aligned_row(res.get('title', 'Paper'), res.get('dates', ''), styles['BoldEntry']))
+                conf = res.get('conference', '')
+                if conf:
+                    story.append(Paragraph(f"<i>{conf}</i>", styles['ItalicEntry']))
+                if res.get('link'):
+                    story.append(Paragraph(f"Link: {res['link']}", styles['ItalicEntry']))
+                for bullet in res.get('bullets', []):
+                    story.append(Paragraph(f"• {bullet}", styles['BulletPoint']))
+                story.append(Spacer(1, 2))
+
+        elif section == "leadership":
+            story.append(Spacer(1, 1))
+            for lead in data['leadership']:
+                story.append(create_aligned_row(lead.get('organization', ''), lead.get('dates', ''), styles['BoldEntry']))
+                lead_role = lead.get('role', lead.get('title', ''))
+                story.append(create_aligned_row(lead_role, lead.get('location', ''), styles['ItalicEntry']))
+                for bullet in lead.get('bullets', []):
+                    story.append(Paragraph(f"• {bullet}", styles['BulletPoint']))
+                story.append(Spacer(1, 2))
+
+        elif section == "certifications":
+            story.append(Spacer(1, 1))
+            for cert in data['certifications']:
+                # Name (Issuer) | Dates
+                name = cert.get('name', 'Certification')
+                issuer = cert.get('issuer', '')
+                text = f"{name} ({issuer})" if issuer else name
+                story.append(create_aligned_row(text, cert.get('dates', ''), styles['BoldEntry']))
+                story.append(Spacer(1, 2))
+
+        elif section == "awards":
+            story.append(Spacer(1, 1))
+            for award in data['awards']:
+                name = award.get('name', 'Award')
+                org = award.get('organization', '')
+                text = f"{name} - {org}" if org else name
+                story.append(create_aligned_row(text, award.get('dates', ''), styles['BoldEntry']))
+                story.append(Spacer(1, 2))
+
+        elif section == "volunteering":
+             story.append(Spacer(1, 1))
+             for vol in data['volunteering']:
+                story.append(create_aligned_row(vol.get('organization', ''), vol.get('dates', ''), styles['BoldEntry']))
+                story.append(create_aligned_row(vol.get('role', ''), vol.get('location', ''), styles['ItalicEntry']))
+                for bullet in vol.get('bullets', []):
+                    story.append(Paragraph(f"• {bullet}", styles['BulletPoint']))
+                story.append(Spacer(1, 2))
+
+        elif section == "languages":
+            story.append(Spacer(1, 1))
+            val = data['languages']
+            if isinstance(val, list):
+                val = ", ".join(val)
+            story.append(Paragraph(str(val), styles['SummaryStyle']))
             story.append(Spacer(1, 2))
 
     doc.build(story)

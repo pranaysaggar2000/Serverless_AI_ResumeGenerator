@@ -1237,7 +1237,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
 
         }
-        else if (['experience', 'projects', 'leadership', 'research'].includes(section)) {
+        else if (section === 'languages') {
+            if (!data) data = "";
+            if (Array.isArray(data)) data = data.join(", ");
+
+            const div = document.createElement('div');
+            div.className = 'edit-field';
+            const currentTitle = (baseResume.section_titles && baseResume.section_titles[section]) || "Languages";
+            div.innerHTML = `
+                <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+                    <label>Section Title (vs "Languages")</label>
+                    <input type="text" id="sectionTitleInput" value="${currentTitle}" placeholder="Languages">
+                </div>
+                <label>Languages (Comma separated)</label>
+                <textarea id="edit_languages_text" style="height: 60px;">${data || ''}</textarea>`;
+            formContainer.appendChild(div);
+        }
+        else if (['experience', 'projects', 'leadership', 'research', 'certifications', 'awards', 'volunteering'].includes(section)) {
             if (!data) data = [];
 
             // GENERIC LISTS TITLE INPUT
@@ -1245,7 +1261,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 experience: "Work Experience",
                 projects: "Research and Projects",
                 leadership: "Leadership Experience",
-                research: "Research & Publications"
+                research: "Research & Publications",
+                certifications: "Certifications",
+                awards: "Awards & Honors",
+                volunteering: "Volunteering"
             };
 
             const titleDiv = document.createElement('div');
@@ -1265,7 +1284,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             data.forEach(item => renderItemBlock(listDiv, item, section));
             formContainer.appendChild(listDiv);
 
-            let btnLabel = section === 'experience' ? 'Job' : (section === 'projects' ? 'Project' : (section === 'research' ? 'Paper' : 'Role'));
+            let btnLabel = "Item";
+            if (section === 'experience') btnLabel = "Job";
+            else if (section === 'projects') btnLabel = "Project";
+            else if (section === 'research') btnLabel = "Paper";
+            else if (section === 'certifications') btnLabel = "Certification";
+            else if (section === 'awards') btnLabel = "Award";
+            else if (section === 'volunteering') btnLabel = "Volunteering";
+
             const addBtn = document.createElement('button');
             addBtn.textContent = `➕ Add ${btnLabel}`;
             addBtn.style.cssText = "width: 100%; padding: 8px; background: #e9ecef; border: 1px dashed #ccc; color: #333; cursor: pointer; margin-top: 10px;";
@@ -1276,6 +1302,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (section === 'leadership') newItem = { organization: "New Org", role: "Role", location: "", dates: "Dates", bullets: ["New bullet"] };
                 if (section === 'research') newItem = { title: "New Paper", conference: "Conference", link: "", dates: "Date", bullets: ["New bullet"] };
                 if (section === 'projects') newItem = { name: "New Project", tech: "", dates: "", bullets: ["New bullet"] };
+                if (section === 'volunteering') newItem = { organization: "Organization", role: "Volunteer", location: "", dates: "", bullets: ["New bullet"] };
+                if (section === 'certifications') newItem = { name: "Certification Name", issuer: "Issuer", dates: "Date" };
+                if (section === 'awards') newItem = { name: "Award Name", organization: "Organization", dates: "Date" };
+
                 renderItemBlock(listDiv, newItem, section);
             };
             formContainer.appendChild(addBtn);
@@ -1288,8 +1318,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // clear list
                     const listDiv = document.getElementById('itemsList');
                     listDiv.innerHTML = '';
-                    // update data model? It updates on 'parseEditor' call usually?
-                    // parseEditor reads from DOM. So clearing DOM is enough.
                 }
             };
             formContainer.appendChild(removeSectionBtn);
@@ -1316,7 +1344,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <input type="text" class="item-tech" value="${item.tech || ''}" placeholder="Technologies">
                     <input type="text" class="item-dates" value="${item.dates || ''}" placeholder="Dates" style="grid-column: span 2;">
                 </div>`;
-        } else if (section === 'leadership') {
+        } else if (section === 'leadership' || section === 'volunteering') {
             headerHtml = `
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 5px;">
                     <input type="text" class="item-org" value="${item.organization || ''}" placeholder="Organization">
@@ -1332,70 +1360,96 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <input type="text" class="item-link" value="${item.link || ''}" placeholder="Link (URL)">
                     <input type="text" class="item-dates" value="${item.dates || ''}" placeholder="Dates">
                 </div>`;
+        } else if (section === 'certifications') {
+            headerHtml = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 5px;">
+                    <input type="text" class="item-name" value="${item.name || ''}" placeholder="Certification Name" style="font-weight:bold;">
+                    <input type="text" class="item-issuer" value="${item.issuer || ''}" placeholder="Issuer">
+                    <input type="text" class="item-dates" value="${item.dates || ''}" placeholder="Date" style="grid-column: span 2;">
+                </div>`;
+        } else if (section === 'awards') {
+            headerHtml = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 5px;">
+                    <input type="text" class="item-name" value="${item.name || ''}" placeholder="Award Name" style="font-weight:bold;">
+                    <input type="text" class="item-org" value="${item.organization || ''}" placeholder="Organization">
+                    <input type="text" class="item-dates" value="${item.dates || ''}" placeholder="Date" style="grid-column: span 2;">
+                </div>`;
         }
 
         let bulletsHtml = '';
-        (item.bullets || []).forEach(b => bulletsHtml += createBulletRow(b));
+        const hasBullets = !['certifications', 'awards'].includes(section);
 
-        // Get current bullet count - use preference if set, otherwise actual count
+        if (hasBullets) {
+            (item.bullets || []).forEach(b => bulletsHtml += createBulletRow(b));
+        }
+
+        // Get current bullet count
         const currentBulletCount = item.bullet_count_preference !== undefined
             ? item.bullet_count_preference
             : (item.bullets || []).length;
 
+        const bulletControls = hasBullets ? `
+             <div style="display: flex; gap: 10px; align-items: center;">
+                <label style="font-size: 11px; display: flex; align-items: center; gap: 5px;">
+                    📊 Bullets:
+                    <button class="bullet-count-decrease" style="width: 24px; height: 24px; padding: 0; font-size: 16px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; border-radius: 3px;" title="Decrease bullets">−</button>
+                    <span class="bullet-count-display" style="min-width: 20px; text-align: center; font-weight: bold;">${currentBulletCount}</span>
+                    <button class="bullet-count-increase" style="width: 24px; height: 24px; padding: 0; font-size: 16px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; border-radius: 3px;" title="Increase bullets">+</button>
+                    <input type="hidden" class="bullet-count-input" value="${currentBulletCount}">
+                </label>
+                <button class="remove-btn remove-item-btn">🗑️ Remove</button>
+            </div>
+        ` : `<button class="remove-btn remove-item-btn">🗑️ Remove</button>`;
+
         div.innerHTML = `
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                                     <span style="font-weight: bold; color: #555;">Item</span>
-                                    <div style="display: flex; gap: 10px; align-items: center;">
-                                        <label style="font-size: 11px; display: flex; align-items: center; gap: 5px;">
-                                            📊 Bullets:
-                                            <button class="bullet-count-decrease" style="width: 24px; height: 24px; padding: 0; font-size: 16px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; border-radius: 3px;" title="Decrease bullets">−</button>
-                                            <span class="bullet-count-display" style="min-width: 20px; text-align: center; font-weight: bold;">${currentBulletCount}</span>
-                                            <button class="bullet-count-increase" style="width: 24px; height: 24px; padding: 0; font-size: 16px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; border-radius: 3px;" title="Increase bullets">+</button>
-                                            <input type="hidden" class="bullet-count-input" value="${currentBulletCount}">
-                                        </label>
-                                        <button class="remove-btn remove-item-btn">🗑️ Remove</button>
-                                    </div>
+                                    ${bulletControls}
                                 </div>
                                 ${headerHtml}
+                                ${hasBullets ? `
                                 <div class="edit-field">
                                     <label>Bullets</label>
                                     <div class="bullet-list-container">${bulletsHtml}</div>
                                     <button class="add-bullet-btn" style="font-size: 10px; padding: 2px 5px; margin-top: 5px;">+ Add Bullet</button>
-                                </div>
+                                </div>` : ''}
                                 `;
 
         div.querySelector('.remove-item-btn').onclick = () => div.remove();
-        const bContainer = div.querySelector('.bullet-list-container');
-        div.querySelector('.add-bullet-btn').onclick = () => {
-            bContainer.insertAdjacentHTML('beforeend', createBulletRow(""));
-        };
-        bContainer.addEventListener('click', (e) => {
-            if (e.target.classList.contains('remove-bullet-btn')) e.target.closest('.bullet-item').remove();
-        });
 
-        // +/- button handlers
-        const countInput = div.querySelector('.bullet-count-input');
-        const countDisplay = div.querySelector('.bullet-count-display');
-        const decreaseBtn = div.querySelector('.bullet-count-decrease');
-        const increaseBtn = div.querySelector('.bullet-count-increase');
+        if (hasBullets) {
+            const bContainer = div.querySelector('.bullet-list-container');
+            div.querySelector('.add-bullet-btn').onclick = () => {
+                bContainer.insertAdjacentHTML('beforeend', createBulletRow(""));
+            };
+            bContainer.addEventListener('click', (e) => {
+                if (e.target.classList.contains('remove-bullet-btn')) e.target.closest('.bullet-item').remove();
+            });
 
-        decreaseBtn.onclick = () => {
-            let count = parseInt(countInput.value) || 0;
-            if (count > 0) {
-                count--;
-                countInput.value = count;
-                countDisplay.textContent = count;
-            }
-        };
+            // +/- button handlers
+            const countInput = div.querySelector('.bullet-count-input');
+            const countDisplay = div.querySelector('.bullet-count-display');
+            const decreaseBtn = div.querySelector('.bullet-count-decrease');
+            const increaseBtn = div.querySelector('.bullet-count-increase');
 
-        increaseBtn.onclick = () => {
-            let count = parseInt(countInput.value) || 0;
-            if (count < 5) {
-                count++;
-                countInput.value = count;
-                countDisplay.textContent = count;
-            }
-        };
+            decreaseBtn.onclick = () => {
+                let count = parseInt(countInput.value) || 0;
+                if (count > 0) {
+                    count--;
+                    countInput.value = count;
+                    countDisplay.textContent = count;
+                }
+            };
+
+            increaseBtn.onclick = () => {
+                let count = parseInt(countInput.value) || 0;
+                if (count < 5) {
+                    count++;
+                    countInput.value = count;
+                    countDisplay.textContent = count;
+                }
+            };
+        }
 
         container.appendChild(div);
     }
@@ -1413,6 +1467,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (section === 'summary') {
             const el = document.getElementById('edit_summary_text');
+            return el ? el.value : '';
+        } else if (section === 'languages') {
+            const el = document.getElementById('edit_languages_text');
+            // Save Title
+            const titleInput = document.getElementById('sectionTitleInput');
+            if (titleInput && currentEditingData) {
+                if (!currentEditingData.section_titles) currentEditingData.section_titles = {};
+                currentEditingData.section_titles[section] = titleInput.value;
+            }
             return el ? el.value : '';
         } else if (section === 'contact') {
             const inputs = formContainer.querySelectorAll('.contact-input');
@@ -1436,7 +1499,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             return skills;
-        } else if (['experience', 'projects', 'leadership', 'research'].includes(section)) {
+        } else if (['experience', 'projects', 'leadership', 'research', 'certifications', 'awards', 'volunteering'].includes(section)) {
             // Save Title
             const titleInput = document.getElementById('sectionTitleInput');
             if (titleInput && currentEditingData) {
@@ -1454,7 +1517,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     item.role = getVal('.item-role');
                     item.location = getVal('.item-location');
                     item.dates = getVal('.item-dates');
-                } else if (section === 'leadership') {
+                } else if (section === 'leadership' || section === 'volunteering') {
                     item.organization = getVal('.item-org');
                     item.role = getVal('.item-role');
                     item.location = getVal('.item-location');
@@ -1464,18 +1527,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                     item.conference = getVal('.item-conference');
                     item.link = getVal('.item-link');
                     item.dates = getVal('.item-dates');
+                } else if (section === 'certifications') {
+                    item.name = getVal('.item-name');
+                    item.issuer = getVal('.item-issuer');
+                    item.dates = getVal('.item-dates');
+                } else if (section === 'awards') {
+                    item.name = getVal('.item-name');
+                    item.organization = getVal('.item-org');
+                    item.dates = getVal('.item-dates');
                 } else {
                     item.name = getVal('.item-name');
                     item.tech = getVal('.item-tech');
                     item.dates = getVal('.item-dates');
                 }
-                const bInputs = b.querySelectorAll('.bullet-input');
-                item.bullets = Array.from(bInputs).map(i => i.value).filter(t => t.trim().length > 0);
 
-                // Capture bullet count preference
-                const countInput = b.querySelector('.bullet-count-input');
-                if (countInput) {
-                    item.bullet_count_preference = parseInt(countInput.value) || item.bullets.length;
+                // Only sections with bullets
+                if (!['certifications', 'awards'].includes(section)) {
+                    const bInputs = b.querySelectorAll('.bullet-input');
+                    item.bullets = Array.from(bInputs).map(i => i.value).filter(t => t.trim().length > 0);
+
+                    // Capture bullet count preference
+                    const countInput = b.querySelector('.bullet-count-input');
+                    if (countInput) {
+                        item.bullet_count_preference = parseInt(countInput.value) || item.bullets.length;
+                    }
                 }
 
                 list.push(item);
@@ -1727,5 +1802,188 @@ document.addEventListener('DOMContentLoaded', async () => {
         el.className = type;
         el.textContent = msg;
         el.style.display = 'block';
+    }
+
+    // 9. Section Reordering Logic
+    const reorderBtn = document.getElementById('reorderBtn');
+    const reorderUI = document.getElementById('reorderUI');
+    const sortableSections = document.getElementById('sortableSections');
+    const saveOrderBtn = document.getElementById('saveOrderBtn');
+    const cancelOrderBtn = document.getElementById('cancelOrderBtn');
+
+    let currentSectionOrder = []; // default order
+
+    if (reorderBtn) {
+        reorderBtn.addEventListener('click', () => {
+            if (reorderUI.style.display === 'none') {
+                // SYNC: Ensure currentEditingData reflects the currently open editor section
+                if (currentEditingData && sectionSelect) {
+                    const activeSection = sectionSelect.value;
+                    const currentData = parseEditor(activeSection);
+                    if (currentData !== null) {
+                        currentEditingData[activeSection] = currentData;
+                    }
+                }
+
+                reorderUI.style.display = 'block';
+                renderReorderList();
+            } else {
+                reorderUI.style.display = 'none';
+            }
+        });
+    }
+
+    if (cancelOrderBtn) {
+        cancelOrderBtn.addEventListener('click', () => {
+            reorderUI.style.display = 'none';
+        });
+    }
+
+    if (saveOrderBtn) {
+        saveOrderBtn.addEventListener('click', async () => {
+            // Save new order to tailoredResume (or baseResume)
+            const newOrder = [];
+            sortableSections.querySelectorAll('li').forEach(li => {
+                newOrder.push(li.getAttribute('data-section'));
+            });
+
+            // Update all state objects
+            if (tailoredResume) tailoredResume.section_order = newOrder;
+            if (baseResume) baseResume.section_order = newOrder;
+            if (currentEditingData) currentEditingData.section_order = newOrder;
+
+            reorderUI.style.display = 'none';
+
+            // Directly generate PDF (No LLM Call)
+            const dataToUse = currentEditingData || tailoredResume || baseResume;
+            if (dataToUse) {
+                saveOrderBtn.textContent = "Updating PDF...";
+                saveOrderBtn.disabled = true;
+                await generateAndDisplayPDF(dataToUse);
+                saveOrderBtn.textContent = "Save Order (Quick)";
+                saveOrderBtn.disabled = false;
+                showStatus("✅ Order updated!", "success");
+            }
+        });
+    }
+
+    function renderReorderList() {
+        sortableSections.innerHTML = '';
+
+        // Use currentEditingData if available, otherwise tailoredResume, then baseResume
+        const data = currentEditingData || tailoredResume || baseResume;
+        if (!data) return;
+
+        // Default Full List
+        const fullList = ["summary", "skills", "experience", "projects", "education", "leadership", "research", "certifications", "awards", "volunteering", "languages"];
+
+        // Get existing order from data or default
+        let order = data.section_order || fullList;
+
+        // Merge missing keys
+        fullList.forEach(sec => {
+            if (!order.includes(sec)) order.push(sec);
+        });
+
+        currentSectionOrder = order;
+
+        order.forEach(section => {
+            // DYNAMIC FILTER: Check if section has data
+            if (!hasData(data, section)) return;
+
+            const li = document.createElement('li');
+            li.className = 'sortable-item';
+            li.setAttribute('draggable', 'true');
+            li.setAttribute('data-section', section);
+            li.innerHTML = `
+                <div style="display:flex; align-items:center;">
+                    <span class="handle">☰</span> 
+                    <span class="section-name">${formatSectionName(section)}</span>
+                </div>
+            `;
+
+            // Drag Events
+            li.addEventListener('dragstart', handleDragStart);
+            li.addEventListener('dragover', handleDragOver);
+            li.addEventListener('drop', handleDrop);
+            li.addEventListener('dragenter', handleDragEnter);
+            li.addEventListener('dragleave', handleDragLeave);
+            li.addEventListener('dragend', handleDragEnd);
+
+            sortableSections.appendChild(li);
+        });
+    }
+
+    function hasData(data, section) {
+        if (!data[section]) return false;
+
+        const val = data[section];
+
+        if (Array.isArray(val)) {
+            return val.length > 0;
+        } else if (typeof val === 'object') {
+            // For skills (dict) or contact
+            return Object.keys(val).length > 0;
+        } else if (typeof val === 'string') {
+            return val.trim().length > 0;
+        }
+        return false;
+    }
+
+    function formatSectionName(str) {
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    // Drag & Drop Handlers
+    let dragSrcEl = null;
+
+    function handleDragStart(e) {
+        dragSrcEl = this;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', this.innerHTML);
+        this.classList.add('dragging');
+    }
+
+    function handleDragOver(e) {
+        if (e.preventDefault) {
+            e.preventDefault();
+        }
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+    }
+
+    function handleDragEnter(e) {
+        this.classList.add('over');
+    }
+
+    function handleDragLeave(e) {
+        this.classList.remove('over');
+    }
+
+    function handleDrop(e) {
+        if (e.stopPropagation) {
+            e.stopPropagation();
+        }
+
+        if (dragSrcEl !== this) {
+            const list = this.parentNode;
+            const items = Array.from(list.children);
+            const fromIndex = items.indexOf(dragSrcEl);
+            const toIndex = items.indexOf(this);
+
+            if (fromIndex < toIndex) {
+                this.after(dragSrcEl);
+            } else {
+                this.before(dragSrcEl);
+            }
+        }
+        return false;
+    }
+
+    function handleDragEnd(e) {
+        this.classList.remove('dragging');
+        sortableSections.querySelectorAll('.sortable-item').forEach(item => {
+            item.classList.remove('over');
+        });
     }
 });

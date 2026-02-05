@@ -345,7 +345,31 @@ def extract_base_resume_info(resume_text: str, provider: str = "gemini", api_key
                 "link": "URL (optional)",
                 "bullets": ["Bullet 1"]
             }}
-        ]
+        ],
+        "certifications": [
+            {{
+                "name": "Certification Name",
+                "issuer": "Issuing Organization",
+                "dates": "Date"
+            }}
+        ],
+        "awards": [
+            {{
+                "name": "Award Name",
+                "organization": "Organization",
+                "dates": "Date"
+            }}
+        ],
+        "volunteering": [
+            {{
+                "organization": "Organization",
+                "role": "Role",
+                "dates": "Date Range",
+                "location": "City, State",
+                "bullets": ["Bullet 1"]
+            }}
+        ],
+        "languages": "List of languages spoken (e.g. English, Spanish)"
     }}
     
     Ensure all fields are filled based on the text. If a field is missing, use an empty string or empty list.
@@ -383,157 +407,7 @@ def extract_base_resume_info(resume_text: str, provider: str = "gemini", api_key
     return {} # Return empty if failure
 
 
-def trim_projects_to_fit(resume_data: dict, max_bullets_initial: int = 3, min_bullets: int = 2, min_projects: int = 2) -> dict:
-    """
-    Initial project trimming. Strategy:
-    1. Start with 3 bullets per project (LLM generates 5)
-    2. Will be further trimmed by trim_projects_further if needed
-    """
-    if 'projects' not in resume_data or not resume_data['projects']:
-        return resume_data
-    
-    projects = resume_data['projects']
-    
-    # Initially cap each project to max_bullets_initial (use top ranked)
-    for proj in projects:
-        if 'bullets' in proj and len(proj['bullets']) > max_bullets_initial:
-            proj['bullets'] = proj['bullets'][:max_bullets_initial]
-    
-    return resume_data
 
-
-def trim_projects_further(resume_data: dict, target_reduction: int, min_bullets: int = 2, min_projects: int = 2) -> dict:
-    """
-    Further trim projects to reduce height. Strategy:
-    1. First reduce bullets per project (down to min_bullets=2)
-    2. Then remove entire projects (down to min_projects=2)
-    3. After removing a project, try to add bullets back to remaining projects
-    """
-    if 'projects' not in resume_data or not resume_data['projects']:
-        return resume_data
-    
-    projects = resume_data['projects']
-    # Store original bullets for potential restoration
-    original_bullets = {i: proj.get('bullets', [])[:] for i, proj in enumerate(projects)}
-    reduction_achieved = 0
-    
-    # Phase 1: Trim bullets from last project first (down to min_bullets)
-    for i in range(len(projects) - 1, -1, -1):
-        if reduction_achieved >= target_reduction:
-            break
-        
-        proj = projects[i]
-        bullets = proj.get('bullets', [])
-        
-        while len(bullets) > min_bullets and reduction_achieved < target_reduction:
-            bullets.pop()  # Remove last (least important) bullet
-            reduction_achieved += 14  # Approximate height per bullet
-        
-        proj['bullets'] = bullets
-    
-    # Phase 2: If still over, remove entire projects (keep at least min_projects)
-    removed_project = False
-    while len(projects) > min_projects and reduction_achieved < target_reduction:
-        removed = projects.pop()  # Remove last project
-        # Estimate height saved: header + bullets + spacer
-        saved = 13 + len(removed.get('bullets', [])) * 14 + 2
-        reduction_achieved += saved
-        removed_project = True
-        print(f"      Removed project: {removed.get('name', 'Unknown')}")
-    
-    # Phase 3: If we removed a project, try to add bullets back to remaining projects
-    if removed_project and reduction_achieved > target_reduction:
-        extra_space = reduction_achieved - target_reduction
-        bullets_can_add = extra_space // 14
-        
-        # Try to restore bullets to remaining projects (most important project first)
-        for i, proj in enumerate(projects):
-            if bullets_can_add <= 0:
-                break
-            original = original_bullets.get(i, [])
-            current = proj.get('bullets', [])
-            
-            # Add back bullets that were trimmed (if any)
-            while len(current) < len(original) and bullets_can_add > 0:
-                # Find next bullet to restore
-                if len(current) < 3:  # Max 3 bullets per project
-                    current.append(original[len(current)])
-                    bullets_can_add -= 1
-                else:
-                    break
-            
-            proj['bullets'] = current
-    
-    resume_data['projects'] = projects
-    return resume_data
-
-
-def trim_skills_to_fit(resume_data: dict, max_lines: int = 5) -> dict:
-    """
-    Trim skills section to fit strictly within max_lines (default 5).
-    Strategy:
-    1. Distribute lines among categories based on priority (keys order).
-    2. Fill each category until it consumes its allocated lines.
-    3. Stop when total lines used reaches limit.
-    """
-    if 'skills' not in resume_data:
-        return resume_data
-    
-    skills = resume_data['skills']
-    num_categories = len(skills)
-    
-    if num_categories == 0:
-        return resume_data
-    
-    # CHAR constants (approximate for 10pt font)
-    # 1 line = ~90 chars
-    CHARS_PER_LINE = 90
-    
-    final_skills = {}
-    lines_used = 0
-    
-    for category, skill_str in skills.items():
-        if lines_used >= max_lines:
-            break
-            
-        remaining_lines = max_lines - lines_used
-        
-        # Calculate how many lines this category WANTS
-        # Prefix "• Category: "
-        prefix_len = len(f"• {category}: ")
-        skill_list = [s.strip() for s in skill_str.split(',')]
-        
-        # We can give this category at most 2 lines, unless it's the only one left and we have space
-        # But generally 2 lines per category is a good max density
-        allowed_lines_for_cat = min(remaining_lines, 2)
-        
-        max_chars = allowed_lines_for_cat * CHARS_PER_LINE
-        available_chars = max_chars - prefix_len
-        
-        if available_chars <= 0:
-            continue
-            
-        trimmed_list = []
-        current_len = 0
-        
-        for skill in skill_list:
-            skill_len = len(skill) + 2 # ", "
-            if current_len + skill_len <= available_chars:
-                trimmed_list.append(skill)
-                current_len += skill_len
-            else:
-                break
-        
-        if trimmed_list:
-            final_skills[category] = ', '.join(trimmed_list)
-            # Estimate actual lines used by this category
-            # (current_len + prefix) / 90, rounded up
-            total_cat_chars = current_len + prefix_len
-            lines_consumed = -(-total_cat_chars // CHARS_PER_LINE) # Ceiling division
-            lines_used += lines_consumed
-            
-    resume_data['skills'] = final_skills
-    return resume_data
 
 
 def get_base_resume() -> dict:
@@ -566,7 +440,12 @@ def get_base_resume() -> dict:
         "skills": {},
         "experience": [],
         "projects": [],
-        "leadership": []
+        "leadership": [],
+        "research": [],
+        "certifications": [],
+        "awards": [],
+        "volunteering": [],
+        "languages": ""
     }
 
 
@@ -770,6 +649,9 @@ def restore_immutable_fields(original_data: dict, generated_data: dict) -> dict:
     if 'leadership' in original_data: pool.extend(original_data['leadership'])
     if 'projects' in original_data: pool.extend(original_data['projects'])
     if 'research' in original_data: pool.extend(original_data['research'])
+    if 'certifications' in original_data: pool.extend(original_data['certifications'])
+    if 'awards' in original_data: pool.extend(original_data['awards'])
+    if 'volunteering' in original_data: pool.extend(original_data['volunteering'])
     
     # helper to restore
     def restore_section(section_name, fields_to_restore):
@@ -792,6 +674,11 @@ def restore_immutable_fields(original_data: dict, generated_data: dict) -> dict:
     
     # Restore Research
     restore_section('research', ['title', 'conference', 'dates', 'link'])
+    
+    # Restore New Sections
+    restore_section('certifications', ['name', 'issuer', 'dates'])
+    restore_section('awards', ['name', 'organization', 'dates'])
+    restore_section('volunteering', ['role', 'organization', 'dates', 'location'])
 
     return generated_data
 

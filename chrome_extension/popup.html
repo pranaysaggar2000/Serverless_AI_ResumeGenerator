@@ -190,6 +190,10 @@
         <option value="skills">Skills</option>
         <option value="leadership">Leadership</option>
         <option value="research">Research & Publications</option>
+        <option value="certifications">Certifications</option>
+        <option value="awards">Awards & Honors</option>
+        <option value="volunteering">Volunteering</option>
+        <option value="languages">Languages</option>
       </select>
 
       <div id="profileFormContainer"
@@ -256,6 +260,7 @@
       </div>
     </div>
 
+
     <button id="generateBtn">Process Page & Generate Resume</button>
 
     <div id="status"></div>
@@ -286,6 +291,27 @@
     <div id="editorUI" style="display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
       <h3 style="margin: 0 0 10px 0; font-size: 14px;">Edit Resume Content</h3>
 
+      <!-- Section Reordering (Moved here) -->
+      <div style="margin-bottom: 10px;">
+        <button id="reorderBtn" style="background: #6c757d; font-size: 12px; padding: 8px; width: 100%;">⇅ Reorder
+          Sections</button>
+      </div>
+
+      <!-- Reorder UI (Hidden) -->
+      <div id="reorderUI"
+        style="display: none; background: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 14px;">Drag to Reorder</h3>
+        <p style="font-size: 11px; color: #666; margin-bottom: 10px;">Only populated sections are shown.</p>
+        <ul id="sortableSections" style="list-style: none; padding: 0; margin: 0 0 10px 0;">
+          <!-- Items will be injected here -->
+        </ul>
+        <div style="display: flex; gap: 10px;">
+          <button id="saveOrderBtn" style="background: #28a745; font-size: 12px; padding: 8px;">Save Order
+            (Quick)</button>
+          <button id="cancelOrderBtn" style="background: #dc3545; font-size: 12px; padding: 8px;">Cancel</button>
+        </div>
+      </div>
+
       <label for="sectionSelect" style="display: block; font-size: 12px; margin-bottom: 5px;">Select Section:</label>
       <select id="sectionSelect"
         style="width: 100%; padding: 6px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px;">
@@ -296,6 +322,10 @@
           <option value="projects">Projects</option>
           <option value="leadership">Leadership</option>
           <option value="research">Research & Publications</option>
+          <option value="certifications">Certifications</option>
+          <option value="awards">Awards & Honors</option>
+          <option value="volunteering">Volunteering</option>
+          <option value="languages">Languages</option>
           <option value="contact">Contact Info (Location/Links)</option>
         </optgroup>
       </select>
@@ -415,6 +445,39 @@
       cursor: pointer;
       border: none;
       background: none;
+    }
+
+    /* Sortable Styles */
+    .sortable-item {
+      padding: 10px;
+      margin-bottom: 6px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: grab;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .sortable-item:hover {
+      background: #f8f9fa;
+    }
+
+    .sortable-item.dragging {
+      opacity: 0.6;
+      background: #e9ecef;
+      border: 1px dashed #999;
+      transform: scale(0.98);
+    }
+
+    .sortable-item .handle {
+      color: #999;
+      margin-right: 10px;
+      font-size: 16px;
     }
   </style>
 

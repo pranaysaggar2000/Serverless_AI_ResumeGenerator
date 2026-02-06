@@ -38,3 +38,5 @@ mock_*.js
 
 # Temporary
 popup original.js
+
+info.txt

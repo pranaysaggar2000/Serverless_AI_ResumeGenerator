@@ -80,6 +80,7 @@ That's it! The extension is now ready to use.
 │   ├── lib/              # Dependencies (pdf.js, jspdf)
 │   ├── popup.html        # UI Structure
 │   └── manifest.json     # Configuration
+├── website/              # NEW: The landing page website (Vite/React)
 └── README.md             # Documentation
 ```
 
@@ -90,6 +91,20 @@ That's it! The extension is now ready to use.
 - **Local Storage**: Your API keys and Resume Profiles are stored **locally** in your browser. They are never sent to to us or any third-party server.
 - **Direct AI Calls**: The extension talks directly to Google/Groq APIs using your key. No middleman server.
 - **Web Access**: The extension requires permission to read the current tab to extract Job Descriptions, but only runs when you explicitly click the button.
+
+## 🌐 Deploying the Website
+The repository includes a landing page website in the `website/` directory.
+
+### Deploy to Vercel
+1. Import this repository into Vercel.
+2. In the "Project Settings" -> "General" -> "Root Directory", click check and select `website`.
+3. Vercel will automatically detect Vite and set the build settings.
+4. Deploy!
+
+### Automatic Downloads
+A GitHub Action is configured in `.github/workflows/package_extension.yml`.
+- Whenever you push changes to `chrome_extension/`, it automatically zips the extension and updates the "Latest" release.
+- The website's "Download" button links to this latest release.
 
 ## 📝 License
 

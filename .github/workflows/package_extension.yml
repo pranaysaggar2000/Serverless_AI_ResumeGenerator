@@ -1,0 +1,37 @@
+name: Package and Publish Extension
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'chrome_extension/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Zip extension
+        run: |
+          cd chrome_extension
+          zip -r ../extension.zip . -x "*.git*" "*.DS_Store"
+          cd ..
+
+      - name: Create or Update Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: latest
+          name: Latest Release
+          body: "Latest build of the extension."
+          artifacts: "extension.zip"
+          allowUpdates: true
+          removeArtifacts: true
+          replacesArtifacts: true
+          token: ${{ secrets.GITHUB_TOKEN }}

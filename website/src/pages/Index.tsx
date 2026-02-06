@@ -154,16 +154,17 @@ const Index = () => {
             <div className="mx-auto w-full px-4 sm:px-0">
               <Carousel className="w-full" opts={{ align: "start" }}>
                 <CarouselContent>
-                  <CarouselSlide src="/screenshots/Initial_Main_UI.png" caption="Clean, distraction-free interface." />
                   <CarouselSlide src="/screenshots/API_Key_EditUI.png" caption="Secure API Key management (Gemini, Groq)." />
+                  <CarouselSlide src="/screenshots/ProfileUI.png" caption="Create and manage your base resume profile." />
+                  <CarouselSlide src="/screenshots/Initial_Main_UI.png" caption="Clean, distraction-free interface." />
                   <CarouselSlide src="/screenshots/Main_Page_UI.png" caption="One-click tailoring from any job description." />
-                  <CarouselSlide src="/screenshots/Content_Edit_UI.png" caption="Advanced manual editor with real-time preview." />
-                  <CarouselSlide src="/screenshots/ATS_UI.png" caption="Detailed ATS scoring and keyword gap analysis." />
-                  <CarouselSlide src="/screenshots/Profile_UpdateUI.png" caption="Manage multiple profiles for different roles." />
-                  <CarouselSlide src="/screenshots/Question_Helper_UI.png" caption="Ask context-aware questions about the job." />
-                  <CarouselSlide src="/screenshots/Copy_ContentUI.png" caption="Copy tailored content to clipboard instantly." />
-                  <CarouselSlide src="/screenshots/Change_Order_UI.png" caption="Drag & Drop section reordering." />
                   <CarouselSlide src="/screenshots/Format_Edit_UI.png" caption="Customize formatting options." />
+                  <CarouselSlide src="/screenshots/Content_Edit_UI.png" caption="Advanced manual editor with real-time preview." />
+                  <CarouselSlide src="/screenshots/Change_Order_UI.png" caption="Drag & Drop section reordering." />
+                  <CarouselSlide src="/screenshots/Profile_UpdateUI.png" caption="Manage multiple profiles for different roles." />
+                  <CarouselSlide src="/screenshots/Copy_ContentUI.png" caption="Copy tailored content to clipboard instantly." />
+                  <CarouselSlide src="/screenshots/ATS_UI.png" caption="Detailed ATS scoring and keyword gap analysis." />
+                  <CarouselSlide src="/screenshots/Question_Helper_UI.png" caption="Ask context-aware questions about the job." />
                 </CarouselContent>
                 <CarouselPrevious className="-left-4 sm:-left-12" />
                 <CarouselNext className="-right-4 sm:-right-12" />
@@ -215,6 +216,9 @@ const Index = () => {
             <p className="text-sm text-card-foreground">Built by <strong>Pranay Saggar</strong> <span className="text-muted-foreground">· Powered by AI</span></p>
             <p className="text-sm text-muted-foreground mt-2">
               Check out my full portfolio and other projects at <a href="https://pranaysaggar.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-accent font-medium hover:underline">portfolio</a>.
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Have feedback or ideas? Reach out to <a href="mailto:forgecvcontact@gmail.com" className="text-primary hover:text-accent font-medium hover:underline">forgecvcontact@gmail.com</a> or open a PR on GitHub.
             </p>
             <div className="flex items-center gap-3 mt-3">
               <a href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="text-primary hover:text-accent transition-colors">

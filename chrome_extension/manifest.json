@@ -8,7 +8,8 @@
         "scripting",
         "downloads",
         "storage",
-        "sidePanel"
+        "sidePanel",
+        "tabs"
     ],
     "host_permissions": [
         "https://generativelanguage.googleapis.com/*",

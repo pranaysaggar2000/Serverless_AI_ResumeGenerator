@@ -37,3 +37,22 @@ export function hasData(data, section) {
     }
     return false;
 }
+export function generateFilename(resumeData) {
+    let name = "Resume";
+    if (resumeData && resumeData.name) {
+        name = resumeData.name.trim().replace(/\s+/g, '_');
+    }
+    return `${name}_Resume.pdf`;
+}
+
+export function setButtonLoading(btn, loading, originalText = null) {
+    if (!btn) return;
+    if (loading) {
+        if (!btn.dataset.originalText) btn.dataset.originalText = btn.textContent;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner" style="display:inline-block; vertical-align:middle; width:14px;height:14px;border-width:2px;"></span> Working...';
+    } else {
+        btn.disabled = false;
+        btn.textContent = originalText || btn.dataset.originalText || 'Done';
+    }
+}

@@ -67,6 +67,17 @@
         style="width:auto; padding: 4px 8px; font-size:11px;">✕</button>
     </div>
 
+    <div class="card" style="margin-bottom: 12px;">
+      <h4 style="margin-bottom: 10px;">📂 Profiles</h4>
+      <div id="profileList" style="margin-bottom: 10px;"></div>
+      <div style="display: flex; gap: 8px;">
+        <input type="text" id="newProfileName" placeholder="New profile name..."
+          style="flex: 1; font-size: 12px; padding: 8px;">
+        <button id="createProfileBtn" class="secondary-btn"
+          style="white-space: nowrap; font-size: 12px; padding: 8px 12px;">+ Create</button>
+      </div>
+    </div>
+
     <div class="card">
       <h4 style="margin-bottom:12px;">📄 Re-upload Base Resume</h4>
       <input type="file" id="reuploadResumeFile" accept=".pdf" style="margin-bottom:10px;">
@@ -132,6 +143,7 @@
   <div id="mainUI" class="hidden">
     <div class="profile-pill">
       <span>Using:</span> <strong id="profileName">Loading...</strong>
+      <span id="activeProfileLabel" style="font-size:10px; opacity:0.7; margin-left:4px;"></span>
     </div>
 
     <!-- Tailoring Strategy -->
@@ -156,11 +168,26 @@
     <!-- Actions (Post-Generation) -->
     <div id="actions" class="hidden">
       <div class="actions-grid">
-        <button id="previewBtn">👁️ Preview PDF</button>
-        <button id="downloadBtn">📥 Download PDF</button>
-        <button id="editBtn">✏️ Edit Resume</button>
+        <button id="previewBtn">👁 Preview PDF</button>
+        <button id="downloadBtn">⬇ Download PDF</button>
+        <button id="editBtn">✏ Manual Editor</button>
         <button id="copyContentBtn">📋 Copy Content</button>
-        <button id="analyzeBtn">📊 Analyze ATS Score</button>
+        <button id="historyBtn" class="secondary-btn">🕐 History</button>
+        <button id="analyzeBtn" class="secondary-btn">📊 Analyze ATS Score</button>
+      </div>
+
+      <!-- Generation Progress -->
+      <div id="generationProgress" class="hidden card" style="margin-top: 16px;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+          <div id="progressSpinner" class="spinner"></div>
+          <span id="progressStepText" style="font-weight: 500; font-size: 13px;">Preparing...</span>
+        </div>
+        <div id="progressBar" style="height: 4px; background: #e5e7eb; border-radius: 2px; overflow: hidden;">
+          <div id="progressFill"
+            style="height: 100%; width: 0%; background: linear-gradient(90deg, #667eea, #764ba2); transition: width 0.5s ease;">
+          </div>
+        </div>
+        <div id="progressDetail" class="text-sm text-muted" style="margin-top: 6px; font-size: 11px;"></div>
       </div>
     </div>
 
@@ -173,10 +200,23 @@
       <div id="copyList"></div>
     </div>
 
+    <!-- History UI -->
+    <div id="historyUI" class="hidden card">
+      <div class="flex-between" style="margin-bottom: 12px;">
+        <h3>Resume History</h3>
+        <button id="closeHistoryBtn" class="secondary-btn icon-btn">✕</button>
+      </div>
+      <div id="historyList"></div>
+    </div>
+
     <!-- Editor UI -->
     <div id="editorUI" class="hidden">
       <div class="flex-between" style="margin-bottom:12px;">
-        <h3>Edit Resume Content</h3>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <h3>Edit Resume Content</h3>
+          <button id="popoutEditorBtn" class="icon-btn" title="Open in full window"
+            style="font-size: 12px; height:24px; padding:0 6px;">↗️</button>
+        </div>
         <button id="reorderBtn"
           style="background:none; border:none; color:var(--primary); font-size:12px; cursor:pointer;">⇅ Reorder
           Sections</button>
@@ -257,18 +297,7 @@
   <!-- Scripts -->
   <!-- Scripts -->
   <script src="jspdf.umd.min.js"></script>
-  <script type="module">
-    // Expose PDF.js global for non-module usage if needed, or just import where needed.
-    // However, since it is a module, we should import it in api.js instead of tagging here?
-    // User requested: "Add to popup.html OR load dynamically in the module."
-    // Let's load it here to make it available, but setting window.pdfjsLib might be needed.
-    // Actually, <script type="module"> scopes variables.
-    // Better strategy: Import it directly in api.js from the local file!
-    // BUT we need it available. The user prompt said "Add to popup.html".
-    import * as pdfjsLib from './pdf.min.mjs';
-    window.pdfjsLib = pdfjsLib;
-    pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.min.mjs';
-  </script>
+  <script type="module" src="pdf_init.js"></script>
   <script src="loader.js"></script>
 </body>
 

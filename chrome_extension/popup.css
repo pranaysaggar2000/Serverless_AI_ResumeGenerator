@@ -456,6 +456,19 @@ header .controls {
     font-size: 12px;
     line-height: 1.4;
     border: 1px solid #e2e8f0;
+    overflow: hidden;
+    resize: vertical;
+}
+
+.char-count {
+    font-size: 10px;
+    color: #9ca3af;
+    text-align: right;
+    margin-top: 2px;
+}
+
+.char-count.warning {
+    color: #ef4444;
 }
 
 /* Reorder UI */
@@ -528,6 +541,78 @@ header .controls {
     font-size: 12px;
 }
 
-.text-muted {
-    color: var(--text-muted);
+
+/* Spinner */
+.spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #e5e7eb;
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Panel Transitions */
+#setupUI,
+#mainUI,
+#settingsUI,
+#profileUI,
+#jobTrackerUI {
+    animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Skeleton Loader */
+.skeleton {
+    background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: 4px;
+    height: 16px;
+    margin-bottom: 8px;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
 }

@@ -40,15 +40,14 @@ export function showMainUI() {
     getEl('profileUI').style.display = 'none';
     getEl('mainUI').style.display = 'block';
 
-    // Ensure editor is hidden if it exists
     if (getEl('editorUI')) getEl('editorUI').style.display = 'none';
+    if (getEl('copyUI')) getEl('copyUI').style.display = 'none';
+    if (getEl('historyUI')) getEl('historyUI').style.display = 'none';
 
-    // Show actions if resume exists
     if (state.tailoredResume) {
         getEl('actions').style.display = 'block';
     } else {
         getEl('actions').style.display = 'none';
-        // Also ensure analysis results are hidden if not explicitly shown/rendered later
         if (getEl('analysisResults')) getEl('analysisResults').classList.add('hidden');
     }
 }

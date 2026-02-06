@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { callAI, extractJSON } from './ai_provider.js';
 import * as Prompts from './ai_prompts.js';
-
+import { generateResumePdf } from './pdf_builder.js';
 export async function extractText(file) {
     try {
         const arrayBuffer = await file.arrayBuffer();
@@ -145,7 +145,7 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
     }
 }
 
-import { generateResumePdf } from './pdf_builder.js';
+
 
 export async function generatePdf(resumeData) {
     try {

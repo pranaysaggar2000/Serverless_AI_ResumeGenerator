@@ -2,6 +2,85 @@ import { state, updateState } from './state.js';
 import { showStatus, showMainUI, refreshProfileName } from './ui.js';
 
 let currentEditingResume = null;
+let inputTimeout = null;
+
+function escapeRegex(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function escapeHtml(unsafe) {
+    return (unsafe || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function renderHighlightedPreview(text, container) {
+    if (!container) return;
+    if (!state.jdKeywords || state.jdKeywords.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    // Only show if text exists
+    if (!text || !text.trim()) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+
+    container.style.display = 'block';
+    let html = escapeHtml(text);
+
+    // Sort keywords by length desc to avoid partial matches inside longer words messing up? 
+    // Actually regex word boundary \b handles most, but overlapping keywords might be tricky.
+    // Simple iteration is usually fine for display.
+    state.jdKeywords.forEach(keyword => {
+        if (!keyword) return;
+        // Escape regex special chars
+        const esc = escapeRegex(keyword);
+        // Case insensitive, global
+        const regex = new RegExp(`\\b(${esc})\\b`, 'gi');
+        html = html.replace(regex, '<mark style="background: #d1fae5; padding: 0 2px; border-radius: 2px; color: #065f46;">$1</mark>');
+    });
+
+    container.innerHTML = html;
+}
+
+function updateKeywordCoverage(containerId) {
+    const list = document.getElementById('missingKeywordsList');
+    const countSpan = document.getElementById('coveredCount');
+    const totalSpan = document.getElementById('totalKeywords');
+
+    if (!list || !state.jdKeywords || state.jdKeywords.length === 0) return;
+
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    // Collect all text from inputs/textareas in the editor
+    let content = "";
+    container.querySelectorAll('input, textarea').forEach(el => content += " " + el.value);
+    content = content.toLowerCase();
+
+    const covered = state.jdKeywords.filter(k => {
+        const regex = new RegExp(`\\b${escapeRegex(k)}\\b`, 'i');
+        return regex.test(content);
+    });
+
+    const missing = state.jdKeywords.filter(k => !covered.includes(k));
+
+    if (countSpan) countSpan.textContent = covered.length;
+    if (totalSpan) totalSpan.textContent = state.jdKeywords.length;
+
+    // Show top 5 missing
+    if (list) {
+        list.textContent = missing.length > 0 ? " Missing: " + missing.slice(0, 5).join(', ') + (missing.length > 5 ? '...' : '') : " All keywords covered in this section!";
+        list.style.color = missing.length > 0 ? '#ef4444' : '#10b981';
+    }
+}
+
 
 // Helper to find data across possible key variations
 function getSectionData(data, section) {
@@ -78,6 +157,24 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
 
     container.innerHTML = ''; // Clear existing
 
+    // 0. Keyword Coverage
+    if (state.jdKeywords && state.jdKeywords.length > 0) {
+        const statsDiv = document.createElement('div');
+        statsDiv.id = 'keywordCoverage';
+        statsDiv.style.cssText = "font-size: 11px; margin-bottom: 15px; padding: 8px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px; color: #374151;";
+        statsDiv.innerHTML = `
+            <div style="font-weight:600; margin-bottom:4px;">🎯 JD Keyword Match</div>
+            <div>
+                Covered: <span id="coveredCount" style="font-weight:bold;">0</span>/<span id="totalKeywords">${state.jdKeywords.length}</span>
+            </div>
+            <div id="missingKeywordsList" style="font-size: 10px; margin-top:4px;"></div>
+        `;
+        container.appendChild(statsDiv);
+
+        // Initial Update
+        setTimeout(() => updateKeywordCoverage(containerId), 100);
+    }
+
     // 1. Custom Section Title Input (except for Contact)
     if (section !== 'contact') {
         const titleDiv = document.createElement('div');
@@ -96,6 +193,14 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
     // 2. Render Section Content
     if (section === 'contact') {
         const contact = sectionData || {};
+
+        // Name field (stored on root of resume, not in contact)
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'edit-field';
+        nameDiv.innerHTML = `<label>Full Name</label>
+                              <input type="text" id="edit_name_field" value="${data.name || ''}" placeholder="Your Name">`;
+        container.appendChild(nameDiv);
+
         const fields = [
             { key: 'location', label: 'Location' },
             { key: 'email', label: 'Email' },
@@ -421,9 +526,18 @@ function renderItemBlock(container, item, section) {
         const bContainer = div.querySelector('.bullet-list-container');
         div.querySelector('.add-bullet-btn').onclick = () => {
             bContainer.insertAdjacentHTML('beforeend', createBulletRow(""));
+            // Bind new input
+            const newTa = bContainer.lastElementChild.querySelector('textarea');
+            handleInput(newTa); // Initial
+            newTa.addEventListener('input', () => handleInput(newTa));
         };
         bContainer.addEventListener('click', (e) => {
             if (e.target.classList.contains('remove-bullet-btn')) e.target.closest('.bullet-item').remove();
+        });
+
+        // Initial binding for existing bullets
+        bContainer.querySelectorAll('textarea').forEach(ta => {
+            ta.addEventListener('input', () => handleInput(ta));
         });
 
         // Bullet Count Logic
@@ -444,6 +558,57 @@ function renderItemBlock(container, item, section) {
 
     container.appendChild(div);
     updateArrowVisibility(container);
+
+    // Initial expansion for textareas
+    div.querySelectorAll('textarea').forEach(handleInput);
+}
+
+function autoExpand(field) {
+    if (!field) return;
+    field.style.height = 'inherit';
+    const computed = window.getComputedStyle(field);
+    const height = parseInt(computed.getPropertyValue('border-top-width'), 10)
+        + parseInt(computed.getPropertyValue('padding-top'), 10)
+        + field.scrollHeight
+        + parseInt(computed.getPropertyValue('padding-bottom'), 10)
+        + parseInt(computed.getPropertyValue('border-bottom-width'), 10);
+
+    // Better simple reset for typical box-sizing: border-box
+    field.style.height = 'auto';
+    field.style.height = field.scrollHeight + 'px';
+}
+
+
+function handleInput(field) {
+    autoExpand(field);
+    if (field.classList.contains('bullet-input')) {
+        updateCharCount(field);
+
+        // Highlight & Stats Logic
+        const parent = field.closest('.bullet-item');
+        const preview = parent ? parent.querySelector('.keyword-preview') : null;
+
+        if (inputTimeout) clearTimeout(inputTimeout);
+        inputTimeout = setTimeout(() => {
+            if (preview) renderHighlightedPreview(field.value, preview);
+
+            // Update global coverage for this container
+            const formContainer = field.closest('[data-editor-mode]');
+            if (formContainer && formContainer.id) updateKeywordCoverage(formContainer.id);
+        }, 200);
+    }
+}
+
+function updateCharCount(field) {
+    const parent = field.closest('.bullet-item');
+    if (!parent) return;
+    const counter = parent.querySelector('.char-count');
+    if (!counter) return;
+
+    const len = field.value.length;
+    counter.textContent = `${len} / 200`; // Suggested limit
+    if (len > 200) counter.classList.add('warning');
+    else counter.classList.remove('warning');
 }
 
 function renderSkillBlock(container, category, skills) {
@@ -465,6 +630,12 @@ function renderSkillBlock(container, category, skills) {
     `;
 
     div.querySelector('.remove-category-btn').onclick = () => { div.remove(); updateArrowVisibility(container); };
+
+    // Auto expand skills
+    const ta = div.querySelector('textarea');
+    ta.addEventListener('input', () => autoExpand(ta));
+    // Initial
+    setTimeout(() => autoExpand(ta), 0);
 
     const upBtn = div.querySelector('.move-up-btn');
     const downBtn = div.querySelector('.move-down-btn');
@@ -488,8 +659,12 @@ function createBulletRow(text) {
         .replace(/"/g, '&quot;') : '';
     // Use textarea value property instead of innerHTML to avoid XSS issues
     return `<div class="bullet-item" style="display: grid; grid-template-columns: 1fr auto; gap: 5px; margin-bottom: 5px; width: 100%;">
-                <textarea class="bullet-input" style="width: 100%; height: 50px; resize: vertical; padding: 5px;">${safeText}</textarea>
-                <button class="remove-btn remove-bullet-btn">❌</button>
+                <div style="width:100%">
+                    <textarea class="bullet-input" style="width: 100%; height: 50px; resize: vertical; padding: 5px;">${safeText}</textarea>
+                    <div class="keyword-preview" style="font-size: 10px; color: #666; margin-top: 2px; line-height: 1.4; display:none; padding:2px;"></div>
+                    <div class="char-count">0 / 200</div>
+                </div>
+                <button class="remove-btn remove-bullet-btn" style="height:fit-content; margin-top:5px;">❌</button>
             </div>`;
 }
 
@@ -527,6 +702,10 @@ export async function saveProfileChanges(section, containerId = 'profileFormCont
         // Return string, can split if needed by consumer
         if (el) currentEditingResume.languages = el.value.split(',').map(s => s.trim());
     } else if (section === 'contact') {
+        // Save name (stored on root)
+        const nameField = document.getElementById('edit_name_field');
+        if (nameField) currentEditingResume.name = nameField.value;
+
         const inputs = container.querySelectorAll('.contact-input');
         const data = {};
         inputs.forEach(i => { if (i.value) data[i.dataset.key] = i.value; });
@@ -606,6 +785,10 @@ export async function saveProfileChanges(section, containerId = 'profileFormCont
         await chrome.storage.local.set({ base_resume: currentEditingResume });
         updateState({ baseResume: currentEditingResume });
         refreshProfileName();
+        // Also persist the display name
+        if (currentEditingResume.name) {
+            await chrome.storage.local.set({ user_profile_name: currentEditingResume.name });
+        }
     } else {
         // Tailored resume
         await chrome.storage.local.set({ tailored_resume: currentEditingResume });

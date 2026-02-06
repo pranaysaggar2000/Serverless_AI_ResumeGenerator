@@ -1,6 +1,6 @@
 # Privacy Policy for ForgeCV
 
-**Last Updated:** February 4, 2026
+**Last Updated:** February 6, 2026
 
 ForgeCV ("we", "our", or "us") respects your privacy. This Privacy Policy explains how we handle your data when you use the ForgeCV Chrome Extension.
 
@@ -19,6 +19,11 @@ ForgeCV is designed with privacy in mind. We minimize data collection and priori
 - **How:** This is done via the `activeTab` permission.
 - **Why:** To analyze the job description and key requirements needed to tailor your resume.
 - **Sharing:** This text is sent to your selected AI provider for analysis.
+
+### C. User Queries (Smart Q&A)
+- **What:** Questions you explicitly ask via the "Smart Q&A" feature.
+- **Sharing:** Your question, along with relevant resume and job description context, is sent to your selected AI provider to generate an answer.
+- **Storage:** Queries are ephemeral and not permanently stored by the extension.
 
 ## 2. API Keys
 - Any API keys you provide (e.g., Gemini API Key, Groq API Key) are stored **locally** in your browser.

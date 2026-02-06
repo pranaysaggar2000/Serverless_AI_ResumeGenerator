@@ -182,6 +182,9 @@ const Index = () => {
           <footer className="pt-8">
             <h3 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">References</h3>
             <p className="text-sm text-card-foreground">Built by <strong>Pranay Saggar</strong> <span className="text-muted-foreground">· Powered by AI</span></p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Check out my full portfolio and other projects at <a href="https://pranaysaggar.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-accent font-medium hover:underline">portfolio</a>.
+            </p>
             <div className="flex items-center gap-3 mt-3">
               <a href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="text-primary hover:text-accent transition-colors">
                 <Linkedin size={18} />

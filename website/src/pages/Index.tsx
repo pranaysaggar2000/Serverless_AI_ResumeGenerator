@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
 const DOWNLOAD_URL = "https://github.com/pranaysaggar2000/Serverless_AI_ResumeGenerator/releases/latest/download/extension.zip";
-const GITHUB_URL = "https://github.com/pranaysaggar/ForgeCV";
-const LINKEDIN_URL = "https://linkedin.com/in/pranaysaggar";
+const GITHUB_URL = "https://github.com/pranaysaggar2000/Serverless_AI_ResumeGenerator";
+const LINKEDIN_URL = "https://linkedin.com/in/pranay-saggar";
 
 const Index = () => {
   return (

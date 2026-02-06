@@ -1,6 +1,13 @@
 import { Github, Linkedin, Download, Shield, Sparkles, GripVertical, Globe, Lock, DollarSign, Terminal, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 
 const DOWNLOAD_URL = "https://github.com/pranaysaggar2000/Serverless_AI_ResumeGenerator/releases/latest/download/extension.zip";
 const GITHUB_URL = "https://github.com/pranaysaggar2000/Serverless_AI_ResumeGenerator";
@@ -137,6 +144,30 @@ const Index = () => {
                 label="The Cost"
                 text="Competitors charge $20+/month just to rewrite a few bullet points."
               />
+            </div>
+          </ResumeSection>
+
+          <SectionDivider />
+
+          {/* ===== SCREENSHOTS (Carousel) ===== */}
+          <ResumeSection title="Screenshots">
+            <div className="mx-auto w-full max-w-[600px] px-8 sm:px-0">
+              <Carousel className="w-full">
+                <CarouselContent>
+                  <CarouselSlide src="/screenshots/Initial_Main_UI.png" caption="Clean, distraction-free interface." />
+                  <CarouselSlide src="/screenshots/API_Key_EditUI.png" caption="Secure API Key management (Gemini, Groq)." />
+                  <CarouselSlide src="/screenshots/Main_Page_UI.png" caption="One-click tailoring from any job description." />
+                  <CarouselSlide src="/screenshots/Content_Edit_UI.png" caption="Advanced manual editor with real-time preview." />
+                  <CarouselSlide src="/screenshots/ATS_UI.png" caption="Detailed ATS scoring and keyword gap analysis." />
+                  <CarouselSlide src="/screenshots/Profile_UpdateUI.png" caption="Manage multiple profiles for different roles." />
+                  <CarouselSlide src="/screenshots/Question_Helper_UI.png" caption="Ask context-aware questions about the job." />
+                  <CarouselSlide src="/screenshots/Copy_ContentUI.png" caption="Copy tailored content to clipboard instantly." />
+                  <CarouselSlide src="/screenshots/Change_Order_UI.png" caption="Drag & Drop section reordering." />
+                  <CarouselSlide src="/screenshots/Format_Edit_UI.png" caption="Customize formatting options." />
+                </CarouselContent>
+                <CarouselPrevious />
+                <CarouselNext />
+              </Carousel>
             </div>
           </ResumeSection>
 
@@ -279,6 +310,19 @@ function InstallStep({ n, children }: { n: number; children: React.ReactNode }) 
       </span>
       <span>{children}</span>
     </li>
+  );
+}
+
+function CarouselSlide({ src, caption }: { src: string; caption: string }) {
+  return (
+    <CarouselItem>
+      <div className="p-1">
+        <div className="overflow-hidden rounded-md border bg-muted">
+          <img src={src} alt={caption} className="w-full h-auto object-cover aspect-[16/10]" />
+        </div>
+        <p className="text-center text-xs text-muted-foreground mt-2 italic">{caption}</p>
+      </div>
+    </CarouselItem>
   );
 }
 

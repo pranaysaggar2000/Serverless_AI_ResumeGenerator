@@ -33,6 +33,7 @@
         <select id="providerSelect">
           <option value="gemini">Google Gemini (Recommended)</option>
           <option value="groq">Groq (Llama 3)</option>
+          <option value="nvidia">NVIDIA (Llama 4 Maverick)</option>
         </select>
       </div>
 
@@ -51,6 +52,15 @@
         <input type="password" id="groqApiKey" placeholder="Enter Groq API Key">
         <div class="text-sm text-muted" style="margin-top:4px;">
           Get key from <a href="https://console.groq.com/keys" target="_blank">Groq Console</a>.
+        </div>
+      </div>
+
+      <div id="nvidiaKeyData" class="key-section hidden">
+        <label for="nvidiaApiKey">NVIDIA API Key</label>
+        <input type="password" id="nvidiaApiKey" placeholder="Enter NVIDIA API Key (starts with nvapi-...)">
+        <div class="text-sm text-muted" style="margin-top:4px;">
+          Get key from <a href="https://build.nvidia.com/meta/llama-4-maverick-17b-128e-instruct" target="_blank">NVIDIA
+            (Maverick)</a>. Click "Get API Key".
         </div>
       </div>
 
@@ -171,9 +181,35 @@
         <button id="previewBtn">👁 Preview PDF</button>
         <button id="downloadBtn">⬇ Download PDF</button>
         <button id="editBtn">✏ Manual Editor</button>
+        <button id="formatBtn" class="secondary-btn">🎨 Format</button>
         <button id="copyContentBtn">📋 Copy Content</button>
         <button id="historyBtn" class="secondary-btn">🕐 History</button>
         <button id="analyzeBtn" class="secondary-btn">📊 Analyze ATS Score</button>
+      </div>
+
+      <!-- Drag & Drop Resume Card -->
+      <div id="dragCard" class="hidden" style="margin-top: 12px;">
+        <div id="dragHandle" draggable="true" style="
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                padding: 14px 16px;
+                background: linear-gradient(135deg, #f0f4ff 0%, #e8ecff 100%);
+                border: 2px dashed #818cf8;
+                border-radius: 10px;
+                cursor: grab;
+                transition: all 0.2s;
+                user-select: none;
+            ">
+          <span style="font-size: 20px;">📄</span>
+          <div>
+            <div id="dragFileName" style="font-weight: 600; font-size: 12px; color: #4338ca;">Drag resume to upload
+            </div>
+            <div style="font-size: 10px; color: #6366f1;">Drop onto any file upload field on the page</div>
+          </div>
+          <span style="font-size: 16px; color: #a5b4fc;">⇗</span>
+        </div>
       </div>
 
       <!-- Generation Progress -->
@@ -198,6 +234,122 @@
         <button id="closeCopyBtn" class="secondary-btn icon-btn">✕</button>
       </div>
       <div id="copyList"></div>
+    </div>
+
+    <!-- Format Settings UI -->
+    <div id="formatUI" class="hidden card">
+      <div class="flex-between" style="margin-bottom: 12px;">
+        <h3>Resume Format</h3>
+        <button id="closeFormatBtn" class="secondary-btn icon-btn">✕</button>
+      </div>
+
+      <div class="edit-field" style="margin-bottom: 12px;">
+        <label class="text-sm text-muted">FONT FAMILY</label>
+        <div style="display: flex; gap: 6px;">
+          <button class="format-option" data-setting="font" data-value="times"
+            style="flex:1; font-family: 'Times New Roman', serif; font-size: 12px; padding: 8px;">Times</button>
+          <button class="format-option" data-setting="font" data-value="helvetica"
+            style="flex:1; font-family: Helvetica, Arial, sans-serif; font-size: 12px; padding: 8px;">Helvetica</button>
+          <button class="format-option" data-setting="font" data-value="courier"
+            style="flex:1; font-family: 'Courier New', monospace; font-size: 12px; padding: 8px;">Courier</button>
+        </div>
+      </div>
+
+      <div class="edit-field" style="margin-bottom: 12px;">
+        <label class="text-sm text-muted">DENSITY</label>
+        <div style="display: flex; gap: 6px;">
+          <button class="format-option" data-setting="density" data-value="compact"
+            style="flex:1; font-size: 11px; padding: 8px;">Compact</button>
+          <button class="format-option" data-setting="density" data-value="normal"
+            style="flex:1; font-size: 11px; padding: 8px;">Normal</button>
+          <button class="format-option" data-setting="density" data-value="spacious"
+            style="flex:1; font-size: 11px; padding: 8px;">Spacious</button>
+        </div>
+      </div>
+
+      <div class="edit-field" style="margin-bottom: 12px;">
+        <label class="text-sm text-muted">MARGINS</label>
+        <div style="display: flex; gap: 6px;">
+          <button class="format-option" data-setting="margins" data-value="narrow"
+            style="flex:1; font-size: 11px; padding: 8px;">Narrow</button>
+          <button class="format-option" data-setting="margins" data-value="normal"
+            style="flex:1; font-size: 11px; padding: 8px;">Normal</button>
+          <button class="format-option" data-setting="margins" data-value="wide"
+            style="flex:1; font-size: 11px; padding: 8px;">Wide</button>
+        </div>
+      </div>
+
+      <div class="edit-field" style="margin-bottom: 12px;">
+        <label class="text-sm text-muted">NAME SIZE</label>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <input type="range" id="nameSizeSlider" min="16" max="28" value="21" step="1" style="flex: 1;">
+          <span id="nameSizeValue" style="font-size: 12px; min-width: 30px; text-align: center;">21pt</span>
+        </div>
+      </div>
+
+      <div class="edit-field" style="margin-bottom: 12px;">
+        <label class="text-sm text-muted">BODY TEXT SIZE</label>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <input type="range" id="bodySizeSlider" min="9" max="14" value="10" step="0.5" style="flex: 1;">
+          <span id="bodySizeValue" style="font-size: 12px; min-width: 30px; text-align: center;">10pt</span>
+        </div>
+      </div>
+
+      <div class="edit-field" style="margin-bottom: 12px;">
+        <label class="text-sm text-muted">SECTION HEADER SIZE</label>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <input type="range" id="headerSizeSlider" min="10" max="24" value="12" step="1" style="flex: 1;">
+          <span id="headerSizeValue" style="font-size: 12px; min-width: 30px; text-align: center;">12pt</span>
+        </div>
+      </div>
+
+      <div class="edit-field" style="margin-bottom: 12px;">
+        <label class="text-sm text-muted">SUB-HEADING SIZE</label>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <input type="range" id="subheaderSizeSlider" min="10" max="18" value="11" step="0.5" style="flex: 1;">
+          <span id="subheaderSizeValue" style="font-size: 12px; min-width: 30px; text-align: center;">11pt</span>
+        </div>
+      </div>
+
+      <div class="edit-field" style="margin-bottom: 12px;">
+        <label class="text-sm text-muted">SECTION HEADERS</label>
+        <select id="headerStyleSelect" style="font-size: 12px;">
+          <option value="uppercase_line">UPPERCASE + Line (Default)</option>
+          <option value="uppercase_noline">UPPERCASE Only</option>
+          <option value="bold_line">Bold Title Case + Line</option>
+          <option value="bold_noline">Bold Title Case Only</option>
+        </select>
+      </div>
+
+      <div class="edit-field" style="margin-bottom: 12px;">
+        <label class="text-sm text-muted">BULLET STYLE</label>
+        <div style="display: flex; gap: 6px;">
+          <button class="format-option" data-setting="bulletChar" data-value="•"
+            style="flex:1; font-size: 14px; padding: 8px;">•</button>
+          <button class="format-option" data-setting="bulletChar" data-value="–"
+            style="flex:1; font-size: 14px; padding: 8px;">–</button>
+        </div>
+      </div>
+
+      <div class="edit-field" style="margin-bottom: 12px;">
+        <label class="text-sm text-muted">PAGE SIZE</label>
+        <div style="display: flex; gap: 6px;">
+          <button class="format-option" data-setting="pageSize" data-value="letter"
+            style="flex:1; font-size: 11px; padding: 8px;">US Letter</button>
+          <button class="format-option" data-setting="pageSize" data-value="a4"
+            style="flex:1; font-size: 11px; padding: 8px;">A4</button>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <input type="checkbox" id="showLinksCheck" checked style="width: auto;">
+        <label for="showLinksCheck" class="text-sm" style="margin: 0;">Show clickable links in contact line</label>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 16px;">
+        <button id="previewFormatBtn" class="primary-btn" style="flex: 1; font-size: 12px;">👁 Preview</button>
+        <button id="resetFormatBtn" class="secondary-btn" style="flex: 1; font-size: 12px;">↩ Reset Defaults</button>
+      </div>
     </div>
 
     <!-- History UI -->
@@ -256,6 +408,7 @@
       <div class="editor-footer">
         <button id="saveManualBtn" style="background:var(--primary); color:white;">Save Changes</button>
         <button id="saveRegenBtn" style="background:var(--success); color:white;">Save & Regenerate</button>
+        <button id="editorPreviewBtn" class="secondary-btn">👁 Preview</button>
         <button id="cancelEditBtn" class="secondary-btn">Cancel</button>
       </div>
     </div>

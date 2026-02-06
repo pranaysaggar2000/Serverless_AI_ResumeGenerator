@@ -28,9 +28,15 @@ export function toggleProviderUI(provider) {
     if (provider === 'gemini') {
         getEl('geminiKeyData').style.display = 'block';
         getEl('groqKeyData').style.display = 'none';
-    } else {
+        if (getEl('nvidiaKeyData')) getEl('nvidiaKeyData').style.display = 'none';
+    } else if (provider === 'groq') {
         getEl('geminiKeyData').style.display = 'none';
         getEl('groqKeyData').style.display = 'block';
+        if (getEl('nvidiaKeyData')) getEl('nvidiaKeyData').style.display = 'none';
+    } else if (provider === 'nvidia') {
+        getEl('geminiKeyData').style.display = 'none';
+        getEl('groqKeyData').style.display = 'none';
+        if (getEl('nvidiaKeyData')) getEl('nvidiaKeyData').style.display = 'block';
     }
 }
 
@@ -42,6 +48,7 @@ export function showMainUI() {
 
     if (getEl('editorUI')) getEl('editorUI').style.display = 'none';
     if (getEl('copyUI')) getEl('copyUI').style.display = 'none';
+    if (getEl('formatUI')) getEl('formatUI').style.display = 'none';
     if (getEl('historyUI')) getEl('historyUI').style.display = 'none';
 
     if (state.tailoredResume) {
@@ -49,6 +56,7 @@ export function showMainUI() {
     } else {
         getEl('actions').style.display = 'none';
         if (getEl('analysisResults')) getEl('analysisResults').classList.add('hidden');
+        if (getEl('dragCard')) getEl('dragCard').style.display = 'none';
     }
 }
 

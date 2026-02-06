@@ -50,6 +50,7 @@ const closeCopyBtn = document.getElementById('closeCopyBtn');
 const saveManualBtn = document.getElementById('saveManualBtn');
 const saveRegenBtn = document.getElementById('saveRegenBtn');
 const cancelEditBtn = document.getElementById('cancelEditBtn');
+const editorPreviewBtn = document.getElementById('editorPreviewBtn');
 
 // Reorder Elements
 const reorderBtn = document.getElementById('reorderBtn');
@@ -256,7 +257,9 @@ async function init() {
 
         setupEventListeners();
         setupHistoryUI();
+        setupDragAndDrop();
         setupProfileManagement();
+        setupFormatUI();
         detectJobDescription().catch(e => console.log("Silent detect fail:", e));
     } catch (e) {
         console.error("Critical Init Error:", e);
@@ -275,12 +278,13 @@ if (document.readyState === 'loading') {
 }
 
 async function loadState() {
-    const data = await chrome.storage.local.get(['gemini_api_key', 'groq_api_key', 'provider', 'base_resume', 'tailored_resume', 'user_profile_name', 'tailoring_strategy', 'last_analysis', 'active_profile']);
+    const data = await chrome.storage.local.get(['gemini_api_key', 'groq_api_key', 'nvidia_api_key', 'provider', 'base_resume', 'tailored_resume', 'user_profile_name', 'tailoring_strategy', 'last_analysis', 'active_profile']);
 
     // Update State Module
     updateState({
         currentApiKey: data.gemini_api_key || "",
         currentGroqKey: data.groq_api_key || "",
+        currentNvidiaKey: data.nvidia_api_key || "",
         currentProvider: data.provider || "gemini",
         baseResume: data.base_resume || null,
         tailoredResume: data.tailored_resume || null,
@@ -297,12 +301,7 @@ async function loadState() {
 
     updateActiveProfileLabel(state.activeProfile);
 
-    // Keys UI
-    if (state.currentApiKey) apiKeyInput.value = state.currentApiKey;
-    if (state.currentGroqKey) document.getElementById('groqApiKey').value = state.currentGroqKey;
-    if (state.currentProvider) document.getElementById('providerSelect').value = state.currentProvider;
-
-    toggleProviderUI(state.currentProvider);
+    setupSettings();
 
     // Profile UI
     if (state.baseResume) {
@@ -334,6 +333,37 @@ async function loadState() {
     const backFromSetup = document.getElementById('backFromSetup');
     if (backFromSetup) {
         backFromSetup.style.display = state.baseResume ? 'inline-block' : 'none';
+    }
+
+    await loadFormatSettings();
+
+    // Pre-cache PDF blob for drag-drop
+    if (state.tailoredResume) {
+        try {
+            const blob = await generatePdf(state.tailoredResume);
+            if (blob instanceof Blob) {
+                updateState({ latestPdfBlob: blob });
+                updateDragCard(state.tailoredResume);
+            }
+        } catch (e) {
+            console.log("Pre-cache PDF failed (non-critical):", e);
+        }
+    }
+}
+
+function setupSettings() {
+    const apiKeyInput = document.getElementById('apiKey');
+    const groqApiKeyInput = document.getElementById('groqApiKey');
+    const nvidiaApiKeyInput = document.getElementById('nvidiaApiKey');
+    const providerSelect = document.getElementById('providerSelect');
+
+    // Pre-fill
+    if (apiKeyInput) apiKeyInput.value = state.currentApiKey;
+    if (groqApiKeyInput) groqApiKeyInput.value = state.currentGroqKey;
+    if (nvidiaApiKeyInput) nvidiaApiKeyInput.value = state.currentNvidiaKey;
+    if (providerSelect) {
+        providerSelect.value = state.currentProvider;
+        toggleProviderUI(state.currentProvider);
     }
 }
 
@@ -417,6 +447,7 @@ function setupEventListeners() {
     saveSettingsBtn.addEventListener('click', async () => {
         const geminiKey = apiKeyInput.value.trim();
         const groqKey = document.getElementById('groqApiKey').value.trim();
+        const nvidiaKey = document.getElementById('nvidiaApiKey').value.trim();
         const provider = document.getElementById('providerSelect').value;
 
         if (provider === 'gemini' && !geminiKey) {
@@ -427,16 +458,22 @@ function setupEventListeners() {
             showStatus("Please enter a Groq API key.", "error", "settingsStatus");
             return;
         }
+        if (provider === 'nvidia' && !nvidiaKey) {
+            showStatus("Please enter a NVIDIA API key.", "error", "settingsStatus");
+            return;
+        }
 
         await chrome.storage.local.set({
             gemini_api_key: geminiKey,
             groq_api_key: groqKey,
+            nvidia_api_key: nvidiaKey,
             provider: provider
         });
 
         updateState({
             currentApiKey: geminiKey,
             currentGroqKey: groqKey,
+            currentNvidiaKey: nvidiaKey,
             currentProvider: provider
         });
 
@@ -626,6 +663,8 @@ function setupEventListeners() {
     // Generate Button
     generateBtn.addEventListener('click', async () => {
         console.log("Generate (AI) clicked");
+        invalidatePdfCache();
+
         if (!state.currentJdText || state.currentJdText.length < 50) {
             console.warn("No JD detected");
             showStatus("No valid job description detected. Navigate to a job post.", "error");
@@ -639,10 +678,11 @@ function setupEventListeners() {
 
         showProgress('detecting');
 
-        const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
+        const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey :
+            (state.currentProvider === 'nvidia' ? state.currentNvidiaKey : state.currentApiKey);
 
         try {
-            showProgress('analyzing', `Using ${state.currentProvider === 'groq' ? 'Groq' : 'Gemini'}...`);
+            showProgress('analyzing', `Using ${state.currentProvider === 'groq' ? 'Groq' : (state.currentProvider === 'nvidia' ? 'NVIDIA' : 'Gemini')}...`);
             showProgress('tailoring', 'This may take 10-15 seconds...');
 
             console.log("Calling tailorResume...");
@@ -679,6 +719,17 @@ function setupEventListeners() {
 
             if (analysis) {
                 renderAnalysis(analysis);
+            }
+
+            // After tailoring success, pre-generate the PDF blob for drag-drop
+            try {
+                const pdfBlob = await generatePdf(newResume);
+                if (pdfBlob instanceof Blob) {
+                    updateState({ latestPdfBlob: pdfBlob });
+                    updateDragCard(newResume);
+                }
+            } catch (e) {
+                console.log("Pre-cache PDF for drag failed (non-critical):", e);
             }
 
         } catch (e) {
@@ -742,7 +793,8 @@ function setupEventListeners() {
             answerOutput.textContent = "Generating answer...";
 
             try {
-                const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
+                const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey :
+                    (state.currentProvider === 'nvidia' ? state.currentNvidiaKey : state.currentApiKey);
                 const resumeToUse = state.tailoredResume || state.baseResume;
 
                 const res = await askQuestion(question, resumeToUse, state.currentJdText || "", activeKey, state.currentProvider);
@@ -822,6 +874,7 @@ function setupEventListeners() {
     if (saveManualBtn) {
         saveManualBtn.addEventListener('click', async () => {
             console.log("Save Manual clicked");
+            invalidatePdfCache();
             setButtonLoading(saveManualBtn, true);
             try {
                 const activeSection = document.getElementById('sectionSelect').value;
@@ -848,6 +901,7 @@ function setupEventListeners() {
     if (saveRegenBtn) {
         saveRegenBtn.addEventListener('click', async () => {
             console.log("Save & Regenerate clicked");
+            invalidatePdfCache();
             setButtonLoading(saveRegenBtn, true);
 
             try {
@@ -907,6 +961,30 @@ function setupEventListeners() {
         });
     }
 
+    // Editor Preview
+    if (editorPreviewBtn) {
+        editorPreviewBtn.addEventListener('click', async () => {
+            if (!state.currentEditingData) return;
+
+            // Capture latest changes from form to currentEditingData
+            saveProfileChanges(state.currentEditingData);
+
+            try {
+                editorPreviewBtn.textContent = "Generating...";
+                const result = await generatePdf(state.currentEditingData);
+                if (result instanceof Blob) {
+                    const url = URL.createObjectURL(result);
+                    chrome.tabs.create({ url });
+                    setTimeout(() => URL.revokeObjectURL(url), 120000);
+                }
+            } catch (e) {
+                showStatus("Preview failed: " + e.message, "error");
+            } finally {
+                editorPreviewBtn.textContent = "👁 Preview";
+            }
+        });
+    }
+
     // Copy Content
     // Copy Content (Restored Smart Logic)
     if (copyContentBtn) {
@@ -942,14 +1020,23 @@ function setupEventListeners() {
             setButtonLoading(analyzeBtn, true);
             showStatus(statusMessage, "info");
 
-            const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
+            const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey :
+                (state.currentProvider === 'nvidia' ? state.currentNvidiaKey : state.currentApiKey);
 
             try {
                 // Skeleton UI for analysis
                 const analysisContainer = document.getElementById('analysisResults');
+                const analysisDetails = document.getElementById('analysisDetails');
+                const atsScore = document.getElementById('atsScore');
+
                 if (analysisContainer) {
                     analysisContainer.style.display = 'block';
-                    analysisContainer.innerHTML = '<div class="skeleton" style="width:100%;height:60px;margin-bottom:10px;"></div><div class="skeleton" style="width:100%;height:100px;"></div>';
+                }
+                if (atsScore) {
+                    atsScore.innerHTML = '<span class="spinner"></span>';
+                }
+                if (analysisDetails) {
+                    analysisDetails.innerHTML = '<div class="skeleton" style="width:100%;height:100px;"></div>';
                 }
 
                 const start = Date.now();
@@ -994,6 +1081,7 @@ function setupEventListeners() {
 
     if (saveOrderBtn) {
         saveOrderBtn.addEventListener('click', async () => {
+            invalidatePdfCache();
             const newOrder = [];
             sortableSections.querySelectorAll('li').forEach(li => {
                 newOrder.push(li.getAttribute('data-section'));
@@ -1030,6 +1118,10 @@ async function generateAndDisplayPDF(resumeData) {
     try {
         const result = await generatePdf(resumeData);
         if (result instanceof Blob) {
+            // Cache for drag-and-drop
+            updateState({ latestPdfBlob: result });
+            updateDragCard(resumeData);
+
             showStatus("PDF Ready. Downloading...", "success");
 
             // Auto download
@@ -1311,3 +1403,257 @@ function setupHistoryUI() {
 // Auto-run setup if elements exist (extension context)
 // Auto-run setup if elements exist (extension context)
 // document.addEventListener('DOMContentLoaded', setupHistoryUI);
+
+// ========== FORMAT SETTINGS ==========
+
+const DEFAULT_FORMAT = {
+    font: "times",
+    density: "normal",
+    margins: "normal",
+    nameSize: 21,
+    bodySize: 10,
+    headerSize: 12,
+    subheaderSize: 11,
+    headerStyle: "uppercase_line",
+    bulletChar: "•",
+    showLinks: true,
+    dateAlign: "right",
+    pageSize: "letter"
+};
+
+async function loadFormatSettings() {
+    const data = await chrome.storage.local.get('format_settings');
+    const settings = { ...DEFAULT_FORMAT, ...(data.format_settings || {}) };
+    updateState({ formatSettings: settings });
+    refreshFormatUI(settings);
+    return settings;
+}
+
+async function saveFormatSettings(settings) {
+    updateState({ formatSettings: settings });
+    await chrome.storage.local.set({ format_settings: settings });
+}
+
+function refreshFormatUI(settings) {
+    // Highlight active toggle buttons
+    document.querySelectorAll('.format-option').forEach(btn => {
+        const setting = btn.dataset.setting;
+        const value = btn.dataset.value;
+        btn.classList.toggle('active', settings[setting] === value);
+    });
+
+    // Sliders
+    const nameSlider = document.getElementById('nameSizeSlider');
+    const bodySlider = document.getElementById('bodySizeSlider');
+    const headerSizeSlider = document.getElementById('headerSizeSlider');
+    const subheaderSizeSlider = document.getElementById('subheaderSizeSlider');
+
+    if (nameSlider) { nameSlider.value = settings.nameSize; document.getElementById('nameSizeValue').textContent = settings.nameSize + 'pt'; }
+    if (bodySlider) { bodySlider.value = settings.bodySize; document.getElementById('bodySizeValue').textContent = settings.bodySize + 'pt'; }
+    if (headerSizeSlider) { headerSizeSlider.value = settings.headerSize; document.getElementById('headerSizeValue').textContent = settings.headerSize + 'pt'; }
+    if (subheaderSizeSlider) { subheaderSizeSlider.value = settings.subheaderSize; document.getElementById('subheaderSizeValue').textContent = settings.subheaderSize + 'pt'; }
+
+    // Dropdown
+    const headerSelect = document.getElementById('headerStyleSelect');
+    if (headerSelect) headerSelect.value = settings.headerStyle;
+
+    // Checkbox
+    const linksCheck = document.getElementById('showLinksCheck');
+    if (linksCheck) linksCheck.checked = settings.showLinks;
+}
+
+function setupFormatUI() {
+    const formatBtn = document.getElementById('formatBtn');
+    const formatUI = document.getElementById('formatUI');
+    const closeFormatBtn = document.getElementById('closeFormatBtn');
+
+    if (formatBtn) {
+        formatBtn.addEventListener('click', async () => {
+            await loadFormatSettings();
+            formatUI.style.display = 'block';
+            document.getElementById('actions').style.display = 'none';
+        });
+    }
+
+    if (closeFormatBtn) {
+        closeFormatBtn.addEventListener('click', () => {
+            formatUI.style.display = 'none';
+            document.getElementById('actions').style.display = 'block';
+        });
+    }
+
+    // Toggle buttons
+    document.querySelectorAll('.format-option').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const setting = btn.dataset.setting;
+            const value = btn.dataset.value;
+            const settings = { ...state.formatSettings, [setting]: value };
+            await saveFormatSettings(settings);
+            refreshFormatUI(settings);
+        });
+    });
+
+    // Sliders
+    const nameSlider = document.getElementById('nameSizeSlider');
+    if (nameSlider) {
+        nameSlider.addEventListener('input', async (e) => {
+            const val = parseInt(e.target.value);
+            document.getElementById('nameSizeValue').textContent = val + 'pt';
+            await saveFormatSettings({ ...state.formatSettings, nameSize: val });
+        });
+    }
+
+    const bodySlider = document.getElementById('bodySizeSlider');
+    if (bodySlider) {
+        bodySlider.addEventListener('input', async (e) => {
+            const val = parseFloat(e.target.value);
+            document.getElementById('bodySizeValue').textContent = val + 'pt';
+            await saveFormatSettings({ ...state.formatSettings, bodySize: val });
+        });
+    }
+
+    const headerSizeSlider = document.getElementById('headerSizeSlider');
+    if (headerSizeSlider) {
+        headerSizeSlider.addEventListener('input', async (e) => {
+            const val = parseFloat(e.target.value);
+            document.getElementById('headerSizeValue').textContent = val + 'pt';
+            await saveFormatSettings({ ...state.formatSettings, headerSize: val });
+        });
+    }
+
+    const subheaderSizeSlider = document.getElementById('subheaderSizeSlider');
+    if (subheaderSizeSlider) {
+        subheaderSizeSlider.addEventListener('input', async (e) => {
+            const val = parseFloat(e.target.value);
+            document.getElementById('subheaderSizeValue').textContent = val + 'pt';
+            await saveFormatSettings({ ...state.formatSettings, subheaderSize: val });
+        });
+    }
+
+    // Header style dropdown
+    const headerSelect = document.getElementById('headerStyleSelect');
+    if (headerSelect) {
+        headerSelect.addEventListener('change', async (e) => {
+            await saveFormatSettings({ ...state.formatSettings, headerStyle: e.target.value });
+        });
+    }
+
+    // Show links checkbox
+    const linksCheck = document.getElementById('showLinksCheck');
+    if (linksCheck) {
+        linksCheck.addEventListener('change', async (e) => {
+            await saveFormatSettings({ ...state.formatSettings, showLinks: e.target.checked });
+        });
+    }
+
+    // Preview button
+    const previewFormatBtn = document.getElementById('previewFormatBtn');
+    if (previewFormatBtn) {
+        previewFormatBtn.addEventListener('click', async () => {
+            if (!state.tailoredResume && !state.baseResume) {
+                showStatus("No resume to preview", "error");
+                return;
+            }
+            const resume = state.tailoredResume || state.baseResume;
+            // Show loading
+            previewFormatBtn.textContent = "Generating...";
+            try {
+                const result = await generatePdf(resume);
+                if (result instanceof Blob) {
+                    const url = URL.createObjectURL(result);
+                    chrome.tabs.create({ url });
+                    setTimeout(() => URL.revokeObjectURL(url), 120000);
+                }
+            } catch (e) {
+                showStatus(e.message, "error");
+            } finally {
+                previewFormatBtn.textContent = "👁 Preview";
+            }
+        });
+    }
+
+    // Reset button
+    const resetFormatBtn = document.getElementById('resetFormatBtn');
+    if (resetFormatBtn) {
+        resetFormatBtn.addEventListener('click', async () => {
+            await saveFormatSettings({ ...DEFAULT_FORMAT });
+            refreshFormatUI(DEFAULT_FORMAT);
+            showStatus("Format reset to defaults", "info");
+        });
+    }
+}
+
+// ========== DRAG & DROP RESUME ==========
+
+function updateDragCard(resumeData) {
+    const dragCard = document.getElementById('dragCard');
+    const dragFileName = document.getElementById('dragFileName');
+    if (!dragCard) return;
+
+    if (state.latestPdfBlob) {
+        dragCard.style.display = 'block';
+        dragCard.classList.remove('hidden');
+        if (dragFileName) {
+            dragFileName.textContent = generateFilename(resumeData);
+        }
+    } else {
+        dragCard.style.display = 'none';
+    }
+}
+
+function setupDragAndDrop() {
+    const dragHandle = document.getElementById('dragHandle');
+    if (!dragHandle) return;
+
+    dragHandle.addEventListener('dragstart', (e) => {
+        if (!state.latestPdfBlob) {
+            e.preventDefault();
+            showStatus("No PDF generated yet.", "error");
+            return;
+        }
+
+        const resumeData = state.tailoredResume || state.baseResume;
+        const filename = generateFilename(resumeData);
+
+        // Create a File object from the blob
+        const file = new File([state.latestPdfBlob], filename, {
+            type: 'application/pdf',
+            lastModified: Date.now()
+        });
+
+        // Add the file to dataTransfer
+        // This is the key line — it lets the browser treat the drag as a file drop
+        try {
+            e.dataTransfer.items.add(file);
+            e.dataTransfer.effectAllowed = 'copy';
+        } catch (err) {
+            // Fallback: some environments don't support items.add(file)
+            // In that case, we can at least set a download URL
+            const url = URL.createObjectURL(state.latestPdfBlob);
+            e.dataTransfer.setData('DownloadURL', "application/pdf:" + filename + ":" + url);
+            // Clean up after drag ends
+            dragHandle.addEventListener('dragend', () => URL.revokeObjectURL(url), { once: true });
+        }
+
+        dragHandle.classList.add('dragging');
+
+        // Custom drag image (optional)
+        const dragImage = document.createElement('div');
+        dragImage.textContent = "📄 " + filename;
+        dragImage.style.cssText = 'position:absolute; top:-1000px; padding:8px 12px; background:#4338ca; color:white; border-radius:6px; font-size:12px; font-weight:600; white-space:nowrap;';
+        document.body.appendChild(dragImage);
+        e.dataTransfer.setDragImage(dragImage, 0, 0);
+        setTimeout(() => document.body.removeChild(dragImage), 0);
+    });
+
+    dragHandle.addEventListener('dragend', () => {
+        dragHandle.classList.remove('dragging');
+    });
+}
+
+
+function invalidatePdfCache() {
+    updateState({ latestPdfBlob: null });
+    const dragCard = document.getElementById('dragCard');
+    if (dragCard) dragCard.style.display = 'none';
+}

@@ -616,3 +616,45 @@ header .controls {
 ::-webkit-scrollbar-thumb:hover {
     background: #9ca3af;
 }
+/* Format option buttons */
+.format-option {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: all 0.15s;
+}
+
+.format-option:hover {
+    border-color: var(--primary);
+}
+
+.format-option.active {
+    background: #e0e7ff;
+    border-color: var(--primary);
+    color: var(--primary);
+    font-weight: 600;
+}
+
+/* Drag Card */
+#dragHandle {
+    cursor: grab;
+}
+
+#dragHandle:active {
+    cursor: grabbing;
+}
+
+#dragHandle:hover {
+    border-color: #6366f1;
+    background: linear-gradient(135deg, #e8ecff 0%, #dde3ff 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+#dragHandle.dragging {
+    opacity: 0.6;
+    border-color: #4f46e5;
+    background: #e0e7ff;
+}

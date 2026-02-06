@@ -13,7 +13,8 @@
     ],
     "host_permissions": [
         "https://generativelanguage.googleapis.com/*",
-        "https://api.groq.com/*"
+        "https://api.groq.com/*",
+        "https://integrate.api.nvidia.com/*"
     ],
     "action": {
         "default_title": "ForgeCV",

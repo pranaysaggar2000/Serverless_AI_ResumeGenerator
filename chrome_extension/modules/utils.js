@@ -3,6 +3,7 @@ import { state } from './state.js';
 export function checkCurrentProviderKey() {
     if (state.currentProvider === 'gemini') return !!state.currentApiKey;
     if (state.currentProvider === 'groq') return !!state.currentGroqKey;
+    if (state.currentProvider === 'nvidia') return !!state.currentNvidiaKey;
     return false;
 }
 

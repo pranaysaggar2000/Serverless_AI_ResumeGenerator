@@ -6,6 +6,7 @@ const stateShape = {
     tailoredResume: null,
     currentApiKey: "",
     currentGroqKey: "",
+    currentNvidiaKey: "",
     currentProvider: "gemini", // Default
     hasAnalyzed: false,
     tailoringStrategy: "balanced",
@@ -15,7 +16,22 @@ const stateShape = {
     detectedJobTitle: null,
     detectedCompany: null,
     jdKeywords: [], // Computed from analysis
-    activeProfile: "default"
+    activeProfile: "default",
+    latestPdfBlob: null,
+    formatSettings: {
+        font: "times",           // "times" | "helvetica" | "courier"
+        density: "normal",       // "compact" | "normal" | "spacious"
+        margins: "normal",       // "narrow" | "normal" | "wide"
+        nameSize: 21,            // 16-28 range
+        bodySize: 10,            // 9-12 range
+        headerSize: 12,          // 10-24 range
+        subheaderSize: 11,       // 10-18 range
+        headerStyle: "uppercase_line",  // "uppercase_line" | "uppercase_noline" | "bold_line" | "bold_noline"
+        bulletChar: "•",         // "•" | "–"
+        showLinks: true,         // show clickable LinkedIn/Portfolio in contact
+        dateAlign: "right",      // "right" | "inline"
+        pageSize: "letter"       // "letter" | "a4"
+    }
 };
 
 // Internal mutable state

@@ -3,6 +3,8 @@ export async function callAI(prompt, provider, apiKey, options = {}) {
         return callGemini(prompt, apiKey, options);
     } else if (provider === 'groq') {
         return callGroq(prompt, apiKey, options);
+    } else if (provider === 'nvidia') {
+        return callNvidia(prompt, apiKey, options);
     }
     throw new Error(`Unknown provider: ${provider}`);
 }
@@ -38,8 +40,8 @@ export function extractJSON(text) {
 }
 
 async function callGemini(prompt, apiKey, options) {
-    // Standard models: gemini-1.5-pro, gemini-1.5-flash.
-    const targetModel = options.useProModel ? 'gemini-1.5-pro' : 'gemini-1.5-flash';
+    // Standard models: gemini-2.5-pro, gemini-2.5-flash.
+    const targetModel = options.useProModel ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
     // Construct URL for the chosen model
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
 
@@ -157,4 +159,55 @@ async function callGroq(prompt, apiKey, options) {
         clearTimeout(timeout);
     }
     throw new Error("All Groq models failed.");
+}
+
+async function callNvidia(prompt, apiKey, options) {
+    const invokeUrl = "https://integrate.api.nvidia.com/v1/chat/completions";
+
+    // Default model if not specified, though normally we hardcode or pick logic
+    const model = "meta/llama-4-maverick-17b-128e-instruct";
+
+    const payload = {
+        model: model,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 10240,
+        temperature: 1.0,
+        top_p: 1.0,
+        frequency_penalty: 0.0,
+        presence_penalty: 0.0,
+        stream: false
+    };
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 180000); // 180s timeout for "thinking" models
+
+    try {
+        const response = await fetch(invokeUrl, {
+            method: 'POST',
+            headers: {
+                "Authorization": "Bearer " + apiKey.trim(),
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+        });
+
+        if (!response.ok) {
+            const err = await response.text();
+            throw new Error("NVIDIA API Error " + response.status + ": " + err);
+        }
+
+        const data = await response.json();
+        if (data.choices && data.choices[0] && data.choices[0].message) {
+            return data.choices[0].message.content;
+        }
+        throw new Error("Invalid response structure from NVIDIA API");
+
+    } catch (e) {
+        if (e.name === 'AbortError') throw new Error('Request timed out after 180s.');
+        throw e;
+    } finally {
+        clearTimeout(timeout);
+    }
 }

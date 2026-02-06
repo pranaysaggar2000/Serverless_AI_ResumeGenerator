@@ -149,7 +149,7 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
 
 export async function generatePdf(resumeData) {
     try {
-        return generateResumePdf(resumeData);
+        return generateResumePdf(resumeData, state.formatSettings || {});
     } catch (e) {
         console.error("PDF Generation failed", e);
         return { error: e.message };
@@ -157,32 +157,10 @@ export async function generatePdf(resumeData) {
 }
 
 export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis, apiKey, provider, tailoringStrategy) {
-    // NEW: Direct AI Call
-    // This is similar to tailorResume but uses existing tailoredResume as base (or original base?)
-    // Python endpoint `regenerate_resume` actually calls `tailor_resume(base_resume, jd_analysis, ... bullet_counts)`
-    // It used `state.base_resume` from request if available, or just re-tailored.
-    // In UI `saveRegenBtn`, we pass `state.baseResume`.
-    // Wait, the UI passes `tailoredResume` as first arg to `activeSection` logic?
-    // Let's check popup.js call... 
-    // It calls `regenerateResume(state.tailoredResume...`? No.
-    // `saveRegenBtn` calls `saveProfileChanges` then `regenerateResume`.
-    // The signature in `api.js` was `regenerateResume(tailoredResume, bullet_counts...)`.
-    // BUT the python endpoint used `tailored_resume` argument to mean... wait.
-    // Actually the python endpoint `regenerate_resume` used `tailored_resume` to extract *base* info?
-    // No, `tailor_resume` function takes `base_resume`.
-    // If we want to *regenerate*, we should conceptually start from `state.baseResume` + `bullet_counts`.
-    // However, the signature I must match is `regenerateResume(tailoredResume, bulletCounts....)`
-    // Use `state.baseResume` (globally imported) if possible, or assume `tailoredResume` IS the base to use?
-    // In `popup.js`: `await regenerateResume(state.tailoredResume, bulletCounts, state.currentJdAnalysis, ...)`
-    // AND `state.tailoredResume` holds the current EDITS.
-    // So we invoke tailoring using the current state of the resume (which might have manual edits) as the "Base".
-
+    // Uses the current tailored resume (with manual edits) as the base for re-tailoring.
+    // Applies bullet count limits and post-processing.
     try {
-        // We use the passed resume as base
         const base = tailoredResume;
-
-        // We need jdAnalysis. If not passed (null), we might fail? 
-        // popup.js passes `state.currentJdAnalysis`.
 
         if (!jdAnalysis) throw new Error("JD Analysis missing for regeneration");
 

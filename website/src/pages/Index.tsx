@@ -85,7 +85,7 @@ const Index = () => {
             <ExperienceEntry
               role="Smart Tailoring Engine"
               company="ForgeCV Labs"
-              date="Sep 2025 – Present"
+              date="Feb 2026 – Present"
               icon={<Sparkles size={16} className="text-accent" />}
               bullets={[
                 "Scans the Job Description on your current browser tab and rewrites resume bullets to match keywords",
@@ -96,7 +96,7 @@ const Index = () => {
             <ExperienceEntry
               role="Privacy & Security Architecture"
               company="ForgeCV Labs"
-              date="Sep 2025 – Present"
+              date="Feb 2026 – Present"
               icon={<Shield size={16} className="text-accent" />}
               bullets={[
                 "Operates 100% client-side with zero backend servers — no Vercel, no Heroku, nothing",
@@ -107,7 +107,7 @@ const Index = () => {
             <ExperienceEntry
               role="Advanced Resume Editor"
               company="ForgeCV Labs"
-              date="Sep 2025 – Present"
+              date="Feb 2026 – Present"
               icon={<GripVertical size={16} className="text-accent" />}
               bullets={[
                 "Full drag-and-drop UI to reorder sections, add/remove bullets, and perfect AI output",

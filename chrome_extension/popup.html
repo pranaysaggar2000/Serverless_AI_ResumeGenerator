@@ -255,6 +255,20 @@
   <div id="error" class="error"></div>
 
   <!-- Scripts -->
+  <!-- Scripts -->
+  <script src="jspdf.umd.min.js"></script>
+  <script type="module">
+    // Expose PDF.js global for non-module usage if needed, or just import where needed.
+    // However, since it is a module, we should import it in api.js instead of tagging here?
+    // User requested: "Add to popup.html OR load dynamically in the module."
+    // Let's load it here to make it available, but setting window.pdfjsLib might be needed.
+    // Actually, <script type="module"> scopes variables.
+    // Better strategy: Import it directly in api.js from the local file!
+    // BUT we need it available. The user prompt said "Add to popup.html".
+    import * as pdfjsLib from './pdf.min.mjs';
+    window.pdfjsLib = pdfjsLib;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.min.mjs';
+  </script>
   <script src="loader.js"></script>
 </body>
 

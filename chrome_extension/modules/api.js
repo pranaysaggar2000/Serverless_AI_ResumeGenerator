@@ -1,25 +1,41 @@
-import { API_BASE_URL, state } from './state.js';
+import { state } from './state.js';
 import { callAI, extractJSON } from './ai_provider.js';
 import * as Prompts from './ai_prompts.js';
 
 export async function extractText(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    let response;
     try {
-        response = await fetch(`${API_BASE_URL}/extract_text`, {
-            method: 'POST',
-            body: formData
-        });
-    } catch (e) {
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            console.warn("Mocking extractText response for local testing");
-            return { text: "Jane Doe\nSoftware Engineer\nExperience: 5 years..." };
+        const arrayBuffer = await file.arrayBuffer();
+
+        // Wait for pdfjsLib to be available on window (it's loaded via module script)
+        if (!window.pdfjsLib) {
+            throw new Error("PDF Library not loaded yet.");
         }
-        throw e;
+
+        const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+
+            // Join items with space, but preserve structure roughly
+            const pageText = content.items.map(item => item.str).join(' ');
+            fullText += pageText + '\n';
+
+            // Extract links from annotations
+            const annotations = await page.getAnnotations();
+            annotations.forEach(annot => {
+                if (annot.subtype === 'Link' && annot.url) {
+                    fullText += ` [Extracted Link: ${annot.url}] `;
+                }
+            });
+        }
+
+        return { text: fullText };
+    } catch (e) {
+        console.error("PDF Extraction failed", e);
+        return { error: e.message };
     }
-    return await response.json();
 }
 
 export async function extractBaseProfile(text, apiKey, provider) {
@@ -129,31 +145,15 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
     }
 }
 
+import { generateResumePdf } from './pdf_builder.js';
+
 export async function generatePdf(resumeData) {
-    // KEEP: Needs server-side library
-    const response = await fetch(`${API_BASE_URL}/generate_pdf`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resume_data: resumeData })
-    });
-
-    const data = await response.json();
-
-    if (data.error) {
-        return { error: data.error };
+    try {
+        return generateResumePdf(resumeData);
+    } catch (e) {
+        console.error("PDF Generation failed", e);
+        return { error: e.message };
     }
-
-    if (data.pdf_base64) {
-        const byteCharacters = atob(data.pdf_base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        return new Blob([byteArray], { type: 'application/pdf' });
-    }
-
-    return { error: "Unknown response format" };
 }
 
 export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis, apiKey, provider, tailoringStrategy) {

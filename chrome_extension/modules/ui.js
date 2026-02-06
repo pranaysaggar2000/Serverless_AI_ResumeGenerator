@@ -129,6 +129,13 @@ export function renderAnalysis(analysis) {
             </div>`;
         }
 
+        if (analysis.weak_keywords && analysis.weak_keywords.length) {
+            html += `<div style="margin-bottom: 10px;">
+                <strong>⚡ Weak Matches (in skills only, needs context):</strong>
+                <span style="color: #d97706;">${analysis.weak_keywords.join(', ')}</span>
+            </div>`;
+        }
+
         if (analysis.recommendations && analysis.recommendations.length) {
             html += `<div style="margin-bottom: 8px;">
                 <strong>💡 Recommendations:</strong>

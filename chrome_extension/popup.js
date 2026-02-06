@@ -19,11 +19,10 @@ import {
     regenerateResume,
     analyzeResume
 } from './modules/api.js';
-import { renderProfileEditor, saveProfileChanges, collectBulletCounts } from './modules/editor.js';
+import { renderProfileEditor, saveProfileChanges, collectBulletCounts, resetEditorState, getCurrentEditingResume } from './modules/editor.js';
 import { extractJobDescription } from './modules/jd_extractor.js';
 import { showProgress, hideProgress } from './modules/progress.js';
 
-// DOM Elements
 const setupUI = document.getElementById('setupUI');
 const mainUI = document.getElementById('mainUI');
 const settingsUI = document.getElementById('settingsUI');
@@ -52,14 +51,11 @@ const saveRegenBtn = document.getElementById('saveRegenBtn');
 const cancelEditBtn = document.getElementById('cancelEditBtn');
 const editorPreviewBtn = document.getElementById('editorPreviewBtn');
 
-// Reorder Elements
 const reorderBtn = document.getElementById('reorderBtn');
 const reorderUI = document.getElementById('reorderUI');
 const sortableSections = document.getElementById('sortableSections');
 const saveOrderBtn = document.getElementById('saveOrderBtn');
 const cancelOrderBtn = document.getElementById('cancelOrderBtn');
-
-// ========== PROFILE MANAGEMENT ==========
 
 async function loadProfiles() {
     const data = await chrome.storage.local.get(['profiles', 'active_profile']);
@@ -280,7 +276,6 @@ if (document.readyState === 'loading') {
 async function loadState() {
     const data = await chrome.storage.local.get(['gemini_api_key', 'groq_api_key', 'nvidia_api_key', 'provider', 'base_resume', 'tailored_resume', 'user_profile_name', 'tailoring_strategy', 'last_analysis', 'active_profile']);
 
-    // Update State Module
     updateState({
         currentApiKey: data.gemini_api_key || "",
         currentGroqKey: data.groq_api_key || "",
@@ -303,7 +298,6 @@ async function loadState() {
 
     setupSettings();
 
-    // Profile UI
     if (state.baseResume) {
         if (profileNameDisplay) profileNameDisplay.textContent = data.user_profile_name || "User";
 
@@ -323,7 +317,6 @@ async function loadState() {
         }
     }
 
-    // Slider UI
     if (tailoringSlider) {
         const sliderValue = state.tailoringStrategy === 'profile_focus' ? 0 : state.tailoringStrategy === 'balanced' ? 1 : 2;
         tailoringSlider.value = sliderValue;
@@ -337,7 +330,6 @@ async function loadState() {
 
     await loadFormatSettings();
 
-    // Pre-cache PDF blob for drag-drop
     if (state.tailoredResume) {
         try {
             const blob = await generatePdf(state.tailoredResume);
@@ -408,26 +400,23 @@ function setupEventListeners() {
 
     // Profile Toggle
     document.getElementById('profileToggle').addEventListener('click', async () => {
+        resetEditorState(); // Clear any stale editor state
         showProfileUI();
         const profiles = await loadProfiles();
         renderProfileList(profiles, state.activeProfile);
-        renderProfileEditor('contact', state.baseResume); // Edit base resume in profile screen
+        renderProfileEditor('contact', state.baseResume, 'profileFormContainer'); // First open — pass resume
     });
 
     // Profile Section Change
     document.getElementById('profileSectionSelect').addEventListener('change', (e) => {
-        // Warning: This selector is used in TWO places (Popup Edit & Profile Edit) 
-        // We need to know which context we are in.
-        // For simplicity, renderProfileEditor uses currentEditingResume global in editor.js
-        // We should probably explicitly pass data if we want to be safe, but editor.js logic handles defaults.
-        // Ideally we check if 'editorUI' is visible or 'profileUI' is visible.
-
+        // Updated Fix: Don't pass resume data so logic uses currentEditingResume clone.
+        // This prevents re-cloning on every switch and ensures unsaved edits persist across sections.
         const section = e.target.value;
         const profileVisible = document.getElementById('profileUI').style.display === 'block';
         if (profileVisible) {
-            renderProfileEditor(section, state.baseResume);
+            renderProfileEditor(section, null, 'profileFormContainer');
         } else {
-            renderProfileEditor(section); // Uses currently set resume (tailored)
+            renderProfileEditor(section, null, 'formContainer');
         }
     });
 
@@ -638,14 +627,17 @@ function setupEventListeners() {
             showStatus("Preparing base resume...", "info");
 
             try {
-                // Set the current 'active' result to the base resume
-                updateState({ tailoredResume: state.baseResume });
+                // Set the current 'active' result to a DEEP CLONE of the base resume
+                // This prevents edits to the "tailored" resume from contaminating the base state
+                const baseClone = JSON.parse(JSON.stringify(state.baseResume));
+
+                updateState({ tailoredResume: baseClone });
 
                 // Persist this choice so reload works
-                await chrome.storage.local.set({ tailored_resume: state.baseResume });
+                await chrome.storage.local.set({ tailored_resume: baseClone });
 
                 showStatus("Base resume ready! output loaded below.", "success");
-                await saveVersion(state.baseResume, 'Base Resume (No AI)');
+                await saveVersion(baseClone, 'Base Resume (No AI)');
 
                 // Show actions
                 if (actionsDiv) actionsDiv.style.display = 'block';
@@ -845,6 +837,7 @@ function setupEventListeners() {
         editBtn.addEventListener('click', () => {
             console.log("Edit clicked");
             if (!state.tailoredResume) return;
+            resetEditorState(); // Clear any stale editor state
             document.getElementById('editorUI').style.display = 'block';
             document.getElementById('actions').style.display = 'none';
             // Default to summary or first available
@@ -856,7 +849,9 @@ function setupEventListeners() {
     const sectionSelect = document.getElementById('sectionSelect');
     if (sectionSelect) {
         sectionSelect.addEventListener('change', (e) => {
-            renderProfileEditor(e.target.value, state.tailoredResume, 'formContainer');
+            // Updated Fix: Don't pass resumeToEdit (null) so logic uses currentEditingResume clone.
+            // This prevents re-cloning on every switch and ensures unsaved edits persist across sections.
+            renderProfileEditor(e.target.value, null, 'formContainer');
         });
     }
 
@@ -964,22 +959,30 @@ function setupEventListeners() {
     // Editor Preview
     if (editorPreviewBtn) {
         editorPreviewBtn.addEventListener('click', async () => {
-            if (!state.currentEditingData) return;
+            // Get the REAL current resume being acted on inside the module
+            const editingResume = getCurrentEditingResume();
 
-            // Capture latest changes from form to currentEditingData
-            saveProfileChanges(state.currentEditingData);
+            if (!editingResume) {
+                showStatus("No active resume to preview", "error");
+                return;
+            }
+
+            // Capture latest changes from form to editingResume
+            const activeSection = document.getElementById('sectionSelect').value;
+            await saveProfileChanges(activeSection);
 
             try {
+                const originalText = editorPreviewBtn.textContent;
                 editorPreviewBtn.textContent = "Generating...";
-                const result = await generatePdf(state.currentEditingData);
+                const result = await generatePdf(editingResume);
                 if (result instanceof Blob) {
                     const url = URL.createObjectURL(result);
                     chrome.tabs.create({ url });
                     setTimeout(() => URL.revokeObjectURL(url), 120000);
                 }
+                editorPreviewBtn.textContent = originalText;
             } catch (e) {
                 showStatus("Preview failed: " + e.message, "error");
-            } finally {
                 editorPreviewBtn.textContent = "👁 Preview";
             }
         });

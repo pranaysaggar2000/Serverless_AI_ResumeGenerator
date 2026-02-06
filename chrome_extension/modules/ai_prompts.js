@@ -1,5 +1,4 @@
 
-// Re-writing buildJDAnalysisPrompt with the JSON version from parse_job_description
 export function buildParseJobDescriptionPrompt(jdText) {
     return `
 Analyze this job description and extract structured information. Return ONLY valid JSON.
@@ -40,80 +39,99 @@ CRITICAL: Return ONLY valid JSON. No markdown blocks, no explanation text.
 }
 
 export function buildTailorPrompt(baseResume, jdAnalysis, tailoringStrategy, bulletCounts) {
-    // Strategy instructions
     let strategyNote = "";
     if (tailoringStrategy === "profile_focus") {
         strategyNote = `
-=== TAILORING STRATEGY: PROFILE FOCUS ===
-**PRIORITY: Preserve original content and authenticity - TARGET ATS: 75-85%**
-
-CRITICAL RULES:
-- PRESERVE original bullet point wording unless grammatically incorrect
-- KEEP original metrics, numbers, and phrasing exactly as written
-- DO NOT add keywords that weren't in the original resume
-- DO NOT rephrase bullets just to match JD terminology
-- ONLY change: (1) fix grammar, (2) add missing contact info, (3) adjust summary to match JD title
-- Skills: Keep original skills, only reorder by JD relevance (don't add new ones)
-- Experience bullets: Change NOTHING except fixing typos
-- Values AUTHENTICITY over ATS score
+=== STRATEGY: PROFILE FOCUS (Target ATS: 75-85%) ===
+- PRESERVE original bullet wording unless grammatically incorrect
+- KEEP all original metrics and phrasing exactly
+- DO NOT add keywords that weren't in the original
+- Skills: Reorder by JD relevance only, do not add new skills
+- Summary: Lightly adjust to mention the target role title
+- Experience bullets: Change NOTHING except typos
 `;
     } else if (tailoringStrategy === "jd_focus") {
         strategyNote = `
-=== TAILORING STRATEGY: JD FOCUS ===
-**PRIORITY: Maximize ATS keyword matching - TARGET ATS: 95%+**
+=== STRATEGY: JD FOCUS (Target ATS: 90-95%) ===
+GOAL: Every mandatory keyword must appear in CONTEXT (not just listed) across multiple sections.
 
-CRITICAL RULES:
-- AGGRESSIVELY rephrase every bullet to include JD keywords
-- ADD JD-specific terminology even if it changes original meaning slightly
-- REPLACE generic terms with exact JD terminology (e.g., "database" → "PostgreSQL")
-- ENSURE every mandatory_keyword appears at least 2-3 times across resume
-- ENSURE every preferred_keyword appears at least once
-- Skills: Add ALL relevant JD keywords, even if not in original
-- Experience bullets: Rewrite to maximize keyword density while staying truthful
-- Values ATS SCORE over readability - be aggressive
+KEYWORD PLACEMENT RULES — YOU MUST FOLLOW ALL OF THESE:
+
+1. SUMMARY (must contain at least 5 mandatory keywords):
+   - Rewrite summary to naturally include: the job title, top technical skills, domain terms
+   - Example: "AI Engineer with 2+ years designing Agentic AI agents using Langchain, CrewAi, and MCP on AWS and Azure cloud infrastructure"
+
+2. SKILLS SECTION:
+   - Include EVERY mandatory and preferred keyword
+   - Rename categories to match JD language (e.g., JD says "Agentic AI frameworks" → use that as category name)
+   - Put JD keywords first within each category
+
+3. EXPERIENCE BULLETS — THIS IS THE MOST IMPORTANT:
+   - Each bullet must contain at least 1-2 JD keywords used in CONTEXT
+   - "Deployed containerized apps on Kubernetes" → "Deployed containerized AI agents on Kubernetes clusters on AWS, ensuring high availability and cross-domain scalability"
+   - "Conducted CI/CD automation using Jenkins" → "Led CI/CD pipeline automation using Jenkins and Docker for AI model deployment, reducing integration time by 30%"
+   - If a keyword exists in skills but NOT in any bullet, you MUST add it to the most relevant bullet
+   - Specifically integrate these JD terms into bullets where relevant:
+     * Cloud platforms: AWS, Azure, Google Cloud — mention by name in deployment bullets
+     * Frameworks: Langchain, CrewAi, MCP, A2A — mention in AI development bullets
+     * Languages: Python, Java, C++ — mention in technical implementation bullets
+     * Concepts: "AI agents", "cross-domain", "scalable", "actionable insights", "observability"
+     * Action verbs from JD: "prototyping", "iterating", "deploy", "monitor", "optimize", "collaborate"
+
+4. PROJECTS SECTION:
+   - Rewrite project descriptions to use JD terminology
+   - "Designed an Agentic AI system" → "Prototyped and iterated on a domain-specific Agentic AI agent system using Langchain and CrewAi that performs intelligent information gathering and insight generation"
+
+5. VERIFICATION BEFORE OUTPUT:
+   Before returning the JSON, mentally verify:
+   □ Every mandatory keyword appears in at least 2 sections (skills + bullet OR summary + bullet)
+   □ The summary contains at least 5 JD keywords
+   □ At least 60% of experience bullets contain a JD keyword
+   □ Cloud platform names (AWS/Azure/GCP) appear in at least 2 bullets
+   □ Framework names (Langchain/CrewAi/MCP) appear in at least 2 bullets
+   □ Action verbs from the JD are used as bullet starters
+   If any check fails, revise the output before returning.
 `;
     } else {
-        // Balanced
         strategyNote = `
-=== TAILORING STRATEGY: BALANCED ===
-**PRIORITY: Integrate JD keywords while maintaining authenticity - TARGET ATS: 88-92%**
-
-CRITICAL RULES:
-- ADD relevant JD keywords where they fit naturally
-- REPHRASE bullets to include JD terminology while keeping original meaning
-- MAINTAIN original metrics and accomplishments
-- Skills: Add important JD keywords, keep original skills
-- Experience bullets: Enhance with JD keywords but preserve core message
-- Balance keyword optimization with genuine representation
+=== STRATEGY: BALANCED (Target ATS: 85-90%) ===
+KEYWORD PLACEMENT RULES:
+1. Summary: Include 3-4 top mandatory keywords naturally
+2. Skills: Add missing JD keywords to appropriate categories
+3. Experience bullets: Integrate JD terminology where it fits naturally — aim for at least 1 JD keyword per bullet
+4. Don't force keywords where they sound unnatural
+5. Preserve all original metrics and core meaning
 `;
     }
 
-    // Build bullet count instructions
     let bulletInstructions = "";
     if (bulletCounts) {
         bulletInstructions = `
 BULLET COUNT LIMITS (MANDATORY):
 ${JSON.stringify(bulletCounts, null, 2)}
-For each section, the array gives the max bullet count per item (in order).
-If a count is 0, REMOVE that item entirely from the output.
-Select the most JD-relevant bullets when cutting.
+If a count is 0, REMOVE that item entirely. Select the most JD-relevant bullets when cutting.
 `;
     }
 
-    // Build a human-readable resume summary instead of raw JSON
-    let resumeSummary = `CANDIDATE: ${baseResume.name || 'Unknown'}\n`;
-    if (baseResume.summary) resumeSummary += `CURRENT SUMMARY: ${baseResume.summary}\n`;
-    if (baseResume.skills) {
-        resumeSummary += `SKILLS:\n`;
-        if (typeof baseResume.skills === 'object' && !Array.isArray(baseResume.skills)) {
-            for (const [cat, skills] of Object.entries(baseResume.skills)) {
-                resumeSummary += `  ${cat}: ${skills}\n`;
-            }
-        }
-    }
+    // Build explicit keyword checklist for the AI
+    const mandatoryList = (jdAnalysis.mandatory_keywords || []);
+    const preferredList = (jdAnalysis.preferred_keywords || []);
+    const actionVerbs = (jdAnalysis.action_verbs || []);
+
+    const keywordChecklist = `
+=== KEYWORD CHECKLIST ===
+You MUST place each of these mandatory keywords in at least ONE bullet point (not just skills):
+${mandatoryList.map((k, i) => `  ${i + 1}. "${k}" → find a bullet where this fits naturally and ADD it`).join('\n')}
+
+Preferred keywords to include where possible:
+${preferredList.map(k => `  - "${k}"`).join('\n')}
+
+Use these action verbs from the JD to START bullets:
+${actionVerbs.map(v => `  - "${v}"`).join('\n')}
+`;
 
     return `
-You are an expert ATS Resume Optimizer. Rewrite this resume to match the target job.
+You are an expert ATS Resume Optimizer. Rewrite this resume to maximize keyword matching for the target job.
 
 === TARGET JOB ===
 Company: ${jdAnalysis.company_name || 'Unknown'}
@@ -121,61 +139,51 @@ Role: ${jdAnalysis.job_title || 'Unknown'}
 Seniority: ${jdAnalysis.seniority || 'Unknown'}
 Domain: ${jdAnalysis.domain_context || 'Unknown'}
 
-Must-have keywords: ${(jdAnalysis.mandatory_keywords || []).join(', ')}
-Nice-to-have keywords: ${(jdAnalysis.preferred_keywords || []).join(', ')}
-Action verbs from JD: ${(jdAnalysis.action_verbs || []).join(', ')}
+Must-have keywords: ${mandatoryList.join(', ')}
+Nice-to-have keywords: ${preferredList.join(', ')}
+Action verbs: ${actionVerbs.join(', ')}
 Tech specifics: ${(jdAnalysis.tech_stack_nuances || []).join(', ')}
 Industry terms: ${(jdAnalysis.industry_terms || []).join(', ')}
-Scale/metrics emphasis: ${(jdAnalysis.key_metrics_emphasis || []).join(', ')}
 
 === CANDIDATE RESUME ===
 ${JSON.stringify(baseResume, null, 2)}
 
 ${strategyNote}
 
+${keywordChecklist}
+
 ${bulletInstructions}
 
 === REWRITING RULES ===
 
 SUMMARY:
-- Write a 2-3 sentence summary that positions the candidate for THIS specific role
-- Lead with years of experience + most relevant domain
-- Include 3-5 top JD keywords naturally
-- Mention the most impressive quantified achievement
-- Match the seniority tone (don't say "seasoned leader" for a junior role)
+- 2-3 sentences positioning candidate for THIS role
+- Must include: job title, years of experience, top 5 keywords, best metric
+- Example structure: "[Role] with [X]+ years of experience [doing what] using [keyword1], [keyword2], and [keyword3]. Proven track record of [achievement with metric] while [keyword4] on [keyword5]."
 
 BULLET POINTS:
-- Start every bullet with a STRONG ACTION VERB (from the JD's action_verbs when possible)
-- Follow the XYZ formula: "Accomplished [X] as measured by [Y], by doing [Z]"
-- PRESERVE all original metrics, numbers, percentages, and dollar amounts EXACTLY
-- Integrate JD keywords by replacing generic terms with specific JD terminology:
-  * "database" → the specific DB from the JD (e.g., "PostgreSQL")
-  * "cloud" → the specific cloud from the JD (e.g., "AWS Lambda")
-  * "built" → a JD action verb (e.g., "architected", "engineered")
+- Start with a STRONG ACTION VERB (prefer JD's action_verbs)
+- XYZ formula: "Accomplished [X] measured by [Y], by doing [Z]"
+- PRESERVE all original metrics exactly (don't inflate)
 - Each bullet MUST be under 200 characters
-- If a bullet is too long, split the metric from the method or trim filler words
+- Replace generic terms with JD-specific terms:
+  * "cloud" → the specific cloud from JD (AWS/Azure/GCP)
+  * "framework" → the specific framework (Langchain/CrewAi)
+  * "built" → JD verb ("prototyped", "designed", "deployed")
 
 SKILLS:
-- Reorder categories so the most JD-relevant category is FIRST
-- Within each category, put JD keywords FIRST
-- For balanced/JD-focus: Add missing JD keywords to the appropriate category
-- For profile-focus: Only reorder, do not add new skills
-
-EXPERIENCE / PROJECTS:
-- Reorder items so the most JD-relevant one is FIRST (within each section)
-- NEVER fabricate a company, role, project, or metric that doesn't exist in the original
-- NEVER change company names, dates, or locations
+- Rename categories to match JD language where possible
+- Put JD keywords first within each category
+- Add missing JD keywords to the appropriate category
 
 === WHAT NOT TO DO ===
-- Do NOT hallucinate new experiences, companies, or achievements
-- Do NOT change any dates, company names, school names, or locations
-- Do NOT inflate metrics (if original says "10%", do not change to "25%")
-- Do NOT add skills the candidate clearly doesn't have (no new programming languages)
-- Do NOT use em dashes (—), use hyphens (-) instead
-- Do NOT use generic filler phrases: "spearheaded initiatives", "drove innovation", "leveraged synergies"
+- Do NOT hallucinate new companies, roles, or metrics
+- Do NOT change dates, company names, school names, or locations
+- Do NOT inflate metrics (10% stays 10%)
+- Do NOT use em dashes, "spearheaded initiatives", "drove innovation", "leveraged synergies"
 
 === OUTPUT ===
-Return ONLY a valid JSON object with this structure:
+Return ONLY valid JSON:
 {
     "name": "...",
     "contact": { "location": "...", "phone": "...", "email": "...", "linkedin_url": "...", "portfolio_url": "..." },
@@ -193,25 +201,36 @@ Return ONLY a valid JSON object with this structure:
     "section_order": [${(baseResume.section_order || ["summary", "skills", "experience", "projects", "education"]).map(s => `"${s}"`).join(', ')}]
 }
 
-CRITICAL: Return ONLY valid JSON. No markdown code blocks. No text before or after. Verify all brackets match.
+No markdown code blocks. No text before or after. Verify all brackets match.
 `;
 }
 
 export function buildAnalysisPrompt(resumeData, jdText) {
+    // Flatten resume into readable text for better keyword matching
+    const flatResume = flattenResumeForAnalysis(resumeData);
+
     return `
 You are a strict ATS (Applicant Tracking System) scoring engine. Analyze this resume against the job description.
 
 JOB DESCRIPTION:
 ${jdText}
 
-RESUME:
-${JSON.stringify(resumeData, null, 2)}
+RESUME CONTENT (flattened text):
+${flatResume}
 
 SCORING METHODOLOGY (follow this exactly):
 1. Extract ALL technical keywords from the JD (tools, languages, frameworks, methodologies, certifications)
-2. Check which keywords appear in the resume (case-insensitive, but exact terms — "React" matches "React" or "ReactJS", but not "reactive")
-3. Score = (matched_keywords / total_jd_keywords) * 70 + (soft_skill_match * 15) + (experience_relevance * 15)
-4. Be STRICT. Most resumes score 40-75 unless heavily tailored. A score above 85 means near-perfect keyword coverage.
+2. For each keyword, check WHERE it appears in the resume:
+   - In skills section only: 0.5 points
+   - In summary: +0.3 points
+   - In at least one bullet point with context: +0.5 points
+   - In a role title or project name: +0.2 points
+   Maximum per keyword: 1.5 points
+3. Score = (total_keyword_points / max_possible_points) * 70 + (soft_skill_match * 15) + (experience_relevance * 15)
+4. A keyword that appears ONLY in skills without any contextual usage in bullets should be flagged as "weak match"
+5. Be STRICT. Most resumes score 40-75 unless heavily tailored.
+6. missing_keywords should ONLY list keywords that are completely absent from the resume — not ones that are present but weak
+7. Add a "weak_keywords" field for keywords that exist only in skills but not in context
 
 ANALYSIS RULES:
 - missing_keywords: List keywords that appear in the JD but NOT in the resume. Be specific — list actual terms, not categories.
@@ -222,10 +241,11 @@ ANALYSIS RULES:
 RETURN ONLY THIS JSON:
 {
     "score": 65,
-    "missing_keywords": ["Kubernetes", "GraphQL", "CI/CD", "Terraform"],
-    "matching_areas": ["Strong Python/Django match with 4+ years", "AWS experience aligns with cloud requirements", "Team lead experience matches senior role expectations"],
-    "recommendations": ["Add 'Kubernetes' and 'Docker' to DevOps skills - mentioned 5 times in JD", "Rephrase 'built APIs' to 'designed and built RESTful and GraphQL APIs'", "Add a bullet about CI/CD pipeline experience"],
-    "summary_feedback": "The candidate has strong backend development skills that align with 60% of the technical requirements. The main gaps are in infrastructure (Kubernetes, Terraform) and API design patterns (GraphQL). With targeted additions to the skills section and rephrased experience bullets, the score could improve to 80+."
+    "missing_keywords": ["keyword completely absent from resume"],
+    "weak_keywords": ["keyword in skills but not used in any bullet - needs contextual placement"],
+    "matching_areas": ["Specific strength descriptions"],
+    "recommendations": ["Specific actionable improvements"],
+    "summary_feedback": "Honest assessment paragraph"
 }
 
 CRITICAL: Return ONLY valid JSON. No markdown. Be honest with the score — do not inflate.
@@ -520,4 +540,67 @@ export function enforce_bullet_limits(resume_data, bullet_counts) {
     });
 
     return resume_data;
+}
+
+function flattenResumeForAnalysis(data) {
+    let text = '';
+
+    if (data.name) text += `NAME: ${data.name}\n`;
+
+    if (data.summary) text += `SUMMARY: ${data.summary}\n\n`;
+
+    if (data.skills) {
+        text += 'SKILLS:\n';
+        if (typeof data.skills === 'object' && !Array.isArray(data.skills)) {
+            for (const [cat, val] of Object.entries(data.skills)) {
+                const skillStr = Array.isArray(val) ? val.join(', ') : String(val);
+                text += `  ${cat}: ${skillStr}\n`;
+            }
+        } else if (Array.isArray(data.skills)) {
+            text += `  ${data.skills.join(', ')}\n`;
+        }
+        text += '\n';
+    }
+
+    const sections = ['experience', 'projects', 'leadership', 'research', 'volunteering'];
+    sections.forEach(sec => {
+        if (data[sec] && data[sec].length > 0) {
+            text += `${sec.toUpperCase()}:\n`;
+            data[sec].forEach(item => {
+                const title = item.company || item.organization || item.name || item.title || '';
+                const role = item.role || item.degree || '';
+                const dates = item.dates || '';
+                text += `  ${title}${role ? ' - ' + role : ''} (${dates})\n`;
+                if (item.bullets) {
+                    item.bullets.forEach(b => {
+                        text += `    - ${b}\n`;
+                    });
+                }
+            });
+            text += '\n';
+        }
+    });
+
+    if (data.education && data.education.length > 0) {
+        text += 'EDUCATION:\n';
+        data.education.forEach(edu => {
+            text += `  ${edu.institution || ''} - ${edu.degree || ''} (${edu.dates || ''})\n`;
+            if (edu.gpa) text += `    GPA: ${edu.gpa}\n`;
+            if (edu.bullets) edu.bullets.forEach(b => text += `    - ${b}\n`);
+        });
+        text += '\n';
+    }
+
+    if (data.certifications && data.certifications.length > 0) {
+        text += 'CERTIFICATIONS:\n';
+        data.certifications.forEach(c => text += `  ${c.name} - ${c.issuer || ''} (${c.dates || ''})\n`);
+        text += '\n';
+    }
+
+    if (data.languages) {
+        const lang = Array.isArray(data.languages) ? data.languages.join(', ') : data.languages;
+        text += `LANGUAGES: ${lang}\n`;
+    }
+
+    return text;
 }

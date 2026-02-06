@@ -12,41 +12,30 @@ export async function callAI(prompt, provider, apiKey, options = {}) {
 export function extractJSON(text) {
     if (!text) return null;
 
-    // 1. Try markdown code block
+    try { return JSON.parse(text); } catch (e) { }
+
     const blockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (blockMatch) {
         try { return JSON.parse(blockMatch[1]); } catch (e) { }
     }
 
-    // 2. Try to find JSON by finding matching braces
     const start = text.indexOf('{');
-    if (start === -1) return null;
+    const end = text.lastIndexOf('}');
 
-    let depth = 0;
-    let end = -1;
-    for (let i = start; i < text.length; i++) {
-        if (text[i] === '{') depth++;
-        else if (text[i] === '}') {
-            depth--;
-            if (depth === 0) { end = i; break; }
-        }
-    }
-
-    if (end !== -1) {
-        try { return JSON.parse(text.substring(start, end + 1)); } catch (e) { }
+    if (start !== -1 && end !== -1 && end > start) {
+        const potentialJson = text.substring(start, end + 1);
+        try { return JSON.parse(potentialJson); } catch (e) { }
     }
 
     return null;
 }
 
 async function callGemini(prompt, apiKey, options) {
-    // Standard models: gemini-2.5-pro, gemini-2.5-flash.
     const targetModel = options.useProModel ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-    // Construct URL for the chosen model
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60000); // 60s timeout
+    const timeout = setTimeout(() => controller.abort(), 60000);
 
     try {
         const response = await fetch(url, {
@@ -164,22 +153,21 @@ async function callGroq(prompt, apiKey, options) {
 async function callNvidia(prompt, apiKey, options) {
     const invokeUrl = "https://integrate.api.nvidia.com/v1/chat/completions";
 
-    // Default model if not specified, though normally we hardcode or pick logic
-    const model = "meta/llama-4-maverick-17b-128e-instruct";
+    const model = options.useProModel
+        ? "nvidia/llama-3.1-nemotron-70b-instruct"
+        : "meta/llama-4-maverick-17b-128e-instruct";
 
     const payload = {
         model: model,
         messages: [{ role: "user", content: prompt }],
         max_tokens: 10240,
-        temperature: 1.0,
+        temperature: 0.7,
         top_p: 1.0,
-        frequency_penalty: 0.0,
-        presence_penalty: 0.0,
-        stream: false
+        stream: true
     };
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 180000); // 180s timeout for "thinking" models
+    const timeout = setTimeout(() => controller.abort(), 180000);
 
     try {
         const response = await fetch(invokeUrl, {
@@ -187,27 +175,105 @@ async function callNvidia(prompt, apiKey, options) {
             headers: {
                 "Authorization": "Bearer " + apiKey.trim(),
                 "Content-Type": "application/json",
-                "Accept": "application/json"
+                "Accept": "text/event-stream"
             },
             body: JSON.stringify(payload),
             signal: controller.signal
         });
 
-        if (!response.ok) {
-            const err = await response.text();
-            throw new Error("NVIDIA API Error " + response.status + ": " + err);
+        if (response.status === 401 || response.status === 403) {
+            throw new Error("Invalid NVIDIA API key. Check your key in Settings.");
         }
 
-        const data = await response.json();
-        if (data.choices && data.choices[0] && data.choices[0].message) {
-            return data.choices[0].message.content;
+        if (response.status === 429) {
+            throw new Error("NVIDIA rate limit reached. Please wait and try again.");
         }
-        throw new Error("Invalid response structure from NVIDIA API");
+
+        if (!response.ok) {
+            const errText = await response.text();
+            console.warn(`NVIDIA streaming failed for ${model}: ${response.status} — trying non-streaming fallback...`);
+            return await callNvidiaNonStreaming(prompt, apiKey, options, controller.signal);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullContent = '';
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // Keep incomplete line in buffer
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed === 'data: [DONE]') continue;
+                if (!trimmed.startsWith('data: ')) continue;
+
+                try {
+                    const json = JSON.parse(trimmed.slice(6)); // Remove "data: " prefix
+                    const delta = json.choices?.[0]?.delta?.content;
+                    if (delta) {
+                        fullContent += delta;
+                    }
+                } catch (e) {
+                    continue;
+                }
+            }
+        }
+
+        if (!fullContent) {
+            throw new Error("NVIDIA returned empty response");
+        }
+
+        console.log(`NVIDIA: Success with model ${model} (streamed ${fullContent.length} chars)`);
+        return fullContent;
 
     } catch (e) {
-        if (e.name === 'AbortError') throw new Error('Request timed out after 180s.');
+        if (e.name === 'AbortError') throw new Error('NVIDIA request timed out after 180s.');
         throw e;
     } finally {
         clearTimeout(timeout);
     }
+}
+
+async function callNvidiaNonStreaming(prompt, apiKey, options, signal) {
+    const invokeUrl = "https://integrate.api.nvidia.com/v1/chat/completions";
+    const model = "moonshotai/kimi-k2.5";
+
+    const payload = {
+        model: model,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 10240,
+        temperature: 0.7,
+        top_p: 1.0,
+        stream: false
+    };
+
+    const response = await fetch(invokeUrl, {
+        method: 'POST',
+        headers: {
+            "Authorization": "Bearer " + apiKey.trim(),
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        },
+        body: JSON.stringify(payload),
+        signal: signal
+    });
+
+    if (!response.ok) {
+        const err = await response.text();
+        throw new Error("NVIDIA API Error " + response.status + ": " + err);
+    }
+
+    const data = await response.json();
+    if (data.choices && data.choices[0] && data.choices[0].message) {
+        console.log(`NVIDIA: Success with fallback model ${model} (non-streaming)`);
+        return data.choices[0].message.content;
+    }
+
+    throw new Error("All NVIDIA models failed.");
 }

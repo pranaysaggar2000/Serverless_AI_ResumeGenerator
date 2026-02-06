@@ -2,10 +2,20 @@ import { state, updateState } from './state.js';
 import { showStatus, showMainUI, refreshProfileName } from './ui.js';
 
 let currentEditingResume = null;
+let currentEditingResumeSource = null; // Track which state object we cloned from
 let inputTimeout = null;
 
 function escapeRegex(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function resetEditorState() {
+    currentEditingResume = null;
+    currentEditingResumeSource = null;
+}
+
+export function getCurrentEditingResume() {
+    return currentEditingResume;
 }
 
 function escapeHtml(unsafe) {
@@ -126,10 +136,17 @@ function getSectionData(data, section) {
 
 export function renderProfileEditor(section, resumeToEdit = null, containerId = 'profileFormContainer') {
     if (resumeToEdit) {
-        currentEditingResume = resumeToEdit;
+        // Deep clone ONLY if we're starting a new edit session or switching resumes
+        // To avoid re-cloning on every section switch which would lose unsaved edits from previous tabs
+        if (currentEditingResume === null || resumeToEdit !== currentEditingResumeSource) {
+            currentEditingResume = JSON.parse(JSON.stringify(resumeToEdit));
+            currentEditingResumeSource = resumeToEdit; // Track source to prevent re-cloning
+        }
     } else if (!currentEditingResume) {
-        // Fallback to baseResume if nothing set
-        currentEditingResume = state.tailoredResume || state.baseResume;
+        // Fallback clone
+        const source = state.tailoredResume || state.baseResume;
+        currentEditingResume = source ? JSON.parse(JSON.stringify(source)) : null;
+        currentEditingResumeSource = source;
     }
 
     const container = document.getElementById(containerId);
@@ -194,7 +211,6 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
     if (section === 'contact') {
         const contact = sectionData || {};
 
-        // Name field (stored on root of resume, not in contact)
         const nameDiv = document.createElement('div');
         nameDiv.className = 'edit-field';
         nameDiv.innerHTML = `<label>Full Name</label>
@@ -229,6 +245,17 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
                          <textarea id="edit_summary_text" style="height: 100px;">${summaryText}</textarea>`;
         container.appendChild(div);
 
+        const removeSummaryBtn = document.createElement('button');
+        removeSummaryBtn.textContent = '🗑️ Remove Summary';
+        removeSummaryBtn.style.cssText = "width: 100%; padding: 8px; background: #ffebee; border: 1px dashed #ffcdd2; color: #c62828; cursor: pointer; margin-top: 8px; border-radius: 6px; font-size: 11px;";
+        removeSummaryBtn.onclick = () => {
+            if (confirm("Remove the summary section?")) {
+                const textarea = document.getElementById('edit_summary_text');
+                if (textarea) textarea.value = '';
+            }
+        };
+        container.appendChild(removeSummaryBtn);
+
     } else if (section === 'languages') {
         let langText = "";
         if (Array.isArray(sectionData)) langText = sectionData.join(", ");
@@ -239,6 +266,17 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
         div.innerHTML = `<label>Languages (Comma separated)</label>
                          <textarea id="edit_languages_text" style="height: 60px;">${langText}</textarea>`;
         container.appendChild(div);
+
+        const removeLangBtn = document.createElement('button');
+        removeLangBtn.textContent = '🗑️ Remove Languages';
+        removeLangBtn.style.cssText = "width: 100%; padding: 8px; background: #ffebee; border: 1px dashed #ffcdd2; color: #c62828; cursor: pointer; margin-top: 8px; border-radius: 6px; font-size: 11px;";
+        removeLangBtn.onclick = () => {
+            if (confirm("Remove languages section?")) {
+                const textarea = document.getElementById('edit_languages_text');
+                if (textarea) textarea.value = '';
+            }
+        };
+        container.appendChild(removeLangBtn);
 
     } else if (section === 'skills') {
         const skillsData = sectionData || {};
@@ -266,6 +304,16 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
             renderSkillBlock(listDiv, "New Category", "");
         };
         container.appendChild(addBtn);
+
+        const removeSkillsSectionBtn = document.createElement('button');
+        removeSkillsSectionBtn.textContent = '🗑️ Remove Entire Skills Section';
+        removeSkillsSectionBtn.style.cssText = "width: 100%; padding: 8px; background: #ffebee; border: 1px dashed #ffcdd2; color: #c62828; cursor: pointer; margin-top: 5px; border-radius: 6px; font-size: 11px;";
+        removeSkillsSectionBtn.onclick = () => {
+            if (confirm("Remove the entire Skills section?")) {
+                listDiv.innerHTML = '';
+            }
+        };
+        container.appendChild(removeSkillsSectionBtn);
 
     } else if (['experience', 'projects', 'leadership', 'research', 'certifications', 'awards', 'volunteering', 'education'].includes(section)) {
         if (!Array.isArray(sectionData)) sectionData = [];
@@ -450,7 +498,6 @@ function renderItemBlock(container, item, section) {
             </div>`;
     }
 
-    // Bullets & Controls
     let bulletsHtml = '';
     const hasBullets = !['certifications', 'awards', 'education'].includes(section);
 
@@ -490,7 +537,6 @@ function renderItemBlock(container, item, section) {
     div.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
             <div style="display:flex; align-items:center; gap:8px;">
-                <span class="item-handle" style="cursor:grab; font-size:16px; color:#aaa; user-select:none;">☰</span>
                 <span style="font-weight: bold; color: #555;">Item</span>
             </div>
             ${bulletControls}
@@ -678,7 +724,6 @@ function updateArrowVisibility(container) {
     });
 }
 
-// Parse DOM back to Data Object
 export async function saveProfileChanges(section, containerId = 'profileFormContainer') {
     const container = document.getElementById(containerId);
     if (!container) return null;
@@ -687,7 +732,6 @@ export async function saveProfileChanges(section, containerId = 'profileFormCont
         currentEditingResume = state.tailoredResume || state.baseResume;
     }
 
-    // Get current section titles from state
     if (!currentEditingResume.section_titles) currentEditingResume.section_titles = {};
     const titleInput = document.getElementById('sectionTitleInput');
     if (titleInput) {

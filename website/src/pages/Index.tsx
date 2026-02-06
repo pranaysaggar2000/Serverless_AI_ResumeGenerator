@@ -151,8 +151,8 @@ const Index = () => {
 
           {/* ===== SCREENSHOTS (Carousel) ===== */}
           <ResumeSection title="Screenshots">
-            <div className="mx-auto w-full max-w-[600px] px-8 sm:px-0">
-              <Carousel className="w-full">
+            <div className="mx-auto w-full px-4 sm:px-0">
+              <Carousel className="w-full" opts={{ align: "start" }}>
                 <CarouselContent>
                   <CarouselSlide src="/screenshots/Initial_Main_UI.png" caption="Clean, distraction-free interface." />
                   <CarouselSlide src="/screenshots/API_Key_EditUI.png" caption="Secure API Key management (Gemini, Groq)." />
@@ -165,8 +165,8 @@ const Index = () => {
                   <CarouselSlide src="/screenshots/Change_Order_UI.png" caption="Drag & Drop section reordering." />
                   <CarouselSlide src="/screenshots/Format_Edit_UI.png" caption="Customize formatting options." />
                 </CarouselContent>
-                <CarouselPrevious />
-                <CarouselNext />
+                <CarouselPrevious className="-left-4 sm:-left-12" />
+                <CarouselNext className="-right-4 sm:-right-12" />
               </Carousel>
             </div>
           </ResumeSection>
@@ -315,12 +315,14 @@ function InstallStep({ n, children }: { n: number; children: React.ReactNode }) 
 
 function CarouselSlide({ src, caption }: { src: string; caption: string }) {
   return (
-    <CarouselItem>
-      <div className="p-1">
-        <div className="overflow-hidden rounded-md border bg-muted">
-          <img src={src} alt={caption} className="w-full h-auto object-cover aspect-[16/10]" />
+    <CarouselItem className="basis-full sm:basis-1/2">
+      <div className="p-1 h-full">
+        <div className="overflow-hidden rounded-xl border bg-background shadow-sm h-full flex flex-col p-2">
+          <div className="flex-1 flex items-center justify-center bg-muted/20 rounded-lg">
+            <img src={src} alt={caption} className="w-full h-auto object-contain rounded-md border border-border/40 shadow-sm" />
+          </div>
+          <p className="text-center text-xs text-muted-foreground mt-3 mb-1 font-medium italic">{caption}</p>
         </div>
-        <p className="text-center text-xs text-muted-foreground mt-2 italic">{caption}</p>
       </div>
     </CarouselItem>
   );

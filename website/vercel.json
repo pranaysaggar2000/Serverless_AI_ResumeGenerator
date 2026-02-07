@@ -1,7 +1,12 @@
 {
+    "cleanUrls": true,
     "rewrites": [
         {
-            "source": "/(.*)",
+            "source": "/privacy",
+            "destination": "/privacy.html"
+        },
+        {
+            "source": "/((?!privacy|screenshots|favicon|robots).*)",
             "destination": "/index.html"
         }
     ]

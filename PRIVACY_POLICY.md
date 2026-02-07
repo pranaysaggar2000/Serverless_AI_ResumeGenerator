@@ -43,4 +43,4 @@ We use the following third-party services to provide core functionality. Their u
 - We do not sell, trade, or rent your personal identification information to others.
 
 ## 5. Contact Us
-If you have questions about this Privacy Policy, please contact us via the Chrome Web Store support page.
+If you have questions about this Privacy Policy, please contact us at [forgecvcontact@gmail.com](mailto:forgecvcontact@gmail.com).

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - ForgeCV</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            color: #111;
+        }
+
+        h2 {
+            margin-top: 30px;
+            color: #222;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        h3 {
+            margin-top: 20px;
+            color: #444;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .footer {
+            margin-top: 40px;
+            font-size: 0.9em;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Privacy Policy for ForgeCV</h1>
+        <p><strong>Last Updated:</strong> February 6, 2026</p>
+
+        <p>ForgeCV ("we", "our", or "us") respects your privacy. This Privacy Policy explains how we handle your data
+            when you use the ForgeCV Chrome Extension.</p>
+
+        <h2>1. Data Collection and Usage</h2>
+        <p>ForgeCV is designed with privacy in mind. We minimize data collection and prioritize local storage.</p>
+
+        <h3>A. Personal Information (Resume Data)</h3>
+        <ul>
+            <li><strong>What:</strong> We process the personal information contained in the resumes you upload (Name,
+                Email, Phone, Experience, etc.).</li>
+            <li><strong>How:</strong> This data is parsed and stored <strong>locally</strong> in your browser's storage
+                (<code>chrome.storage.local</code>).</li>
+            <li><strong>Why:</strong> To allow the extension to generate tailored resumes based on your profile.</li>
+            <li><strong>Sharing:</strong> This data is sent <strong>only</strong> to your selected AI provider (Google
+                Gemini or Groq) for the sole purpose of generating your resume content. We do not store this data on our
+                own servers.</li>
+        </ul>
+
+        <h3>B. Website Content (Job Descriptions)</h3>
+        <ul>
+            <li><strong>What:</strong> We read the text content of the web page you are currently viewing when you click
+                the "Process Page" button.</li>
+            <li><strong>How:</strong> This is done via the <code>activeTab</code> permission.</li>
+            <li><strong>Why:</strong> To analyze the job description and key requirements needed to tailor your resume.
+            </li>
+            <li><strong>Sharing:</strong> This text is sent to your selected AI provider for analysis.</li>
+        </ul>
+
+        <h3>C. User Queries (Smart Q&A)</h3>
+        <ul>
+            <li><strong>What:</strong> Questions you explicitly ask via the "Smart Q&A" feature.</li>
+            <li><strong>Sharing:</strong> Your question, along with relevant resume and job description context, is sent
+                to your selected AI provider.</li>
+            <li><strong>Storage:</strong> Queries are ephemeral and not permanently stored by the extension.</li>
+        </ul>
+
+        <h2>2. API Keys</h2>
+        <ul>
+            <li>Any API keys you provide (e.g., Gemini API Key, Groq API Key) are stored <strong>locally</strong> in
+                your browser.</li>
+            <li>They are never sent to our servers.</li>
+            <li>They are used strictly to authenticate requests with the respective AI providers.</li>
+        </ul>
+
+        <h2>3. Third-Party Services</h2>
+        <p>We use the following third-party services to provide core functionality. Their use of your data is governed
+            by their respective privacy policies:</p>
+        <ul>
+            <li><strong>Google Gemini API:</strong> Used for AI text generation. <a
+                    href="https://policies.google.com/privacy" target="_blank">Google Privacy Policy</a></li>
+            <li><strong>Groq API:</strong> Used for AI text generation. <a href="https://wow.groq.com/privacy-policy/"
+                    target="_blank">Groq Privacy Policy</a></li>
+        </ul>
+
+        <h2>4. Data Security</h2>
+        <ul>
+            <li>Your data is stored locally on your device.</li>
+            <li>Transmission to AI providers occurs over secure HTTPS connections.</li>
+            <li>We do not sell, trade, or rent your personal identification information to others.</li>
+        </ul>
+
+        <h2>5. Contact Us</h2>
+        <p>If you have questions about this Privacy Policy, please contact us at <a
+                href="mailto:forgecvcontact@gmail.com">forgecvcontact@gmail.com</a>.</p>
+
+        <div class="footer">
+            &copy; 2026 ForgeCV. All rights reserved.
+        </div>
+    </div>
+</body>
+
+</html>

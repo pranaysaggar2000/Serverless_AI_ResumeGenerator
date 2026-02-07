@@ -473,6 +473,15 @@ function setupEventListeners() {
         }, 1000);
     });
 
+    // Skip Settings
+    const skipSettingsBtn = document.getElementById('skipSettingsBtn');
+    if (skipSettingsBtn) {
+        skipSettingsBtn.addEventListener('click', () => {
+            if (state.baseResume) showMainUI();
+            else showSetupUI();
+        });
+    }
+
     // Upload Resume
     uploadBtn.addEventListener('click', async () => {
         const file = resumeFile.files[0];

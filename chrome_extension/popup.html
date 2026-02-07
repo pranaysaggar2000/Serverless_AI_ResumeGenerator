@@ -42,17 +42,30 @@
         <div style="position:relative;">
           <input type="password" id="apiKey" placeholder="Enter Gemini API Key">
         </div>
-        <div class="text-sm text-muted" style="margin-top:4px;">
-          Get key from <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.
-        </div>
+        <details class="help-details">
+          <summary>How to get a Free Gemini API Key</summary>
+          <ol>
+            <li>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.</li>
+            <li>Click the blue <strong>"Create API key"</strong> button.</li>
+            <li>Select <strong>"Create API key in new project"</strong>.</li>
+            <li>Copy the key that starts with <code>AIza...</code> and paste it above.</li>
+          </ol>
+        </details>
       </div>
 
       <div id="groqKeyData" class="key-section hidden">
         <label for="groqApiKey">Groq API Key</label>
         <input type="password" id="groqApiKey" placeholder="Enter Groq API Key">
-        <div class="text-sm text-muted" style="margin-top:4px;">
-          Get key from <a href="https://console.groq.com/keys" target="_blank">Groq Console</a>.
-        </div>
+        <details class="help-details">
+          <summary>How to get a Free Groq Key</summary>
+          <ol>
+            <li>Go to <a href="https://console.groq.com/keys" target="_blank">Groq Console</a>.</li>
+            <li><strong>Important:</strong> Sign up using <strong>Google</strong> or <strong>GitHub</strong> (Email
+              signup often fails).</li>
+            <li>Click <strong>"Create API Key"</strong>.</li>
+            <li>Name it "Resume" and copy the key starting with <code>gsk_...</code>.</li>
+          </ol>
+        </details>
       </div>
 
       <div id="nvidiaKeyData" class="key-section hidden">
@@ -65,6 +78,7 @@
       </div>
 
       <button id="saveSettingsBtn" class="primary-btn" style="width:100%; margin-top:16px;">Save Settings</button>
+      <button id="skipSettingsBtn" class="secondary-btn" style="width:100%; margin-top:8px;">Skip for now</button>
       <div id="settingsStatus"></div>
     </div>
   </div>

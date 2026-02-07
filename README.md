@@ -75,13 +75,18 @@ That's it! The extension is now ready to use.
 ## 📂 Project Structure
 
 ```
-├── chrome_extension/     # CORE: The complete extension
-│   ├── modules/          # Logic (PDF gen, AI calls, state)
-│   ├── lib/              # Dependencies (pdf.js, jspdf)
-│   ├── popup.html        # UI Structure
-│   └── manifest.json     # Configuration
-├── website/              # NEW: The landing page website (Vite/React)
-└── README.md             # Documentation
+├── chrome_extension/      # CORE: The complete Manifest V3 extension
+│   ├── modules/           # ES6 Modules (PDF gen, AI integration, state management)
+│   ├── popup.html         # Main Extension UI
+│   ├── popup.js           # Main UI Logic
+│   ├── popup.css          # Styling
+│   └── manifest.json      # Extension Configuration
+├── website/               # LANDING PAGE: Vite/React website
+│   ├── src/               # React source code
+│   └── public/            # Static assets
+├── Screenshots/           # UI reference images
+├── Social_Media_Assets/   # Generated promotional images
+└── README.md              # Documentation
 ```
 
 *(Note: Legacy backend files `api/`, `main.py` may exist in the repo but are not used by the extension)*

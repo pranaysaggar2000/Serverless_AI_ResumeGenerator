@@ -41,9 +41,36 @@ h1,
 h2,
 h3,
 h4 {
-    margin: 0;
-    font-weight: 600;
-    color: var(--text-main);
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.help-details {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px;
+    background: #f8fafc;
+}
+
+.help-details summary {
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--primary);
+    outline: none;
+}
+
+.help-details ol {
+    margin: 6px 0 0 16px;
+    padding: 0;
+    line-height: 1.4;
+}
+
+.help-details li {
+    margin-bottom: 4px;
 }
 
 h1 {
@@ -616,6 +643,7 @@ header .controls {
 ::-webkit-scrollbar-thumb:hover {
     background: #9ca3af;
 }
+
 /* Format option buttons */
 .format-option {
     background: var(--card-bg);

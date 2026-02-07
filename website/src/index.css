@@ -94,4 +94,21 @@
     @apply bg-background text-foreground;
     font-family: 'Inter', sans-serif;
   }
+
+  /* Expandable details styling */
+  details summary {
+    list-style: none;
+  }
+
+  details summary::-webkit-details-marker {
+    display: none;
+  }
+
+  details[open] summary svg {
+    transform: rotate(180deg);
+  }
+
+  details summary svg {
+    transition: transform 0.2s ease;
+  }
 }

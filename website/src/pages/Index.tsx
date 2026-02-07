@@ -1,4 +1,4 @@
-import { Github, Linkedin, Download, Shield, Sparkles, GripVertical, Globe, Lock, DollarSign, Terminal, ExternalLink } from "lucide-react";
+import { Github, Linkedin, Download, Shield, Sparkles, GripVertical, Globe, Lock, DollarSign, Terminal, ExternalLink, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -188,7 +188,8 @@ const Index = () => {
 
           {/* ===== EDUCATION (Installation) ===== */}
           <ResumeSection title="Education">
-            <div className="bg-foreground/[0.04] dark:bg-foreground/10 border border-border rounded-md overflow-hidden">
+            {/* Chrome Extension Installation */}
+            <div className="bg-foreground/[0.04] dark:bg-foreground/10 border border-border rounded-md overflow-hidden mb-6">
               <div className="px-5 py-4 sm:px-6">
                 <div className="flex items-center gap-2 mb-1">
                   <Terminal size={16} className="text-accent" />
@@ -196,14 +197,160 @@ const Index = () => {
                 </div>
                 <p className="text-xs text-muted-foreground mb-4">Self-Paced &nbsp;·&nbsp; ~2 minutes</p>
                 <ol className="space-y-2 text-sm text-card-foreground">
-                  <InstallStep n={1}>Download the ZIP file above and unzip it to a folder.</InstallStep>
+                  <InstallStep n={1}>Download the ZIP file above.</InstallStep>
                   <InstallStep n={2}>
+                    <strong>Extract the ZIP file</strong> to a folder on your computer (e.g., Downloads/ForgeCV).
+                  </InstallStep>
+                  <InstallStep n={3}>
                     Open Chrome → navigate to{" "}
                     <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">chrome://extensions</code>
                   </InstallStep>
-                  <InstallStep n={3}>Toggle <strong>"Developer Mode"</strong> ON (top-right corner).</InstallStep>
-                  <InstallStep n={4}>Click <strong>"Load Unpacked"</strong> → select the unzipped folder.</InstallStep>
+                  <InstallStep n={4}>Toggle <strong>"Developer Mode"</strong> ON (top-right corner).</InstallStep>
+                  <InstallStep n={5}>
+                    Click <strong>"Load Unpacked"</strong> → select the <strong>extracted folder</strong> (not the ZIP file).
+                  </InstallStep>
                 </ol>
+                <details className="mt-4 text-xs">
+                  <summary className="cursor-pointer text-accent hover:text-accent/80 font-semibold flex items-center gap-1">
+                    <ChevronDown size={14} className="inline" />
+                    Click for detailed step-by-step guide
+                  </summary>
+                  <div className="mt-3 space-y-3 pl-5 text-muted-foreground leading-relaxed">
+                    <div>
+                      <strong className="text-card-foreground">Step 1:</strong> Click the "Download for Chrome" button at the top of this page. Your browser will download a file called <code className="bg-muted px-1 py-0.5 rounded">ForgeCVextension.zip</code>.
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 2:</strong> Locate the downloaded ZIP file (usually in your Downloads folder). Right-click it and select "Extract All" (Windows) or double-click it (Mac) to extract the contents. Remember the folder location.
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 3:</strong> Open Google Chrome. In the address bar, type <code className="bg-muted px-1 py-0.5 rounded">chrome://extensions</code> and press Enter. This opens the Extensions management page.
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 4:</strong> On the Extensions page, look for a toggle switch labeled "Developer mode" in the top-right corner. Click it to turn it ON (it should turn blue).
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 5:</strong> After enabling Developer mode, you'll see new buttons appear. Click the "Load unpacked" button. A file browser will open. Navigate to the folder you extracted in Step 2 and select it. Click "Select Folder" (or "Open" on Mac).
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Done!</strong> ForgeCV should now appear in your extensions list. You can pin it to your toolbar by clicking the puzzle piece icon in Chrome and clicking the pin next to ForgeCV.
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+            {/* API Key Setup - Groq */}
+            <div className="bg-foreground/[0.04] dark:bg-foreground/10 border border-border rounded-md overflow-hidden mb-6">
+              <div className="px-5 py-4 sm:px-6">
+                <div className="flex items-center gap-2 mb-1">
+                  <Sparkles size={16} className="text-accent" />
+                  <h4 className="font-bold text-sm text-card-foreground">Get Free Groq API Key (Recommended)</h4>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">Free Tier &nbsp;·&nbsp; Fast &nbsp;·&nbsp; ~1 minute</p>
+                <ol className="space-y-2 text-sm text-card-foreground">
+                  <InstallStep n={1}>
+                    Visit{" "}
+                    <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline inline-flex items-center gap-1">
+                      console.groq.com
+                      <ExternalLink size={12} />
+                    </a>
+                  </InstallStep>
+                  <InstallStep n={2}>
+                    <strong>Sign up using Google or GitHub</strong> (recommended — email login can be unreliable).
+                  </InstallStep>
+                  <InstallStep n={3}>
+                    After signing in, click <strong>"API Keys"</strong> in the left sidebar.
+                  </InstallStep>
+                  <InstallStep n={4}>
+                    Click <strong>"Create API Key"</strong> → copy the key → paste it into ForgeCV settings.
+                  </InstallStep>
+                </ol>
+                <div className="mt-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3">
+                  <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                    <strong>⚠️ Important:</strong> Use <strong>Google or GitHub login</strong> for Groq signup. Email login sometimes fails because the verification link doesn't work properly.
+                  </p>
+                </div>
+                <details className="mt-4 text-xs">
+                  <summary className="cursor-pointer text-accent hover:text-accent/80 font-semibold flex items-center gap-1">
+                    <ChevronDown size={14} className="inline" />
+                    Click for detailed Groq setup guide
+                  </summary>
+                  <div className="mt-3 space-y-3 pl-5 text-muted-foreground leading-relaxed">
+                    <div>
+                      <strong className="text-card-foreground">Step 1:</strong> Open a new tab and go to <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">console.groq.com</a>. You'll see the Groq Console homepage.
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 2:</strong> Click "Sign Up" or "Get Started". You'll see login options. <strong>Choose "Continue with Google" or "Continue with GitHub"</strong> — do NOT use email signup as the verification emails are sometimes unreliable.
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 3:</strong> After signing in, you'll be in the Groq Console dashboard. Look for "API Keys" in the left sidebar menu and click it.
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 4:</strong> Click the "Create API Key" button. Give it a name (e.g., "ForgeCV") and click "Submit". Your new API key will appear — click the copy icon to copy it to your clipboard.
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 5:</strong> Open ForgeCV extension, click the settings icon (⚙️), select "Groq" as your provider, paste your API key, and click "Save Settings".
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Why Groq?</strong> Groq offers a generous free tier with very fast inference speeds. It's perfect for resume generation and works great with ForgeCV.
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+            {/* API Key Setup - Gemini */}
+            <div className="bg-foreground/[0.04] dark:bg-foreground/10 border border-border rounded-md overflow-hidden">
+              <div className="px-5 py-4 sm:px-6">
+                <div className="flex items-center gap-2 mb-1">
+                  <Sparkles size={16} className="text-accent" />
+                  <h4 className="font-bold text-sm text-card-foreground">Get Free Google Gemini API Key (Alternative)</h4>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">Free Tier &nbsp;·&nbsp; Reliable &nbsp;·&nbsp; ~1 minute</p>
+                <ol className="space-y-2 text-sm text-card-foreground">
+                  <InstallStep n={1}>
+                    Visit{" "}
+                    <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline inline-flex items-center gap-1">
+                      aistudio.google.com/apikey
+                      <ExternalLink size={12} />
+                    </a>
+                  </InstallStep>
+                  <InstallStep n={2}>
+                    Sign in with your Google account.
+                  </InstallStep>
+                  <InstallStep n={3}>
+                    Click <strong>"Create API Key"</strong> → select or create a Google Cloud project.
+                  </InstallStep>
+                  <InstallStep n={4}>
+                    Copy the generated API key → paste it into ForgeCV settings.
+                  </InstallStep>
+                </ol>
+                <details className="mt-4 text-xs">
+                  <summary className="cursor-pointer text-accent hover:text-accent/80 font-semibold flex items-center gap-1">
+                    <ChevronDown size={14} className="inline" />
+                    Click for detailed Gemini setup guide
+                  </summary>
+                  <div className="mt-3 space-y-3 pl-5 text-muted-foreground leading-relaxed">
+                    <div>
+                      <strong className="text-card-foreground">Step 1:</strong> Open a new tab and go to <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">aistudio.google.com/apikey</a>. This is Google's AI Studio API key page.
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 2:</strong> Sign in with your Google account (any Gmail account works). If you're already signed into Chrome, it should sign you in automatically.
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 3:</strong> Click the "Create API Key" button. You'll be asked to select a Google Cloud project. If you don't have one, click "Create new project", give it a name (e.g., "ForgeCV"), and click "Create".
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 4:</strong> Once the project is created, your API key will be generated and displayed. Click the copy icon to copy it to your clipboard.
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 5:</strong> Open ForgeCV extension, click the settings icon (⚙️), select "Gemini" as your provider, paste your API key, and click "Save Settings".
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Why Gemini?</strong> Google Gemini 2.0 Flash is very reliable and has a generous free tier. It's a great alternative if you prefer Google's ecosystem.
+                    </div>
+                  </div>
+                </details>
               </div>
             </div>
           </ResumeSection>

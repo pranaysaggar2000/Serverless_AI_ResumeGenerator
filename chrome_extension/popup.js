@@ -436,7 +436,6 @@ function setupEventListeners() {
     saveSettingsBtn.addEventListener('click', async () => {
         const geminiKey = apiKeyInput.value.trim();
         const groqKey = document.getElementById('groqApiKey').value.trim();
-        const nvidiaKey = document.getElementById('nvidiaApiKey').value.trim();
         const provider = document.getElementById('providerSelect').value;
 
         if (provider === 'gemini' && !geminiKey) {
@@ -447,22 +446,16 @@ function setupEventListeners() {
             showStatus("Please enter a Groq API key.", "error", "settingsStatus");
             return;
         }
-        if (provider === 'nvidia' && !nvidiaKey) {
-            showStatus("Please enter a NVIDIA API key.", "error", "settingsStatus");
-            return;
-        }
 
         await chrome.storage.local.set({
             gemini_api_key: geminiKey,
             groq_api_key: groqKey,
-            nvidia_api_key: nvidiaKey,
             provider: provider
         });
 
         updateState({
             currentApiKey: geminiKey,
             currentGroqKey: groqKey,
-            currentNvidiaKey: nvidiaKey,
             currentProvider: provider
         });
 
@@ -490,7 +483,8 @@ function setupEventListeners() {
             return;
         }
         if (!checkCurrentProviderKey()) {
-            showStatus("Please save your API Key in settings first.", "error", "uploadStatus");
+            showStatus("API Key required. Please go to Settings to add it.", "error", "uploadStatus");
+            setTimeout(showSettings, 2000);
             return;
         }
 
@@ -540,7 +534,8 @@ function setupEventListeners() {
             return;
         }
         if (!checkCurrentProviderKey()) {
-            showStatus("Please save your API Key first.", "error", statusId);
+            showStatus("API Key required for text processing.", "error", statusId);
+            setTimeout(showSettings, 2000);
             return;
         }
 
@@ -665,6 +660,12 @@ function setupEventListeners() {
     generateBtn.addEventListener('click', async () => {
         console.log("Generate (AI) clicked");
         invalidatePdfCache();
+
+        if (!checkCurrentProviderKey()) {
+            showStatus("API Key missing! Cannot generate AI resume.", "error");
+            setTimeout(showSettings, 2000);
+            return;
+        }
 
         if (!state.currentJdText || state.currentJdText.length < 50) {
             console.warn("No JD detected");

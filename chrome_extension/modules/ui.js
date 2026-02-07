@@ -28,15 +28,9 @@ export function toggleProviderUI(provider) {
     if (provider === 'gemini') {
         getEl('geminiKeyData').style.display = 'block';
         getEl('groqKeyData').style.display = 'none';
-        if (getEl('nvidiaKeyData')) getEl('nvidiaKeyData').style.display = 'none';
     } else if (provider === 'groq') {
         getEl('geminiKeyData').style.display = 'none';
         getEl('groqKeyData').style.display = 'block';
-        if (getEl('nvidiaKeyData')) getEl('nvidiaKeyData').style.display = 'none';
-    } else if (provider === 'nvidia') {
-        getEl('geminiKeyData').style.display = 'none';
-        getEl('groqKeyData').style.display = 'none';
-        if (getEl('nvidiaKeyData')) getEl('nvidiaKeyData').style.display = 'block';
     }
 }
 

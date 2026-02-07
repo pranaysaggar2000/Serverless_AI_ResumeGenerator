@@ -3,15 +3,14 @@ import { state } from './state.js';
 export function checkCurrentProviderKey() {
     if (state.currentProvider === 'gemini') return !!state.currentApiKey;
     if (state.currentProvider === 'groq') return !!state.currentGroqKey;
-    if (state.currentProvider === 'nvidia') return !!state.currentNvidiaKey;
     return false;
 }
 
 export function updateStrategyDescription(value, element) {
     const descriptions = [
-        '📝 Profile Focus - Preserves original content, minimal keyword forcing',
-        '⚖️ Balanced - Integrates JD keywords while maintaining authenticity',
-        '🎯 JD Focus - Aggressive keyword matching for maximum ATS score'
+        '🛡 Keep It Real - Preserves your original content, minimal keyword forcing',
+        '⚖️ Sweet Spot - Integrates JD keywords while keeping it authentic',
+        '🎯 ATS Destroyer - Aggressive keyword matching for maximum match score'
     ];
     if (element) {
         element.textContent = descriptions[value];

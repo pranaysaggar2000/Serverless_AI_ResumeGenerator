@@ -97,11 +97,12 @@ export function renderAnalysis(analysis) {
 
     analysisResults.style.display = 'block';
 
+    const score = parseInt(analysis.score) || 0;
+
     // Score
     if (atsScoreDisplay) {
         atsScoreDisplay.textContent = analysis.score || "N/A";
         // Color code
-        const score = parseInt(analysis.score) || 0;
         atsScoreDisplay.style.color = score >= 80 ? '#28a745' : score >= 60 ? '#ffc107' : '#dc3545';
     }
 
@@ -137,6 +138,17 @@ export function renderAnalysis(analysis) {
             analysis.recommendations.forEach(rec => html += `<li>${rec}</li>`);
             html += `</ul></div>`;
         }
+
+        // After score display, add a verdict
+        let verdict = '';
+        if (score >= 90) verdict = '🏆 Excellent! Basically a cheat code for this job.';
+        else if (score >= 80) verdict = '💪 Strong match. You\'re in the top tier for this role.';
+        else if (score >= 70) verdict = '👍 Good foundation. A few tweaks and you\'re golden.';
+        else if (score >= 60) verdict = '⚡ Decent start. Edit some bullets to boost keywords.';
+        else verdict = '🔧 Needs work. Try JD Focus mode and regenerate.';
+
+        // Add verdict to the UI
+        html += `<div style="font-size:12px; font-weight:600; margin-bottom:10px; padding:8px; background:#f9fafb; border-radius:6px;">${verdict}</div>`;
 
         // Summary Feedback
         if (analysis.summary_feedback) {

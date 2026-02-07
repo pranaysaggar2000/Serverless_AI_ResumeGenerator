@@ -7,6 +7,12 @@
 </head>
 
 <body>
+  <div style="text-align: center; padding: 2px 0; font-size: 9px; color: var(--text-muted); letter-spacing: 0.3px;">
+    Built by <a href="https://www.linkedin.com/in/pranay-saggar" target="_blank"
+      style="color: var(--primary); text-decoration: none; font-weight: 600;">Pranay Saggar</a>
+    · <a href="https://pranaysaggar.vercel.app/" target="_blank"
+      style="color: var(--text-muted); text-decoration: none;">Portfolio</a>
+  </div>
   <header>
     <div class="logo">
       <span>📄</span> ForgeCV
@@ -22,7 +28,8 @@
   <!-- Settings UI -->
   <div id="settingsUI" class="hidden">
     <div class="flex-between" style="margin-bottom: 16px;">
-      <h3>Settings</h3>
+      <p class="text-sm text-muted" style="margin-bottom: 12px;">Pick your AI brain and plug in a key. Takes 30 seconds.
+        Your key stays on YOUR device — pinky promise. 🤙</p>
       <button id="backFromSettings" class="secondary-btn icon-btn"
         style="width:auto; padding: 4px 8px; font-size:11px;">✕</button>
     </div>
@@ -85,15 +92,6 @@
             <div style="text-align:right; font-size:9px; color:var(--primary); margin-top:2px;">(Click to copy)</div>
           </div>
         </details>
-      </div>
-
-      <div id="nvidiaKeyData" class="key-section hidden">
-        <label for="nvidiaApiKey">NVIDIA API Key</label>
-        <input type="password" id="nvidiaApiKey" placeholder="Enter NVIDIA API Key (starts with nvapi-...)">
-        <div class="text-sm text-muted" style="margin-top:4px;">
-          Get key from <a href="https://build.nvidia.com/meta/llama-4-maverick-17b-128e-instruct" target="_blank">NVIDIA
-            (Maverick)</a>. Click "Get API Key".
-        </div>
       </div>
 
       <button id="saveSettingsBtn" class="primary-btn" style="width:100%; margin-top:16px;">Save Settings</button>
@@ -162,8 +160,14 @@
   <!-- Setup UI -->
   <div id="setupUI" class="hidden">
     <div class="upload-zone">
-      <h2 style="font-size:18px; margin-bottom:8px;">Welcome to ForgeCV</h2>
-      <p class="text-muted" style="margin-bottom:20px;">Upload your resume to get started.</p>
+      <h2 style="font-size:18px; margin-bottom:4px;">Welcome to ForgeCV</h2>
+      <p class="text-muted" style="margin-bottom:4px; font-size: 12px;">AI-powered resume tailoring in 3 steps:</p>
+      <div
+        style="text-align: left; margin: 0 auto 16px; max-width: 260px; font-size: 11px; color: var(--text-secondary);">
+        <div style="margin-bottom: 4px;">1️⃣ Upload your base resume (PDF or text)</div>
+        <div style="margin-bottom: 4px;">2️⃣ Navigate to a job posting page</div>
+        <div>3️⃣ Click "Generate" — AI tailors your resume to the job</div>
+      </div>
 
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3 style="margin:0;">Setup</h3>
@@ -179,6 +183,23 @@
       <textarea id="resumeTextInit" placeholder="Paste resume text..." style="height: 100px;"></textarea>
       <button id="processTextInitBtn" class="primary-btn" style="width:100%; margin-top:8px;">Process Text</button>
       <div id="textStatus" style="margin-top:8px;"></div>
+      <details style="margin-top: 16px; text-align: left;">
+        <summary style="font-size: 12px; font-weight: 600; cursor: pointer; color: var(--primary);">ℹ️ How does ForgeCV
+          work?</summary>
+        <div style="font-size: 11px; color: var(--text-secondary); padding: 10px 0; line-height: 1.6;">
+          <p><strong>Your data is private.</strong> Your resume and API key stay on your device. We never store or
+            transmit your personal information.</p>
+          <p><strong>Step 1:</strong> Upload your resume once. ForgeCV extracts and stores your profile locally.</p>
+          <p><strong>Step 2:</strong> Open any job posting in your browser. ForgeCV automatically reads the job
+            description from the page.</p>
+          <p><strong>Step 3:</strong> Click Generate. AI rewrites your resume to match the job's keywords while
+            preserving your real experience.</p>
+          <p><strong>Step 4:</strong> Download the tailored PDF, or drag it directly into the application form.</p>
+        </div>
+      </details>
+      <div style="margin-top: 12px; text-align: center; font-size: 10px; color: var(--text-muted);">
+        ✨ Trusted by job seekers. Powered by AI. Zero data leaves your device.
+      </div>
     </div>
   </div>
 
@@ -189,14 +210,91 @@
       <span id="activeProfileLabel" style="font-size:10px; opacity:0.7; margin-left:4px;"></span>
     </div>
 
+    <!-- JD Source Card -->
+    <div id="jdStatusCard" class="card" style="padding: 12px 14px; margin-bottom: 12px;">
+      <!-- Active Tab Display -->
+      <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+        <span id="jdStatusDot"
+          style="width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; flex-shrink: 0;"></span>
+        <div style="flex: 1; min-width: 0;">
+          <div id="jdStatusText"
+            style="font-size: 11px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            No job description loaded</div>
+          <div id="jdSourceUrl"
+            style="font-size: 9px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Tab Label -->
+      <div id="activeTabLabel"
+        style="font-size: 9px; color: var(--text-muted); background: #f9fafb; padding: 4px 8px; border-radius: 4px; margin-bottom: 8px; display: flex; align-items: center; gap: 4px;">
+        <span>🌐</span>
+        <span id="activeTabUrl" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Loading current
+          tab...</span>
+      </div>
+
+      <!-- Two Action Buttons -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+        <button id="fetchJdBtn" class="secondary-btn" style="font-size: 11px; padding: 8px 6px; gap: 4px;"
+          title="Scans the current browser tab for a job description">
+          🔍 Fetch from Page
+        </button>
+        <button id="manualJdBtn" class="secondary-btn" style="font-size: 11px; padding: 8px 6px; gap: 4px;"
+          title="Paste a job description or upload a JD as PDF">
+          📝 Add JD Manually
+        </button>
+      </div>
+
+      <!-- Manual JD Input (hidden by default) -->
+      <div id="manualJdInput"
+        style="display: none; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+        <textarea id="manualJdText" placeholder="Paste the full job description text here..."
+          style="height: 120px; font-size: 12px;"></textarea>
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+          <span style="font-size: 10px; color: var(--text-muted);">or</span>
+          <label style="font-size: 11px; color: var(--primary); cursor: pointer; font-weight: 500;" for="jdPdfFile">📎
+            Upload JD PDF</label>
+          <input type="file" id="jdPdfFile" accept=".pdf" style="display: none;">
+          <span id="jdPdfFileName" style="font-size: 10px; color: var(--text-secondary);"></span>
+        </div>
+        <div style="display: flex; gap: 6px; margin-top: 10px;">
+          <button id="saveManualJdBtn" class="primary-btn" style="flex: 1; font-size: 11px; padding: 8px;">✅ Use This
+            JD</button>
+          <button id="cancelManualJdBtn" class="secondary-btn"
+            style="flex: 1; font-size: 11px; padding: 8px;">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Current JD Preview & Edit (expands) -->
+      <div id="jdPreviewContainer"
+        style="display: none; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+        <div class="flex-between" style="margin-bottom: 6px;">
+          <span style="font-size: 10px; font-weight: 600; color: var(--text-muted);">CURRENT JD</span>
+          <button id="toggleJdPreviewBtn" class="secondary-btn"
+            style="width: auto; padding: 2px 6px; font-size: 9px; height: 18px;">Expand View</button>
+        </div>
+
+        <div style="position: relative;">
+          <textarea id="jdPreviewText"
+            style="width: 100%; height: auto; min-height: 48px; max-height: 48px; font-size: 11px; padding: 6px; line-height: 1.4; border-radius: 4px; overflow-y: hidden; transition: max-height 0.2s ease-in-out; background: #fdfdfd; border: 1px solid #eee;"
+            placeholder="No JD content loaded..."></textarea>
+          <div id="jdEditSaveContainer" style="display: none; position: absolute; bottom: 4px; right: 4px; z-index: 5;">
+            <button id="saveJdEditBtn" class="primary-btn"
+              style="padding: 4px 8px; font-size: 9px; height: 22px; width: auto;">Save Changes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Tailoring Strategy -->
     <div class="card">
       <label class="text-sm font-bold text-muted" style="display:block; margin-bottom:8px;">TAILORING BASIS</label>
       <input type="range" id="tailoringSlider" min="0" max="2" value="1" step="1">
       <div class="strategy-labels">
-        <span>Profile Focus</span>
-        <span>Balanced</span>
-        <span>JD Focus</span>
+        <span>🛡 Keep It Real</span>
+        <span>⚖️ Sweet Spot</span>
+        <span>🎯 ATS Destroyer</span>
       </div>
       <div id="strategyDescription" class="text-sm text-muted" style="margin-top:12px; font-style:italic;">
         Balanced approach - integrates JD keywords...
@@ -204,20 +302,26 @@
     </div>
 
     <div style="display:flex; flex-direction:column; gap:8px;">
-      <button id="generateBtn" class="primary-btn" style="padding:14px;">⚡ Process Page & Generate Resume</button>
-      <button id="generateBaseBtn" class="secondary-btn">Generate Base Resume (No AI)</button>
+      <button id="generateBtn" class="primary-btn" style="padding:14px; font-size: 14px;"
+        title="AI reads the job description and tailors your resume for maximum ATS match">
+        🔥 Forge My Resume
+      </button>
+      <button id="generateBaseBtn" class="secondary-btn" style="font-size: 12px;"
+        title="Generate a clean PDF from your base profile without AI tailoring">
+        📄 Export Base Resume (No AI)
+      </button>
     </div>
 
     <!-- Actions (Post-Generation) -->
     <div id="actions" class="hidden">
       <div class="actions-grid">
-        <button id="previewBtn">👁 Preview PDF</button>
-        <button id="downloadBtn">⬇ Download PDF</button>
-        <button id="editBtn">✏ Manual Editor</button>
-        <button id="formatBtn" class="secondary-btn">🎨 Format</button>
-        <button id="copyContentBtn">📋 Copy Content</button>
-        <button id="historyBtn" class="secondary-btn">🕐 History</button>
-        <button id="analyzeBtn" class="secondary-btn">📊 Analyze ATS Score</button>
+        <button id="previewBtn">👁 Preview</button>
+        <button id="downloadBtn">⬇ Download</button>
+        <button id="editBtn">✏️ Fine-Tune</button>
+        <button id="formatBtn" class="secondary-btn">🎨 Style It</button>
+        <button id="copyContentBtn">📋 Copy Sections</button>
+        <button id="historyBtn" class="secondary-btn">🕰 Past Forges</button>
+        <button id="analyzeBtn" class="secondary-btn">📊 ATS Score</button>
       </div>
 
       <!-- Drag & Drop Resume Card -->
@@ -237,9 +341,9 @@
             ">
           <span style="font-size: 20px;">📄</span>
           <div>
-            <div id="dragFileName" style="font-weight: 600; font-size: 12px; color: #4338ca;">Drag resume to upload
-            </div>
-            <div style="font-size: 10px; color: #6366f1;">Drop onto any file upload field on the page</div>
+            <div id="dragFileName" style="font-weight: 600; font-size: 12px; color: #4338ca;">Drag me into any upload
+              field</div>
+            <div style="font-size: 10px; color: #6366f1;">Skip the download → upload dance 💃</div>
           </div>
           <span style="font-size: 16px; color: #a5b4fc;">⇗</span>
         </div>
@@ -436,6 +540,12 @@
         </select>
       </div>
 
+      <div
+        style="font-size: 10px; color: var(--text-muted); margin-bottom: 10px; padding: 6px 8px; background: #f9fafb; border-radius: 6px; border: 1px solid #f3f4f6;">
+        💡 <strong>Tip:</strong> Edit bullets to include job-specific keywords. Use ↑↓ arrows to reorder items. Press
+        <kbd style="background:#e5e7eb; padding:1px 4px; border-radius:3px; font-size:9px;">Ctrl+S</kbd> to save.
+      </div>
+
       <div id="formContainer" style="max-height: 400px; overflow-y: auto; padding-bottom: 20px;"></div>
 
       <div class="editor-footer">
@@ -467,7 +577,8 @@
           💡 Application Question Helper <span style="font-size:10px;">▼</span>
         </summary>
         <div style="padding:16px; border-top:1px solid #f1f5f9;">
-          <textarea id="questionInput" placeholder="Paste application question..."
+          <textarea id="questionInput"
+            placeholder="Paste any application question here (e.g., &quot;Why are you interested in this role?&quot; or &quot;Describe a time you led a team&quot;)"
             style="height:60px; margin-bottom:8px;"></textarea>
           <div style="display:flex; justify-content:flex-end;">
             <button id="askBtn" class="primary-btn" style="font-size:12px; padding:6px 12px;">Generate Answer</button>
@@ -478,9 +589,14 @@
     </div>
   </div>
 
+  <footer style="text-align: center; padding: 12px 0 4px; margin-top: 20px; border-top: 1px solid var(--border-color);">
+    <div style="font-size: 9px; color: var(--text-muted);">
+      ForgeCV v1.0 · Your data stays on your device · API keys are stored locally
+    </div>
+  </footer>
+
   <div id="error" class="error"></div>
 
-  <!-- Scripts -->
   <!-- Scripts -->
   <script src="jspdf.umd.min.js"></script>
   <script type="module" src="pdf_init.js"></script>

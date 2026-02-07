@@ -1,4 +1,36 @@
 
+export function buildExtractJDFromPagePrompt(rawPageText) {
+    // Truncate to avoid token limits — first 12000 chars is usually enough
+    const truncated = rawPageText.substring(0, 12000);
+
+    return `
+You are extracting a job description from raw webpage text. The text contains navigation menus, headers, footers, ads, and other noise mixed with the actual job posting.
+
+RAW PAGE TEXT:
+${truncated}
+
+TASK: Extract ONLY the job description content. Return a JSON object with:
+
+{
+    "job_title": "Exact job title",
+    "company_name": "Company name",
+    "location": "Job location(s)",
+    "job_description": "The full job description text — include responsibilities, requirements, qualifications, and any other relevant content. Exclude navigation, cookie notices, footer links, and unrelated content.",
+    "company_description": "2-3 sentences about the company if mentioned on the page (what they do, their industry, size, mission). If not found, use empty string.",
+    "salary_range": "Salary range if mentioned, otherwise empty string",
+    "job_type": "Full-time/Part-time/Contract/Remote if mentioned"
+}
+
+RULES:
+- Extract the COMPLETE job description — don't summarize or shorten it
+- Include ALL bullet points for responsibilities, requirements, qualifications
+- Preserve the original wording exactly
+- company_description should capture what the company DOES, not just the name
+- If you can't find a job description in the text, return {"error": "No job description found on this page"}
+- Return ONLY valid JSON. No markdown, no explanation.
+`;
+}
+
 export function buildParseJobDescriptionPrompt(jdText) {
     return `
 Analyze this job description and extract structured information. Return ONLY valid JSON.
@@ -13,6 +45,7 @@ EXTRACTION RULES:
 4. ACTION VERBS: Extract verbs from the responsibilities section that indicate what the person will DO in this role.
 5. TECH STACK: Be specific — "PostgreSQL" not "databases", "Kubernetes" not "container orchestration", "pandas" not "Python libraries".
 6. METRICS EMPHASIS: What scale/impact does this role involve? (millions of users, billions of records, $XM revenue)
+7. COMPANY CONTEXT: Extract what the company actually does — industry, products, scale, mission. This helps tailor the resume's summary to show domain fit.
 
 RETURN THIS JSON:
 {
@@ -31,6 +64,7 @@ RETURN THIS JSON:
     "key_metrics_emphasis": ["scale indicators: millions of users, low latency, revenue growth, etc"],
     "domain_context": "Industry/sector (e.g. Fintech, Healthcare, AdTech)",
     "team_context": "What team/org this role is in, who they report to, team size if mentioned",
+    "company_description": "2-3 sentences about what the company does, their industry, mission, and scale if mentioned in the JD",
     "role_summary": "2-3 sentence summary of what this person will actually DO day-to-day"
 }
 
@@ -138,6 +172,10 @@ Company: ${jdAnalysis.company_name || 'Unknown'}
 Role: ${jdAnalysis.job_title || 'Unknown'}
 Seniority: ${jdAnalysis.seniority || 'Unknown'}
 Domain: ${jdAnalysis.domain_context || 'Unknown'}
+
+${jdAnalysis.company_description ? `
+Company Context: ${jdAnalysis.company_description}
+` : ''}
 
 Must-have keywords: ${mandatoryList.join(', ')}
 Nice-to-have keywords: ${preferredList.join(', ')}

@@ -6,7 +6,6 @@ const stateShape = {
     tailoredResume: null,
     currentApiKey: "",
     currentGroqKey: "",
-    currentNvidiaKey: "",
     currentProvider: "gemini", // Default
     hasAnalyzed: false,
     tailoringStrategy: "balanced",
@@ -15,8 +14,11 @@ const stateShape = {
     currentEditingData: null,
     detectedJobTitle: null,
     detectedCompany: null,
+    detectedPageUrl: "",
     jdKeywords: [], // Computed from analysis
     activeProfile: "default",
+    jdExtractionMethod: 'none',    // 'auto' | 'auto-partial' | 'ai' | 'manual' | 'none'
+    detectedCompanyDescription: '',
     latestPdfBlob: null,
     formatSettings: {
         font: "times",           // "times" | "helvetica" | "courier"

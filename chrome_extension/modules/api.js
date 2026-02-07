@@ -117,6 +117,11 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
             company_name: "Unknown_Company", job_title: "Role", mandatory_keywords: []
         };
 
+        // Add company description from state if not found in JD parsing
+        if (!jdAnalysis.company_description && state.detectedCompanyDescription) {
+            jdAnalysis.company_description = state.detectedCompanyDescription;
+        }
+
         // Step 2: Tailor Resume
         // Note: bulletCounts are typically passed in regenerate, but here for initial generation
         // we might not have them, or we assume full keep?
@@ -163,6 +168,11 @@ export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis,
         const base = tailoredResume;
 
         if (!jdAnalysis) throw new Error("JD Analysis missing for regeneration");
+
+        // Add company description from state if not found in JD parsing
+        if (!jdAnalysis.company_description && state.detectedCompanyDescription) {
+            jdAnalysis.company_description = state.detectedCompanyDescription;
+        }
 
         const tailorPrompt = Prompts.buildTailorPrompt(base, jdAnalysis, tailoringStrategy, bulletCounts);
         const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true });
@@ -211,3 +221,36 @@ export async function analyzeResume(resumeData, jdText, apiKey, provider) {
         return { error: e.message };
     }
 }
+
+export async function extractJDWithAI(rawPageText, apiKey, provider) {
+    try {
+        const prompt = Prompts.buildExtractJDFromPagePrompt(rawPageText);
+        const responseText = await callAI(prompt, provider, apiKey, { expectJson: true });
+        const data = extractJSON(responseText);
+
+        if (!data || data.error) {
+            return { error: data?.error || "AI could not extract JD from page" };
+        }
+
+        // Combine into a single JD text that the tailoring pipeline expects
+        let fullJdText = '';
+        if (data.job_title) fullJdText += `Job Title: ${data.job_title}\n`;
+        if (data.company_name) fullJdText += `Company: ${data.company_name}\n`;
+        if (data.location) fullJdText += `Location: ${data.location}\n`;
+        if (data.salary_range) fullJdText += `Salary: ${data.salary_range}\n`;
+        if (data.company_description) fullJdText += `About the Company: ${data.company_description}\n\n`;
+        if (data.job_description) fullJdText += data.job_description;
+
+        return {
+            text: fullJdText,
+            title: data.job_title || '',
+            company: data.company_name || '',
+            companyDescription: data.company_description || '',
+            location: data.location || ''
+        };
+    } catch (e) {
+        console.error("AI JD extraction failed:", e);
+        return { error: e.message };
+    }
+}
+

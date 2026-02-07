@@ -21,7 +21,7 @@ jobs:
       - name: Zip extension
         run: |
           cd chrome_extension
-          zip -r ../extension.zip . -x "*.git*" "*.DS_Store"
+          zip -r ../ForgeCVextension.zip . -x "*.git*" "*.DS_Store"
           cd ..
 
       - name: Create or Update Release
@@ -30,7 +30,7 @@ jobs:
           tag: latest
           name: Latest Release
           body: "Latest build of the extension."
-          artifacts: "extension.zip"
+          artifacts: "ForgeCV_extension.zip"
           allowUpdates: true
           removeArtifacts: true
           replacesArtifacts: true

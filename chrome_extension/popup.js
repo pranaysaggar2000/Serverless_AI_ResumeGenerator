@@ -17,11 +17,14 @@ import {
     generatePdf,
     askQuestion,
     regenerateResume,
-    analyzeResume
+    analyzeResume,
+    extractJDWithAI
 } from './modules/api.js';
 import { renderProfileEditor, saveProfileChanges, collectBulletCounts, resetEditorState, getCurrentEditingResume } from './modules/editor.js';
 import { extractJobDescription } from './modules/jd_extractor.js';
 import { showProgress, hideProgress } from './modules/progress.js';
+
+let isScanning = false;
 
 const setupUI = document.getElementById('setupUI');
 const mainUI = document.getElementById('mainUI');
@@ -274,12 +277,27 @@ if (document.readyState === 'loading') {
 }
 
 async function loadState() {
-    const data = await chrome.storage.local.get(['gemini_api_key', 'groq_api_key', 'nvidia_api_key', 'provider', 'base_resume', 'tailored_resume', 'user_profile_name', 'tailoring_strategy', 'last_analysis', 'active_profile']);
+    const data = await chrome.storage.local.get([
+        'gemini_api_key',
+        'groq_api_key',
+        'provider',
+        'base_resume',
+        'tailored_resume',
+        'user_profile_name',
+        'tailoring_strategy',
+        'last_analysis',
+        'active_profile',
+        'current_jd_text',
+        'detected_job_title',
+        'detected_company',
+        'detected_page_url',
+        'jd_extraction_method',
+        'detected_company_description'
+    ]);
 
     updateState({
         currentApiKey: data.gemini_api_key || "",
         currentGroqKey: data.groq_api_key || "",
-        currentNvidiaKey: data.nvidia_api_key || "",
         currentProvider: data.provider || "gemini",
         baseResume: data.base_resume || null,
         tailoredResume: data.tailored_resume || null,
@@ -291,12 +309,20 @@ async function loadState() {
             ...(data.last_analysis.preferred_keywords || []),
             ...(data.last_analysis.industry_terms || [])
         ].map(k => k.toLowerCase()) : [],
-        activeProfile: data.active_profile || 'default'
+        activeProfile: data.active_profile || 'default',
+        currentJdText: data.current_jd_text || "",
+        detectedJobTitle: data.detected_job_title || null,
+        detectedCompany: data.detected_company || null,
+        detectedPageUrl: data.detected_page_url || "",
+        jdExtractionMethod: data.jd_extraction_method || 'none',
+        detectedCompanyDescription: data.detected_company_description || ""
     });
 
     updateActiveProfileLabel(state.activeProfile);
 
     setupSettings();
+    updateJdStatus();
+    updateActiveTabLabel();
 
     if (state.baseResume) {
         if (profileNameDisplay) profileNameDisplay.textContent = data.user_profile_name || "User";
@@ -341,18 +367,17 @@ async function loadState() {
             console.log("Pre-cache PDF failed (non-critical):", e);
         }
     }
+    updateJdStatus();
 }
 
 function setupSettings() {
     const apiKeyInput = document.getElementById('apiKey');
     const groqApiKeyInput = document.getElementById('groqApiKey');
-    const nvidiaApiKeyInput = document.getElementById('nvidiaApiKey');
     const providerSelect = document.getElementById('providerSelect');
 
     // Pre-fill
     if (apiKeyInput) apiKeyInput.value = state.currentApiKey;
     if (groqApiKeyInput) groqApiKeyInput.value = state.currentGroqKey;
-    if (nvidiaApiKeyInput) nvidiaApiKeyInput.value = state.currentNvidiaKey;
     if (providerSelect) {
         providerSelect.value = state.currentProvider;
         toggleProviderUI(state.currentProvider);
@@ -364,6 +389,177 @@ function setupEventListeners() {
     document.getElementById('providerSelect').addEventListener('change', (e) => {
         updateState({ currentProvider: e.target.value });
         toggleProviderUI(state.currentProvider);
+    });
+
+    // JD Status buttons
+
+
+    const manualJdBtn = document.getElementById('manualJdBtn');
+    const manualJdInput = document.getElementById('manualJdInput');
+    if (manualJdBtn && manualJdInput) {
+        manualJdBtn.addEventListener('click', () => {
+            manualJdInput.style.display = manualJdInput.style.display === 'none' ? 'block' : 'none';
+        });
+    }
+
+    const cancelManualJdBtn = document.getElementById('cancelManualJdBtn');
+    if (cancelManualJdBtn) {
+        cancelManualJdBtn.addEventListener('click', () => {
+            document.getElementById('manualJdInput').style.display = 'none';
+        });
+    }
+
+    const fetchJdBtn = document.getElementById('fetchJdBtn');
+    if (fetchJdBtn) {
+        fetchJdBtn.addEventListener('click', async () => {
+            const dot = document.getElementById('jdStatusDot');
+            const text = document.getElementById('jdStatusText');
+            if (dot) dot.style.background = '#f59e0b';
+            if (text) text.textContent = 'Scanning page...';
+            fetchJdBtn.disabled = true;
+            fetchJdBtn.textContent = '⏳ Scanning...';
+
+            try {
+                // Clear success/error before starting
+                showStatus("", "");
+
+                const result = await detectJobDescription();
+
+                // If detectJobDescription actually found something new
+                if (result && result.text && result.text.length > 50) {
+                    const method = state.jdExtractionMethod;
+                    if (method === 'ai') {
+                        showStatus("🤖 JD extracted using AI — review for accuracy", "success");
+                    } else {
+                        showStatus("✅ Job description fetched successfully!", "success");
+                    }
+                } else if (!state.currentJdText || state.currentJdText.length < 50) {
+                    showStatus("❌ Could not detect a job description on this page. Try pasting it manually.", "error");
+                } else {
+                    // We have a JD, but the scan didn't find a *new/better* one for this page?
+                    // Or it found nothing but we have old state.
+                    showStatus("⚠️ No job details found on this tab. Try pasting it manually.", "info");
+                }
+                setTimeout(() => showStatus('', ''), 4000);
+
+            } catch (e) {
+                showStatus("Scan failed: " + e.message, "error");
+            } finally {
+                fetchJdBtn.disabled = false;
+                fetchJdBtn.textContent = '🔍 Fetch from Page';
+                updateJdStatus();
+            }
+        });
+    }
+
+    const jdPdfFile = document.getElementById('jdPdfFile');
+    if (jdPdfFile) {
+        jdPdfFile.addEventListener('change', () => {
+            const nameEl = document.getElementById('jdPdfFileName');
+            if (nameEl) {
+                nameEl.textContent = jdPdfFile.files[0] ? jdPdfFile.files[0].name : '';
+            }
+        });
+    }
+
+    const saveManualJdBtn = document.getElementById('saveManualJdBtn');
+    if (saveManualJdBtn) {
+        saveManualJdBtn.addEventListener('click', async () => {
+            // Check for PDF first
+            const jdFile = document.getElementById('jdPdfFile');
+            let jdText = '';
+
+            if (jdFile && jdFile.files[0]) {
+                // Extract text from uploaded JD PDF
+                showStatus("Extracting JD from PDF...", "info");
+                const result = await extractText(jdFile.files[0]);
+                if (result.error) {
+                    showStatus("Failed to read PDF: " + result.error, "error");
+                    return;
+                }
+                jdText = result.text;
+            } else {
+                jdText = document.getElementById('manualJdText').value.trim();
+            }
+
+            if (jdText.length < 50) {
+                showStatus("JD text is too short (min 50 characters)", "error");
+                return;
+            }
+
+            updateState({
+                currentJdText: jdText,
+                detectedJobTitle: 'Manual JD',
+                detectedCompany: 'Pasted',
+                detectedPageUrl: '',
+                jdExtractionMethod: 'manual'
+            });
+            updateJdStatus();
+            document.getElementById('manualJdInput').style.display = 'none';
+            showStatus("Job description loaded!", "success");
+            setTimeout(() => showStatus('', ''), 2000);
+        });
+    }
+
+    const toggleJdBtn = document.getElementById('toggleJdPreviewBtn');
+    if (toggleJdBtn) {
+        toggleJdBtn.addEventListener('click', () => {
+            const previewText = document.getElementById('jdPreviewText');
+            const isExpanded = previewText.classList.contains('expanded');
+
+            if (isExpanded) {
+                previewText.classList.remove('expanded');
+                previewText.style.maxHeight = '48px';
+                previewText.style.overflowY = 'hidden';
+                toggleJdBtn.textContent = 'Expand View';
+            } else {
+                previewText.classList.add('expanded');
+                previewText.style.maxHeight = '400px';
+                previewText.style.overflowY = 'auto';
+                toggleJdBtn.textContent = 'Collapse View';
+            }
+        });
+    }
+
+    const previewText = document.getElementById('jdPreviewText');
+    const saveJdEditBtn = document.getElementById('saveJdEditBtn');
+    const jdEditSaveContainer = document.getElementById('jdEditSaveContainer');
+
+    if (previewText && saveJdEditBtn && jdEditSaveContainer) {
+        previewText.addEventListener('input', () => {
+            const hasChanged = previewText.value !== state.currentJdText;
+            jdEditSaveContainer.style.display = hasChanged ? 'block' : 'none';
+        });
+
+        saveJdEditBtn.addEventListener('click', () => {
+            const newText = previewText.value.trim();
+            if (newText.length < 50) {
+                showStatus("JD text is too short", "error");
+                return;
+            }
+            updateState({
+                currentJdText: newText,
+                jdExtractionMethod: 'manual'
+            });
+            jdEditSaveContainer.style.display = 'none';
+            showStatus("JD updated!", "success");
+            setTimeout(() => showStatus('', ''), 2000);
+            updateJdStatus();
+        });
+    }
+
+
+    // Tab change listeners for JD card context
+    chrome.tabs.onActivated.addListener(() => {
+        updateActiveTabLabel();
+        detectJobDescription().catch(() => { });
+    });
+
+    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+        if (changeInfo.status === 'complete') {
+            updateActiveTabLabel();
+            detectJobDescription().catch(() => { });
+        }
     });
 
     // Settings Toggle
@@ -650,7 +846,7 @@ function setupEventListeners() {
                 console.error("Base Resume Error:", e);
                 showStatus(`Error preparing resume: ${e.message}`, "error");
             } finally {
-                setTimeout(() => { setButtonLoading(generateBaseBtn, false, "Generate Base Resume"); }, 500);
+                setTimeout(() => { setButtonLoading(generateBaseBtn, false, "📄 Export Base Resume (No AI)"); }, 500);
             }
         });
     }
@@ -680,11 +876,10 @@ function setupEventListeners() {
 
         showProgress('detecting');
 
-        const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey :
-            (state.currentProvider === 'nvidia' ? state.currentNvidiaKey : state.currentApiKey);
+        const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
 
         try {
-            showProgress('analyzing', `Using ${state.currentProvider === 'groq' ? 'Groq' : (state.currentProvider === 'nvidia' ? 'NVIDIA' : 'Gemini')}...`);
+            showProgress('analyzing', `Using ${state.currentProvider === 'groq' ? 'Groq' : 'Gemini'}...`);
             showProgress('tailoring', 'This may take 10-15 seconds...');
 
             console.log("Calling tailorResume...");
@@ -713,7 +908,15 @@ function setupEventListeners() {
             setTimeout(() => {
                 hideProgress();
                 if (actionsDiv) actionsDiv.style.display = 'block';
-                showStatus("Resume generated successfully!", "success");
+
+                const wittySuccess = [
+                    "Resume forged! 🔥 Ready to crush that ATS.",
+                    "Done! Your resume is now armed and dangerous.",
+                    "Tailored and loaded. Go get that interview! 💪",
+                    "Resume locked in. ATS doesn't stand a chance.",
+                    "Forged! Your resume now speaks their language."
+                ];
+                showStatus(wittySuccess[Math.floor(Math.random() * wittySuccess.length)], "success");
 
                 // Save Version
                 saveVersion(newResume, analysis ? (analysis.title || analysis.job_title || "New Role") : "Tailored Resume");
@@ -740,7 +943,7 @@ function setupEventListeners() {
             showStatus(`Error: ${e.message}`, "error");
             setTimeout(hideProgress, 3000);
         } finally {
-            setButtonLoading(generateBtn, false, "Generate Tailored Resume");
+            setButtonLoading(generateBtn, false, "🔥 Forge My Resume");
             buttonsToDisable.forEach(b => { if (b) b.disabled = false; });
         }
     });
@@ -753,7 +956,7 @@ function setupEventListeners() {
         previewBtn.addEventListener('click', async () => {
             console.log("Preview clicked");
             if (!state.tailoredResume) {
-                showStatus("No tailored resume found.", "error");
+                showStatus("Nothing to preview yet. Forge a resume first! 🔥", "error");
                 return;
             }
             setButtonLoading(previewBtn, true);
@@ -772,7 +975,7 @@ function setupEventListeners() {
                 console.error("Preview Error:", e);
                 showStatus(`Error: ${e.message}`, "error");
             } finally {
-                setButtonLoading(previewBtn, false, "👁 Preview PDF");
+                setButtonLoading(previewBtn, false, "👁 Preview");
             }
         });
     }
@@ -795,8 +998,7 @@ function setupEventListeners() {
             answerOutput.textContent = "Generating answer...";
 
             try {
-                const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey :
-                    (state.currentProvider === 'nvidia' ? state.currentNvidiaKey : state.currentApiKey);
+                const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
                 const resumeToUse = state.tailoredResume || state.baseResume;
 
                 const res = await askQuestion(question, resumeToUse, state.currentJdText || "", activeKey, state.currentProvider);
@@ -1033,8 +1235,7 @@ function setupEventListeners() {
             setButtonLoading(analyzeBtn, true);
             showStatus(statusMessage, "info");
 
-            const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey :
-                (state.currentProvider === 'nvidia' ? state.currentNvidiaKey : state.currentApiKey);
+            const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
 
             try {
                 // Skeleton UI for analysis
@@ -1064,7 +1265,7 @@ function setupEventListeners() {
             } catch (e) {
                 showStatus("Analysis Failed: " + e.message, "error");
             } finally {
-                setButtonLoading(analyzeBtn, false, "Analyze ATS Score");
+                setButtonLoading(analyzeBtn, false, "📊 ATS Score");
             }
         });
     }
@@ -1248,36 +1449,239 @@ function handleDragEnd(e) {
 
 // Job Detection
 async function detectJobDescription() {
+    if (isScanning) return null;
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab || !tab.id) return;
+    if (!tab || !tab.id) return null;
+
+    const url = tab.url || '';
+    if (url.startsWith('chrome://') || url.startsWith('about:') || url.startsWith('chrome-extension://')) {
+        updateJdStatus();
+        return null;
+    }
+
+    isScanning = true;
+    let finalResult = null;
 
     try {
-        const results = await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            func: extractJobDescription
-        });
+        // Step 1: Try client-side extraction (fast, no API cost)
+        const results = await Promise.race([
+            chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                func: extractJobDescription
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+        ]);
+
+        let bestText = '';
+        let bestTitle = '';
+        let bestCompany = '';
 
         if (results && results[0] && results[0].result) {
             const data = results[0].result;
-
-            if (data.text && data.text.length > 50) {
-                updateState({
-                    currentJdText: data.text,
-                    detectedJobTitle: data.title,
-                    detectedCompany: data.company
-                });
-
-                // UPDATE UI
-                const jobTitle = data.title || "Job";
-                const company = data.company || "Unknown";
-                showStatus(`Detected: ${jobTitle} @ ${company}`, "success");
-                setTimeout(() => showStatus('', ''), 4000); // slightly longer timeout
-            } else {
-                console.log("Extracted text too short.");
-            }
+            bestText = data.text || '';
+            bestTitle = data.title || '';
+            bestCompany = data.company || '';
         }
+
+        if (bestText.length > 200) {
+            // Good extraction — use it directly
+            const updates = {
+                currentJdText: bestText,
+                detectedJobTitle: bestTitle,
+                detectedCompany: bestCompany,
+                detectedPageUrl: tab.url || '',
+                jdExtractionMethod: 'auto'
+            };
+            updateState(updates);
+            await chrome.storage.local.set({
+                current_jd_text: bestText,
+                detected_job_title: bestTitle,
+                detected_company: bestCompany,
+                detected_page_url: tab.url || '',
+                jd_extraction_method: 'auto'
+            });
+            finalResult = updates;
+            return updates;
+        }
+
+        // Step 2: Client-side extraction got too little text — try LLM fallback
+        if (!checkCurrentProviderKey()) {
+            if (bestText.length > 50) {
+                const updates = {
+                    currentJdText: bestText,
+                    detectedJobTitle: bestTitle,
+                    detectedCompany: bestCompany,
+                    detectedPageUrl: tab.url || '',
+                    jdExtractionMethod: 'auto-partial'
+                };
+                updateState(updates);
+                await chrome.storage.local.set({
+                    current_jd_text: bestText,
+                    detected_job_title: bestTitle,
+                    detected_company: bestCompany,
+                    detected_page_url: tab.url || '',
+                    jd_extraction_method: 'auto-partial'
+                });
+                finalResult = updates;
+                return updates;
+            }
+            return null;
+        }
+
+        console.log("Client-side extraction insufficient. Trying AI fallback...");
+
+        const rawResults = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: () => document.body.innerText.substring(0, 15000)
+        });
+
+        const rawText = rawResults?.[0]?.result || '';
+        if (rawText.length < 100) return null;
+
+        const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
+        const aiResult = await extractJDWithAI(rawText, activeKey, state.currentProvider);
+
+        if (aiResult.error) {
+            console.log("AI JD extraction failed:", aiResult.error);
+            if (bestText.length > 50) {
+                const updates = {
+                    currentJdText: bestText,
+                    detectedJobTitle: bestTitle,
+                    detectedCompany: bestCompany,
+                    detectedPageUrl: tab.url || '',
+                    jdExtractionMethod: 'auto-partial'
+                };
+                updateState(updates);
+                await chrome.storage.local.set({
+                    current_jd_text: bestText,
+                    detected_job_title: bestTitle,
+                    detected_company: bestCompany,
+                    detected_page_url: tab.url || '',
+                    jd_extraction_method: 'auto-partial'
+                });
+                finalResult = updates;
+                return updates;
+            }
+            return null;
+        }
+
+        const updates = {
+            currentJdText: aiResult.text,
+            detectedJobTitle: aiResult.title,
+            detectedCompany: aiResult.company,
+            detectedCompanyDescription: aiResult.companyDescription || '',
+            detectedPageUrl: tab.url || '',
+            jdExtractionMethod: 'ai'
+        };
+        updateState(updates);
+        await chrome.storage.local.set({
+            current_jd_text: aiResult.text,
+            detected_job_title: aiResult.title,
+            detected_company: aiResult.company,
+            detected_company_description: aiResult.companyDescription || '',
+            detected_page_url: tab.url || '',
+            jd_extraction_method: 'ai'
+        });
+        finalResult = updates;
+        return updates;
+
     } catch (e) {
-        console.log("Could not extract JD", e);
+        console.log("JD scan failed:", e.message);
+        return null;
+    } finally {
+        isScanning = false;
+        updateJdStatus();
+        updateActiveTabLabel();
+    }
+}
+
+async function updateActiveTabLabel() {
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const label = document.getElementById('activeTabUrl');
+        if (label && tab) {
+            const url = tab.url || '';
+            if (url.startsWith('chrome://') || url.startsWith('about:')) {
+                label.textContent = 'Browser page (cannot scan)';
+                label.style.color = '#ef4444';
+            } else {
+                // Show shortened URL
+                try {
+                    const parsed = new URL(url);
+                    label.textContent = parsed.hostname + parsed.pathname.substring(0, 40);
+                } catch {
+                    label.textContent = url.substring(0, 50);
+                }
+                label.style.color = 'var(--text-muted)';
+            }
+            label.title = url;
+        }
+    } catch (e) { /* ignore */ }
+}
+
+function updateJdStatus() {
+    const dot = document.getElementById('jdStatusDot');
+    const text = document.getElementById('jdStatusText');
+    const url = document.getElementById('jdSourceUrl');
+    const previewContainer = document.getElementById('jdPreviewContainer');
+    const previewText = document.getElementById('jdPreviewText');
+    if (!dot || !text) return;
+
+    if (state.currentJdText && state.currentJdText.length > 50) {
+        dot.style.background = '#10b981';
+        const title = state.detectedJobTitle || 'Job detected';
+        const company = state.detectedCompany || '';
+        text.textContent = company ? `${title} @ ${company}` : title;
+
+        // Show source method
+        if (url) {
+            const method = state.jdExtractionMethod || 'auto';
+            const methodLabel = {
+                'auto': '✅ Auto-detected from page',
+                'auto-partial': '⚠️ Partial detection — consider manual paste for better results',
+                'ai': '🤖 AI-extracted from page content',
+                'manual': '📝 Manually provided'
+            }[method] || '';
+
+            const pageUrl = state.detectedPageUrl || '';
+            let displayUrl = '';
+            if (pageUrl) {
+                try {
+                    displayUrl = new URL(pageUrl).hostname;
+                } catch (e) {
+                    displayUrl = pageUrl.substring(0, 30);
+                }
+            }
+            url.textContent = methodLabel + (displayUrl ? ` · ${displayUrl}` : '');
+            url.title = pageUrl;
+        }
+
+        // Update JD Preview
+        if (previewContainer && previewText) {
+            previewContainer.style.display = 'block';
+            previewText.value = state.currentJdText;
+
+            // Sync expansion state UI
+            if (previewText.classList.contains('expanded')) {
+                previewText.style.maxHeight = '400px';
+                previewText.style.overflowY = 'auto';
+                const toggleBtn = document.getElementById('toggleJdPreviewBtn');
+                if (toggleBtn) toggleBtn.textContent = 'Collapse View';
+            } else {
+                previewText.style.maxHeight = '48px';
+                previewText.style.overflowY = 'hidden';
+                const toggleBtn = document.getElementById('toggleJdPreviewBtn');
+                if (toggleBtn) toggleBtn.textContent = 'Expand View';
+            }
+
+            const jdEditSaveContainer = document.getElementById('jdEditSaveContainer');
+            if (jdEditSaveContainer) jdEditSaveContainer.style.display = 'none';
+        }
+    } else {
+        dot.style.background = '#9ca3af';
+        text.textContent = 'No job description loaded';
+        if (url) url.textContent = 'Navigate to a job posting and click "Fetch from Page" or paste manually';
+        if (previewContainer) previewContainer.style.display = 'none';
     }
 }
 
@@ -1315,7 +1719,7 @@ async function renderHistoryList() {
     const list = document.getElementById('historyList');
     if (!list) return;
 
-    list.innerHTML = '<div style="padding:10px;text-align:center;color:#666;">Loading...</div>';
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:#999; font-size: 12px;">No forges yet. Generate your first resume! 🔨</div>';
 
     try {
         const data = await chrome.storage.local.get('resume_versions');

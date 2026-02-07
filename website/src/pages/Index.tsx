@@ -9,7 +9,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 
-const DOWNLOAD_URL = "https://github.com/pranaysaggar2000/Serverless_AI_ResumeGenerator/releases/latest/download/extension.zip";
+const DOWNLOAD_URL = "https://github.com/pranaysaggar2000/Serverless_AI_ResumeGenerator/releases/latest/download/ForgeCVextension.zip";
 const GITHUB_URL = "https://github.com/pranaysaggar2000/Serverless_AI_ResumeGenerator";
 const LINKEDIN_URL = "https://linkedin.com/in/pranay-saggar";
 

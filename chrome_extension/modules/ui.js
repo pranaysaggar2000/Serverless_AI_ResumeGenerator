@@ -6,6 +6,37 @@ import { checkCurrentProviderKey } from './utils.js';
 const getEl = (id) => document.getElementById(id);
 
 export function showStatus(message, type = 'info', elementId = 'status') {
+    if (elementId === 'status') {
+        const container = getEl('toastContainer');
+        if (!container) return;
+
+        // Skip empty messages
+        if (!message) return;
+
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+
+        const icon = {
+            'success': '✅',
+            'error': '❌',
+            'info': 'ℹ️',
+            'warning': '⚠️'
+        }[type] || 'ℹ️';
+
+        toast.innerHTML = `<span style="flex-shrink:0;">${icon}</span> <span style="line-height:1.4;">${message}</span>`;
+        container.appendChild(toast);
+
+        const duration = type === 'error' ? 5000 : 3000;
+
+        setTimeout(() => {
+            toast.classList.add('fade-out');
+            setTimeout(() => {
+                if (toast.parentNode) toast.remove();
+            }, 300);
+        }, duration);
+        return;
+    }
+
     const statusEl = getEl(elementId);
     if (!statusEl) return;
 
@@ -17,11 +48,7 @@ export function showStatus(message, type = 'info', elementId = 'status') {
 
     statusEl.innerHTML = message;
     statusEl.className = type;
-    statusEl.style.color = type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : '#666';
     statusEl.style.display = 'block';
-
-    // Auto-clear success/info after delay? Original code didn't always do this, 
-    // but some parts did. Let's keep it simple for now and match original behavior mostly.
 }
 
 export function toggleProviderUI(provider) {
@@ -51,6 +78,7 @@ export function showMainUI() {
         getEl('actions').style.display = 'none';
         if (getEl('analysisResults')) getEl('analysisResults').classList.add('hidden');
         if (getEl('dragCard')) getEl('dragCard').style.display = 'none';
+        if (getEl('atsScoreBadge')) getEl('atsScoreBadge').style.display = 'none';
     }
 }
 
@@ -99,11 +127,22 @@ export function renderAnalysis(analysis) {
 
     const score = parseInt(analysis.score) || 0;
 
+    // Persistent Badge next to Profile Name
+    const badge = getEl('atsScoreBadge');
+    if (badge) {
+        badge.textContent = `ATS: ${score}%`;
+        badge.style.display = 'inline-block';
+        // Match color based on score
+        if (score >= 80) badge.style.background = 'var(--success)';
+        else if (score >= 60) badge.style.background = 'var(--warning)';
+        else badge.style.background = 'var(--error)';
+    }
+
     // Score
     if (atsScoreDisplay) {
         atsScoreDisplay.textContent = analysis.score || "N/A";
         // Color code
-        atsScoreDisplay.style.color = score >= 80 ? '#28a745' : score >= 60 ? '#ffc107' : '#dc3545';
+        atsScoreDisplay.style.color = score >= 80 ? 'var(--success)' : score >= 60 ? 'var(--warning)' : 'var(--error)';
     }
 
     // Details - simplified rendering

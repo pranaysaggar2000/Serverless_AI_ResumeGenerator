@@ -1,5 +1,5 @@
 import { state, updateState } from './modules/state.js';
-import { checkCurrentProviderKey, updateStrategyDescription, formatSectionName, hasData, generateFilename, setButtonLoading } from './modules/utils.js';
+import { checkCurrentProviderKey, updateStrategyDescription, generateFilename, setButtonLoading, generateDiffSummary } from './modules/utils.js';
 import {
     showStatus,
     toggleProviderUI,
@@ -23,8 +23,13 @@ import {
 import { renderProfileEditor, saveProfileChanges, collectBulletCounts, resetEditorState, getCurrentEditingResume } from './modules/editor.js';
 import { extractJobDescription } from './modules/jd_extractor.js';
 import { showProgress, hideProgress } from './modules/progress.js';
+import { saveVersion, setupHistoryUI } from './modules/history.js';
+import { setupFormatUI, loadFormatSettings, debouncedSaveFormat } from './modules/format.js';
+import { setupDragAndDrop, updateDragCard, invalidatePdfCache } from './modules/dragdrop.js';
+import { setupReorderUI } from './modules/reorder.js';
 
 let isScanning = false;
+let tabDetectionTimer = null;
 
 const setupUI = document.getElementById('setupUI');
 const mainUI = document.getElementById('mainUI');
@@ -59,6 +64,33 @@ const reorderUI = document.getElementById('reorderUI');
 const sortableSections = document.getElementById('sortableSections');
 const saveOrderBtn = document.getElementById('saveOrderBtn');
 const cancelOrderBtn = document.getElementById('cancelOrderBtn');
+
+// Helper: Save new profile data (used by all upload/import handlers)
+async function saveNewProfile(profileData) {
+    // Read what we need first (one read)
+    const pData = await chrome.storage.local.get(['profiles', 'active_profile']);
+    const profiles = pData.profiles || {};
+    profiles[pData.active_profile || 'default'] = profileData;
+
+    // Write everything in one call + one remove (parallel)
+    await Promise.all([
+        chrome.storage.local.set({
+            base_resume: profileData,
+            user_profile_name: profileData.name || "User",
+            profiles: profiles
+        }),
+        chrome.storage.local.remove(['tailored_resume', 'last_analysis'])
+    ]);
+
+    // Update in-memory state
+    updateState({
+        baseResume: profileData,
+        tailoredResume: null,
+        currentJdAnalysis: null
+    });
+
+    if (profileNameDisplay) profileNameDisplay.textContent = profileData.name || "User";
+}
 
 async function loadProfiles() {
     const data = await chrome.storage.local.get(['profiles', 'active_profile']);
@@ -114,13 +146,13 @@ function renderProfileList(profiles, activeProfile) {
     list.querySelectorAll('.profile-switch-btn').forEach(btn => {
         btn.onclick = async () => {
             const name = btn.dataset.name;
-            const data = await chrome.storage.local.get('profiles');
+            // Batch read all needed data in one call
+            const data = await chrome.storage.local.get(['profiles', 'active_profile']);
             const profiles = data.profiles || {};
+            const currentName = data.active_profile || 'default';
 
             if (profiles[name]) {
                 // Save current profile first
-                const currentData = await chrome.storage.local.get('active_profile');
-                const currentName = currentData.active_profile || 'default';
                 profiles[currentName] = state.baseResume;
 
                 // Switch
@@ -268,6 +300,19 @@ async function init() {
             errDiv.style.display = 'block';
         }
     }
+
+    window.addEventListener('unhandledrejection', (e) => {
+        console.error('Unhandled rejection:', e.reason);
+        showStatus('Something went wrong. Please try again.', 'error');
+        // Re-enable all potentially stuck buttons
+        document.querySelectorAll('button:disabled').forEach(btn => {
+            if (btn.dataset.originalText) {
+                btn.disabled = false;
+                btn.textContent = btn.dataset.originalText;
+            }
+        });
+        hideProgress();
+    });
 }
 
 if (document.readyState === 'loading') {
@@ -357,15 +402,13 @@ async function loadState() {
     await loadFormatSettings();
 
     if (state.tailoredResume) {
-        try {
-            const blob = await generatePdf(state.tailoredResume);
+        // Non-blocking: pre-cache PDF in background after UI is ready
+        generatePdf(state.tailoredResume).then(blob => {
             if (blob instanceof Blob) {
                 updateState({ latestPdfBlob: blob });
                 updateDragCard(state.tailoredResume);
             }
-        } catch (e) {
-            console.log("Pre-cache PDF failed (non-critical):", e);
-        }
+        }).catch(e => console.log("Pre-cache PDF failed (non-critical):", e));
     }
     updateJdStatus();
 }
@@ -385,6 +428,136 @@ function setupSettings() {
 }
 
 function setupEventListeners() {
+    // Input method tabs (Setup UI)
+    document.querySelectorAll('.method-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Update active tab styling
+            document.querySelectorAll('.method-tab').forEach(t => {
+                t.classList.remove('active');
+                t.style.background = 'var(--card-bg)';
+                t.style.color = 'var(--text-secondary)';
+            });
+            tab.classList.add('active');
+            tab.style.background = 'var(--primary)';
+            tab.style.color = 'white';
+
+            // Show correct panel
+            document.querySelectorAll('.method-panel').forEach(p => p.style.display = 'none');
+            const method = tab.dataset.method;
+            if (method === 'resume') document.getElementById('methodResume').style.display = 'block';
+            else if (method === 'linkedin') document.getElementById('methodLinkedin').style.display = 'block';
+            else if (method === 'text') document.getElementById('methodText').style.display = 'block';
+        });
+    });
+
+    // LinkedIn PDF upload (Setup UI)
+    document.getElementById('uploadLinkedinPdfBtn').addEventListener('click', async () => {
+        const file = document.getElementById('linkedinPdfFile').files[0];
+        if (!file) {
+            showStatus('Please select a LinkedIn PDF file.', 'error', 'uploadStatus');
+            return;
+        }
+        if (!checkCurrentProviderKey()) {
+            showStatus('API Key required. Go to Settings.', 'error', 'uploadStatus');
+            setTimeout(showSettings, 2000);
+            return;
+        }
+
+        setButtonLoading(document.getElementById('uploadLinkedinPdfBtn'), true);
+        showStatus('Extracting LinkedIn profile...', 'info', 'uploadStatus');
+
+        try {
+            const textData = await extractText(file);
+            if (textData.error) throw new Error(textData.error);
+
+            const extractionKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
+            const profileData = await extractBaseProfile(textData.text, extractionKey, state.currentProvider);
+            if (profileData.error) throw new Error(profileData.error);
+
+            await saveNewProfile(profileData);
+
+            showStatus('✅ LinkedIn profile imported!', 'success', 'uploadStatus');
+            setTimeout(showMainUI, 1500);
+        } catch (e) {
+            showStatus(`Error: ${e.message}`, 'error', 'uploadStatus');
+        } finally {
+            setButtonLoading(document.getElementById('uploadLinkedinPdfBtn'), false, 'Upload LinkedIn PDF');
+        }
+    });
+
+    // LinkedIn URL fetch (Setup UI)
+    document.getElementById('fetchLinkedinBtn').addEventListener('click', async () => {
+        const urlInput = document.getElementById('linkedinUrlInput');
+        const url = urlInput.value.trim();
+
+        // Validate LinkedIn URL
+        if (!url || !url.includes('linkedin.com/in/')) {
+            showStatus('Please enter a valid LinkedIn profile URL (e.g., https://linkedin.com/in/your-name)', 'error', 'linkedinUrlStatus');
+            return;
+        }
+        if (!checkCurrentProviderKey()) {
+            showStatus('API Key required. Go to Settings.', 'error', 'linkedinUrlStatus');
+            setTimeout(showSettings, 2000);
+            return;
+        }
+
+        const btn = document.getElementById('fetchLinkedinBtn');
+        setButtonLoading(btn, true);
+        showStatus('Opening LinkedIn profile...', 'info', 'linkedinUrlStatus');
+
+        try {
+            // Normalize URL
+            let profileUrl = url;
+            if (!profileUrl.startsWith('http')) profileUrl = 'https://' + profileUrl;
+
+            // Open the LinkedIn URL in a new tab, extract text, then close
+            const tab = await chrome.tabs.create({ url: profileUrl, active: false });
+
+            // Wait for page to load
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('Page load timed out')), 20000);
+                chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo) {
+                    if (tabId === tab.id && changeInfo.status === 'complete') {
+                        chrome.tabs.onUpdated.removeListener(listener);
+                        clearTimeout(timeout);
+                        // Give LinkedIn a moment to render dynamic content
+                        setTimeout(resolve, 3000);
+                    }
+                });
+            });
+
+            // Extract page text
+            showStatus('Extracting profile data...', 'info', 'linkedinUrlStatus');
+            const results = await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                func: () => document.body.innerText.substring(0, 15000)
+            });
+
+            // Close the tab
+            chrome.tabs.remove(tab.id).catch(() => { });
+
+            const pageText = results?.[0]?.result || '';
+            if (pageText.length < 100) {
+                throw new Error('Could not extract profile data. LinkedIn may require you to be logged in. Try the PDF method instead.');
+            }
+
+            // Use AI to parse the LinkedIn page text into structured profile
+            showStatus('AI is parsing your profile...', 'info', 'linkedinUrlStatus');
+            const extractionKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
+            const profileData = await extractBaseProfile(pageText, extractionKey, state.currentProvider);
+            if (profileData.error) throw new Error(profileData.error);
+
+            await saveNewProfile(profileData);
+
+            showStatus('✅ LinkedIn profile imported! Some fields may be incomplete — review in Profile editor.', 'success', 'linkedinUrlStatus');
+            setTimeout(showMainUI, 2000);
+        } catch (e) {
+            showStatus(`LinkedIn import failed: ${e.message}`, 'error', 'linkedinUrlStatus');
+        } finally {
+            setButtonLoading(btn, false, '🔍 Fetch');
+        }
+    });
+
     // Provider Change
     document.getElementById('providerSelect').addEventListener('change', (e) => {
         updateState({ currentProvider: e.target.value });
@@ -392,6 +565,7 @@ function setupEventListeners() {
     });
 
     // JD Status buttons
+
 
 
     const manualJdBtn = document.getElementById('manualJdBtn');
@@ -412,6 +586,7 @@ function setupEventListeners() {
     const fetchJdBtn = document.getElementById('fetchJdBtn');
     if (fetchJdBtn) {
         fetchJdBtn.addEventListener('click', async () => {
+            if (isScanning) return;
             const dot = document.getElementById('jdStatusDot');
             const text = document.getElementById('jdStatusText');
             if (dot) dot.style.background = '#f59e0b';
@@ -552,13 +727,19 @@ function setupEventListeners() {
     // Tab change listeners for JD card context
     chrome.tabs.onActivated.addListener(() => {
         updateActiveTabLabel();
-        detectJobDescription().catch(() => { });
+        clearTimeout(tabDetectionTimer);
+        tabDetectionTimer = setTimeout(() => {
+            detectJobDescription().catch(() => { });
+        }, 500);
     });
 
     chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         if (changeInfo.status === 'complete') {
             updateActiveTabLabel();
-            detectJobDescription().catch(() => { });
+            clearTimeout(tabDetectionTimer);
+            tabDetectionTimer = setTimeout(() => {
+                detectJobDescription().catch(() => { });
+            }, 500);
         }
     });
 
@@ -600,7 +781,7 @@ function setupEventListeners() {
         showProfileUI();
         const profiles = await loadProfiles();
         renderProfileList(profiles, state.activeProfile);
-        renderProfileEditor('contact', state.baseResume, 'profileFormContainer'); // First open — pass resume
+        renderProfileEditor('summary', state.baseResume, 'profileFormContainer'); // First open — pass resume
     });
 
     // Profile Section Change
@@ -697,21 +878,8 @@ function setupEventListeners() {
             const profileData = await extractBaseProfile(textData.text, extractionKey, state.currentProvider);
             if (profileData.error) throw new Error(profileData.error);
 
-            await chrome.storage.local.set({
-                base_resume: profileData,
-                user_profile_name: profileData.name || "User"
-            });
-            // Clear stale tailored data
-            await chrome.storage.local.remove(['tailored_resume', 'last_analysis']);
-            updateState({ baseResume: profileData, tailoredResume: null, currentJdAnalysis: null });
+            await saveNewProfile(profileData);
 
-            // Also update in profiles collection
-            const pData = await chrome.storage.local.get(['profiles', 'active_profile']);
-            const profiles = pData.profiles || {};
-            profiles[pData.active_profile || 'default'] = profileData;
-            await chrome.storage.local.set({ profiles });
-
-            if (profileNameDisplay) profileNameDisplay.textContent = profileData.name;
             showStatus("Profile created!", "success", "uploadStatus");
             setTimeout(showMainUI, 1500);
 
@@ -743,21 +911,7 @@ function setupEventListeners() {
             const profileData = await extractBaseProfile(text, extractionKey, state.currentProvider);
             if (profileData.error) throw new Error(profileData.error);
 
-            await chrome.storage.local.set({
-                base_resume: profileData,
-                user_profile_name: profileData.name || "User"
-            });
-            // Clear stale tailored data
-            await chrome.storage.local.remove(['tailored_resume', 'last_analysis']);
-            updateState({ baseResume: profileData, tailoredResume: null, currentJdAnalysis: null });
-
-            // Also update in profiles collection
-            const pData = await chrome.storage.local.get(['profiles', 'active_profile']);
-            const profiles = pData.profiles || {};
-            profiles[pData.active_profile || 'default'] = profileData;
-            await chrome.storage.local.set({ profiles });
-
-            if (profileNameDisplay) profileNameDisplay.textContent = profileData.name;
+            await saveNewProfile(profileData);
 
             showStatus("✅ Profile updated!", "success", statusId);
             setTimeout(() => {
@@ -796,21 +950,93 @@ function setupEventListeners() {
             const profileData = await extractBaseProfile(textData.text, extractionKey, state.currentProvider);
             if (profileData.error) throw new Error(profileData.error);
 
-            await chrome.storage.local.set({ base_resume: profileData });
-            // Clear stale tailored data
-            await chrome.storage.local.remove(['tailored_resume', 'last_analysis']);
-            updateState({ baseResume: profileData, tailoredResume: null, currentJdAnalysis: null });
-
-            // Also update in profiles collection
-            const pData = await chrome.storage.local.get(['profiles', 'active_profile']);
-            const profiles = pData.profiles || {};
-            profiles[pData.active_profile || 'default'] = profileData;
-            await chrome.storage.local.set({ profiles });
+            await saveNewProfile(profileData);
 
             showStatus('✅ Updated!', 'success', 'profileStatus');
             renderProfileEditor(document.getElementById('profileSectionSelect').value, state.baseResume);
         } catch (e) {
             showStatus(`Error: ${e.message}`, 'error', 'profileStatus');
+        }
+    });
+
+    // LinkedIn PDF re-upload (Profile UI)
+    document.getElementById('reuploadLinkedinPdfBtn').addEventListener('click', async () => {
+        const file = document.getElementById('reuploadLinkedinPdf').files[0];
+        if (!file) {
+            showStatus('Please select a LinkedIn PDF.', 'error', 'profileStatus');
+            return;
+        }
+        showStatus('Importing LinkedIn PDF...', 'info', 'profileStatus');
+        try {
+            const textData = await extractText(file);
+            if (textData.error) throw new Error(textData.error);
+            const extractionKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
+            const profileData = await extractBaseProfile(textData.text, extractionKey, state.currentProvider);
+            if (profileData.error) throw new Error(profileData.error);
+
+            await saveNewProfile(profileData);
+
+            showStatus('✅ Profile updated from LinkedIn!', 'success', 'profileStatus');
+            renderProfileEditor(document.getElementById('profileSectionSelect').value, state.baseResume);
+        } catch (e) {
+            showStatus(`Error: ${e.message}`, 'error', 'profileStatus');
+        }
+    });
+
+    // LinkedIn URL re-upload (Profile UI)
+    document.getElementById('reuploadLinkedinUrlBtn').addEventListener('click', async () => {
+        const url = document.getElementById('reuploadLinkedinUrl').value.trim();
+        if (!url || !url.includes('linkedin.com/in/')) {
+            showStatus('Enter a valid LinkedIn URL.', 'error', 'profileStatus');
+            return;
+        }
+        if (!checkCurrentProviderKey()) {
+            showStatus('API Key required.', 'error', 'profileStatus');
+            return;
+        }
+
+        const btn = document.getElementById('reuploadLinkedinUrlBtn');
+        setButtonLoading(btn, true);
+        showStatus('Fetching LinkedIn profile...', 'info', 'profileStatus');
+
+        try {
+            let profileUrl = url;
+            if (!profileUrl.startsWith('http')) profileUrl = 'https://' + profileUrl;
+
+            const tab = await chrome.tabs.create({ url: profileUrl, active: false });
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('Page load timed out')), 20000);
+                chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo) {
+                    if (tabId === tab.id && changeInfo.status === 'complete') {
+                        chrome.tabs.onUpdated.removeListener(listener);
+                        clearTimeout(timeout);
+                        setTimeout(resolve, 3000);
+                    }
+                });
+            });
+
+            const results = await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                func: () => document.body.innerText.substring(0, 15000)
+            });
+            chrome.tabs.remove(tab.id).catch(() => { });
+
+            const pageText = results?.[0]?.result || '';
+            if (pageText.length < 100) throw new Error('Could not extract data. Try PDF upload instead.');
+
+            showStatus('Parsing profile with AI...', 'info', 'profileStatus');
+            const extractionKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
+            const profileData = await extractBaseProfile(pageText, extractionKey, state.currentProvider);
+            if (profileData.error) throw new Error(profileData.error);
+
+            await saveNewProfile(profileData);
+
+            showStatus('✅ Profile updated from LinkedIn!', 'success', 'profileStatus');
+            renderProfileEditor(document.getElementById('profileSectionSelect').value, state.baseResume);
+        } catch (e) {
+            showStatus(`Error: ${e.message}`, 'error', 'profileStatus');
+        } finally {
+            setButtonLoading(btn, false, '🔍 Fetch');
         }
     });
 
@@ -839,8 +1065,8 @@ function setupEventListeners() {
                 showStatus("Base resume ready! output loaded below.", "success");
                 await saveVersion(baseClone, 'Base Resume (No AI)');
 
-                // Show actions
-                if (actionsDiv) actionsDiv.style.display = 'block';
+                document.getElementById('actions').style.display = 'block';
+                document.getElementById('actions').classList.remove('hidden');
 
             } catch (e) {
                 console.error("Base Resume Error:", e);
@@ -920,22 +1146,31 @@ function setupEventListeners() {
 
                 // Save Version
                 saveVersion(newResume, analysis ? (analysis.title || analysis.job_title || "New Role") : "Tailored Resume");
+
+                const diff = generateDiffSummary(state.baseResume, newResume);
+                const diffContainer = document.getElementById('diffSummaryContainer');
+                if (diff && diffContainer) {
+                    const parts = [];
+                    if (diff.bulletsChanged > 0) parts.push(`${diff.bulletsChanged} bullets tailored`);
+                    if (diff.summaryChanged) parts.push('summary rewritten');
+                    if (diff.skillsAdded > 0) parts.push(`${diff.skillsAdded} skills added`);
+                    if (diff.skillsRemoved > 0) parts.push(`${diff.skillsRemoved} skills removed`);
+
+                    if (parts.length > 0) {
+                        diffContainer.innerHTML = `<div class="card" style="font-size:11px; padding:10px; margin-top:8px; background:#f0fdf4; border:1px solid #a7f3d0;">
+                            ✨ AI changes: ${parts.join(' · ')}
+                        </div>`;
+                        setTimeout(() => { diffContainer.innerHTML = ''; }, 10000);
+                    }
+                }
             }, 1000);
 
             if (analysis) {
                 renderAnalysis(analysis);
             }
 
-            // After tailoring success, pre-generate the PDF blob for drag-drop
-            try {
-                const pdfBlob = await generatePdf(newResume);
-                if (pdfBlob instanceof Blob) {
-                    updateState({ latestPdfBlob: pdfBlob });
-                    updateDragCard(newResume);
-                }
-            } catch (e) {
-                console.log("Pre-cache PDF for drag failed (non-critical):", e);
-            }
+            // After tailoring success, pre-generate the PDF and download
+            await generateAndDownloadPDF(newResume);
 
         } catch (e) {
             console.error("Tailoring Error:", e);
@@ -949,7 +1184,7 @@ function setupEventListeners() {
     });
 
     if (downloadBtn) {
-        downloadBtn.addEventListener('click', () => generateAndDisplayPDF(state.tailoredResume));
+        downloadBtn.addEventListener('click', () => generateAndDownloadPDF(state.tailoredResume));
     }
 
     if (previewBtn) {
@@ -994,6 +1229,7 @@ function setupEventListeners() {
             }
 
             setButtonLoading(askBtn, true);
+            answerOutput.classList.remove('hidden');
             answerOutput.style.display = 'block';
             answerOutput.textContent = "Generating answer...";
 
@@ -1088,8 +1324,8 @@ function setupEventListeners() {
                 // parse current DOM to update object
                 await saveProfileChanges(activeSection, 'formContainer');
 
-                // Generate PDF logic immediately
-                await generateAndDisplayPDF(state.tailoredResume);
+                // Generate PDF logic immediately (cache only)
+                await generateAndCachePDF(state.tailoredResume);
 
                 document.getElementById('editorUI').style.display = 'none';
                 document.getElementById('actions').style.display = 'block';
@@ -1131,7 +1367,8 @@ function setupEventListeners() {
 
                 if (!jdAnalysis) {
                     showStatus("No JD context found for regeneration. Just saving...", "info");
-                    await generateAndDisplayPDF(state.tailoredResume);
+                    setButtonLoading(saveRegenBtn, false, "Save & Regenerate");
+                    return;
                 } else {
                     const regenData = await regenerateResume(
                         state.tailoredResume,
@@ -1149,8 +1386,8 @@ function setupEventListeners() {
                     updateState({ tailoredResume: finalResume });
                     await chrome.storage.local.set({ tailored_resume: finalResume });
 
-                    // Generate PDF
-                    await generateAndDisplayPDF(finalResume);
+                    // Generate PDF (cache only for regeneration)
+                    await generateAndCachePDF(finalResume);
 
                     // Save Version
                     await saveVersion(finalResume, jdAnalysis.title || jdAnalysis.job_title || "Edited Role");
@@ -1181,7 +1418,7 @@ function setupEventListeners() {
 
             // Capture latest changes from form to editingResume
             const activeSection = document.getElementById('sectionSelect').value;
-            await saveProfileChanges(activeSection);
+            await saveProfileChanges(activeSection, 'formContainer');
 
             try {
                 const originalText = editorPreviewBtn.textContent;
@@ -1271,60 +1508,14 @@ function setupEventListeners() {
     }
 
     // --- Reorder Logic ---
-    if (reorderBtn) {
-        reorderBtn.addEventListener('click', async () => {
-            const isVisible = reorderUI.style.display === 'block';
-            if (!isVisible) {
-                // Sync current editor state first?
-                const activeSection = document.getElementById('sectionSelect').value;
-                await saveProfileChanges(activeSection);
-
-                reorderUI.style.display = 'block';
-                renderReorderList();
-            } else {
-                reorderUI.style.display = 'none';
-            }
-        });
-    }
-
-    if (cancelOrderBtn) {
-        cancelOrderBtn.addEventListener('click', () => {
-            reorderUI.style.display = 'none';
-        });
-    }
-
-    if (saveOrderBtn) {
-        saveOrderBtn.addEventListener('click', async () => {
-            invalidatePdfCache();
-            const newOrder = [];
-            sortableSections.querySelectorAll('li').forEach(li => {
-                newOrder.push(li.getAttribute('data-section'));
-            });
-
-            // Update logic
-            if (state.tailoredResume) {
-                state.tailoredResume.section_order = newOrder;
-                await chrome.storage.local.set({ tailored_resume: state.tailoredResume });
-
-                saveOrderBtn.textContent = "Updating PDF...";
-                saveOrderBtn.disabled = true;
-
-                await generateAndDisplayPDF(state.tailoredResume);
-
-                saveOrderBtn.textContent = "Save Order";
-                saveOrderBtn.disabled = false;
-                reorderUI.style.display = 'none';
-                showStatus("Order updated!", "success");
-            }
-        });
-    }
+    setupReorderUI(generateAndCachePDF);
 }
 
-// Helper: Generate PDF & Handle UI
-async function generateAndDisplayPDF(resumeData) {
+// Helper: Generate PDF & Cache Blob
+async function generateAndCachePDF(resumeData) {
     if (!resumeData) {
         showStatus("No resume data to generate PDF.", "error");
-        return;
+        return null;
     }
 
     showStatus("Generating PDF...", "info");
@@ -1336,114 +1527,39 @@ async function generateAndDisplayPDF(resumeData) {
             updateState({ latestPdfBlob: result });
             updateDragCard(resumeData);
 
-            showStatus("PDF Ready. Downloading...", "success");
-
-            // Auto download
-            const url = URL.createObjectURL(result);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = generateFilename(resumeData);
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-
-            // Also update preview button action? 
-            // The preview button already generates on click, which is safer for stale data.
-            // But we could cache the blob url if we wanted.
-
-            setTimeout(() => { URL.revokeObjectURL(url); }, 60000);
-
+            showStatus("PDF Ready!", "success");
+            setTimeout(() => { showStatus('', ''); }, 2000);
+            return result;
         } else if (result.error) {
             throw new Error(result.error);
         }
+        return null;
     } catch (e) {
-        console.error("PDF Gen Error:", e);
-        showStatus(`Error: ${e.message}`, "error");
+        console.error("PDF generation failed:", e);
+        showStatus(`PDF Error: ${e.message}`, "error");
+        return null;
     }
 }
 
-// Reorder List Rendering
-function renderReorderList() {
-    sortableSections.innerHTML = '';
-    const data = state.tailoredResume || state.baseResume;
-    if (!data) return;
+async function generateAndDownloadPDF(resumeData) {
+    const result = await generateAndCachePDF(resumeData);
+    if (result instanceof Blob) {
+        showStatus("PDF Ready. Downloading...", "success");
 
-    const fullList = ["summary", "skills", "experience", "projects", "education", "leadership", "research", "certifications", "awards", "volunteering", "languages"];
-    let order = data.section_order || fullList;
+        // Auto download
+        const url = URL.createObjectURL(result);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = generateFilename(resumeData);
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
 
-    // Merge missing
-    fullList.forEach(sec => { if (!order.includes(sec)) order.push(sec); });
-
-    order.forEach(section => {
-        if (!hasData(data, section)) return;
-
-        const li = document.createElement('li');
-        li.className = 'sortable-item';
-        li.setAttribute('draggable', 'true');
-        li.setAttribute('data-section', section);
-        li.innerHTML = `
-            <div style="display:flex; align-items:center;">
-                <span class="handle">☰</span> 
-                <span class="section-name">${formatSectionName(section)}</span>
-            </div>
-        `;
-
-        li.addEventListener('dragstart', handleDragStart);
-        li.addEventListener('dragover', handleDragOver);
-        li.addEventListener('drop', handleDrop);
-        li.addEventListener('dragenter', handleDragEnter);
-        li.addEventListener('dragleave', handleDragLeave);
-        li.addEventListener('dragend', handleDragEnd);
-
-        sortableSections.appendChild(li);
-    });
-}
-
-// Drag Handlers
-let dragSrcEl = null;
-
-function handleDragStart(e) {
-    dragSrcEl = this;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', this.innerHTML);
-    this.classList.add('dragging');
-}
-
-function handleDragOver(e) {
-    if (e.preventDefault) e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    return false;
-}
-
-function handleDragEnter(e) {
-    this.classList.add('over');
-}
-
-function handleDragLeave(e) {
-    this.classList.remove('over');
-}
-
-function handleDrop(e) {
-    if (e.stopPropagation) e.stopPropagation();
-    if (dragSrcEl !== this) {
-        const list = this.parentNode;
-        const items = Array.from(list.children);
-        const fromIndex = items.indexOf(dragSrcEl);
-        const toIndex = items.indexOf(this);
-
-        if (fromIndex < toIndex) {
-            this.after(dragSrcEl);
-        } else {
-            this.before(dragSrcEl);
-        }
+        setTimeout(() => { URL.revokeObjectURL(url); }, 60000);
     }
-    return false;
 }
 
-function handleDragEnd(e) {
-    this.classList.remove('dragging');
-    sortableSections.querySelectorAll('.sortable-item').forEach(item => item.classList.remove('over'));
-}
+
 
 
 
@@ -1685,392 +1801,4 @@ function updateJdStatus() {
     }
 }
 
-// Version History Logic
-async function saveVersion(resumeData, jdTitle) {
-    try {
-        const data = await chrome.storage.local.get('resume_versions');
-        const versions = data.resume_versions || [];
 
-        versions.unshift({
-            id: Date.now(),
-            timestamp: new Date().toISOString(),
-            jdTitle: jdTitle || 'Unknown Job',
-            resume: resumeData
-        });
-
-        // Keep last 5
-        if (versions.length > 5) versions.length = 5;
-
-        await chrome.storage.local.set({ resume_versions: versions });
-        console.log("Version saved:", jdTitle);
-
-        // AUTO-REFRESH: If history panel is currently visible, re-render the list
-        const historyUI = document.getElementById('historyUI');
-        if (historyUI && historyUI.style.display === 'block') {
-            renderHistoryList();
-        }
-
-    } catch (e) {
-        console.error("Save Version Error:", e);
-    }
-}
-
-async function renderHistoryList() {
-    const list = document.getElementById('historyList');
-    if (!list) return;
-
-    list.innerHTML = '<div style="padding:16px;text-align:center;color:#999; font-size: 12px;">No forges yet. Generate your first resume! 🔨</div>';
-
-    try {
-        const data = await chrome.storage.local.get('resume_versions');
-        const versions = data.resume_versions || [];
-
-        list.innerHTML = '';
-        if (versions.length === 0) {
-            list.innerHTML = '<div style="padding:10px;text-align:center;color:#999;">No history found.</div>';
-            return;
-        }
-
-        versions.forEach(v => {
-            const date = new Date(v.timestamp);
-            const timeStr = date.toLocaleString(); // Simple local format
-
-            const div = document.createElement('div');
-            div.className = 'history-item';
-            div.style.cssText = "border-bottom:1px solid #eee; padding:10px 0; display:flex; justify-content:space-between; align-items:center;";
-
-            div.innerHTML = `
-                <div>
-                    <div style="font-weight:bold; font-size:12px; color:#333;">${v.jdTitle}</div>
-                    <div style="font-size:10px; color:#888;">${timeStr}</div>
-                </div>
-                <div style="display:flex; gap:5px;">
-                    <button class="restore-btn" data-id="${v.id}" style="font-size:11px; padding:3px 8px; cursor:pointer;">Restore</button>
-                    <button class="delete-btn" data-id="${v.id}" style="font-size:11px; padding:3px 8px; color:#c62828; border:none; background:none; cursor:pointer;">✕</button>
-                </div>
-            `;
-            list.appendChild(div);
-        });
-
-        // Listeners
-        list.querySelectorAll('.restore-btn').forEach(btn => {
-            btn.onclick = async () => {
-                if (!confirm("Restore this version? It will replace your current tailored resume.")) return;
-                const id = parseInt(btn.dataset.id);
-                // Refresh data to be sure
-                const latestData = await chrome.storage.local.get('resume_versions');
-                const latestVersions = latestData.resume_versions || [];
-                const target = latestVersions.find(v => v.id === id);
-
-                if (target) {
-                    updateState({ tailoredResume: target.resume });
-                    await chrome.storage.local.set({ tailored_resume: target.resume });
-                    showStatus("Version restored!", "success");
-                    document.getElementById('historyUI').style.display = 'none';
-                    // Refresh Main UI actions if needed (should already be fine)
-                    if (document.body.classList.contains('popout-mode')) {
-                        // If in editor, force reload of active section
-                        const editorUI = document.getElementById('editorUI');
-                        if (editorUI.style.display === 'block') {
-                            const sec = document.getElementById('sectionSelect').value;
-                            renderProfileEditor(sec, target.resume, 'formContainer');
-                        }
-                    }
-                }
-            };
-        });
-
-        list.querySelectorAll('.delete-btn').forEach(btn => {
-            btn.onclick = async () => {
-                const id = parseInt(btn.dataset.id);
-                const currentData = await chrome.storage.local.get('resume_versions');
-                const newVersions = (currentData.resume_versions || []).filter(v => v.id !== id);
-                await chrome.storage.local.set({ resume_versions: newVersions });
-                renderHistoryList(); // Re-render
-            };
-        });
-
-    } catch (e) {
-        console.error("Render History Error:", e);
-        list.innerHTML = '<div style="color:red; padding:10px;">Error loading history.</div>';
-    }
-}
-
-function setupHistoryUI() {
-    const historyBtn = document.getElementById('historyBtn');
-    const closeHistoryBtn = document.getElementById('closeHistoryBtn');
-    const historyUI = document.getElementById('historyUI');
-
-    if (historyBtn) {
-        historyBtn.addEventListener('click', () => {
-            console.log("History Button Clicked");
-            if (historyUI) {
-                historyUI.style.display = 'block';
-                renderHistoryList();
-            }
-        });
-    }
-    if (closeHistoryBtn) {
-        closeHistoryBtn.addEventListener('click', () => {
-            if (historyUI) historyUI.style.display = 'none';
-        });
-    }
-}
-
-// Auto-run setup if elements exist (extension context)
-// Auto-run setup if elements exist (extension context)
-// document.addEventListener('DOMContentLoaded', setupHistoryUI);
-
-// ========== FORMAT SETTINGS ==========
-
-const DEFAULT_FORMAT = {
-    font: "times",
-    density: "normal",
-    margins: "normal",
-    nameSize: 21,
-    bodySize: 10,
-    headerSize: 12,
-    subheaderSize: 11,
-    headerStyle: "uppercase_line",
-    bulletChar: "•",
-    showLinks: true,
-    dateAlign: "right",
-    pageSize: "letter"
-};
-
-async function loadFormatSettings() {
-    const data = await chrome.storage.local.get('format_settings');
-    const settings = { ...DEFAULT_FORMAT, ...(data.format_settings || {}) };
-    updateState({ formatSettings: settings });
-    refreshFormatUI(settings);
-    return settings;
-}
-
-async function saveFormatSettings(settings) {
-    updateState({ formatSettings: settings });
-    await chrome.storage.local.set({ format_settings: settings });
-}
-
-function refreshFormatUI(settings) {
-    // Highlight active toggle buttons
-    document.querySelectorAll('.format-option').forEach(btn => {
-        const setting = btn.dataset.setting;
-        const value = btn.dataset.value;
-        btn.classList.toggle('active', settings[setting] === value);
-    });
-
-    // Sliders
-    const nameSlider = document.getElementById('nameSizeSlider');
-    const bodySlider = document.getElementById('bodySizeSlider');
-    const headerSizeSlider = document.getElementById('headerSizeSlider');
-    const subheaderSizeSlider = document.getElementById('subheaderSizeSlider');
-
-    if (nameSlider) { nameSlider.value = settings.nameSize; document.getElementById('nameSizeValue').textContent = settings.nameSize + 'pt'; }
-    if (bodySlider) { bodySlider.value = settings.bodySize; document.getElementById('bodySizeValue').textContent = settings.bodySize + 'pt'; }
-    if (headerSizeSlider) { headerSizeSlider.value = settings.headerSize; document.getElementById('headerSizeValue').textContent = settings.headerSize + 'pt'; }
-    if (subheaderSizeSlider) { subheaderSizeSlider.value = settings.subheaderSize; document.getElementById('subheaderSizeValue').textContent = settings.subheaderSize + 'pt'; }
-
-    // Dropdown
-    const headerSelect = document.getElementById('headerStyleSelect');
-    if (headerSelect) headerSelect.value = settings.headerStyle;
-
-    // Checkbox
-    const linksCheck = document.getElementById('showLinksCheck');
-    if (linksCheck) linksCheck.checked = settings.showLinks;
-}
-
-function setupFormatUI() {
-    const formatBtn = document.getElementById('formatBtn');
-    const formatUI = document.getElementById('formatUI');
-    const closeFormatBtn = document.getElementById('closeFormatBtn');
-
-    if (formatBtn) {
-        formatBtn.addEventListener('click', async () => {
-            await loadFormatSettings();
-            formatUI.style.display = 'block';
-            document.getElementById('actions').style.display = 'none';
-        });
-    }
-
-    if (closeFormatBtn) {
-        closeFormatBtn.addEventListener('click', () => {
-            formatUI.style.display = 'none';
-            document.getElementById('actions').style.display = 'block';
-        });
-    }
-
-    // Toggle buttons
-    document.querySelectorAll('.format-option').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const setting = btn.dataset.setting;
-            const value = btn.dataset.value;
-            const settings = { ...state.formatSettings, [setting]: value };
-            await saveFormatSettings(settings);
-            refreshFormatUI(settings);
-        });
-    });
-
-    // Sliders
-    const nameSlider = document.getElementById('nameSizeSlider');
-    if (nameSlider) {
-        nameSlider.addEventListener('input', async (e) => {
-            const val = parseInt(e.target.value);
-            document.getElementById('nameSizeValue').textContent = val + 'pt';
-            await saveFormatSettings({ ...state.formatSettings, nameSize: val });
-        });
-    }
-
-    const bodySlider = document.getElementById('bodySizeSlider');
-    if (bodySlider) {
-        bodySlider.addEventListener('input', async (e) => {
-            const val = parseFloat(e.target.value);
-            document.getElementById('bodySizeValue').textContent = val + 'pt';
-            await saveFormatSettings({ ...state.formatSettings, bodySize: val });
-        });
-    }
-
-    const headerSizeSlider = document.getElementById('headerSizeSlider');
-    if (headerSizeSlider) {
-        headerSizeSlider.addEventListener('input', async (e) => {
-            const val = parseFloat(e.target.value);
-            document.getElementById('headerSizeValue').textContent = val + 'pt';
-            await saveFormatSettings({ ...state.formatSettings, headerSize: val });
-        });
-    }
-
-    const subheaderSizeSlider = document.getElementById('subheaderSizeSlider');
-    if (subheaderSizeSlider) {
-        subheaderSizeSlider.addEventListener('input', async (e) => {
-            const val = parseFloat(e.target.value);
-            document.getElementById('subheaderSizeValue').textContent = val + 'pt';
-            await saveFormatSettings({ ...state.formatSettings, subheaderSize: val });
-        });
-    }
-
-    // Header style dropdown
-    const headerSelect = document.getElementById('headerStyleSelect');
-    if (headerSelect) {
-        headerSelect.addEventListener('change', async (e) => {
-            await saveFormatSettings({ ...state.formatSettings, headerStyle: e.target.value });
-        });
-    }
-
-    // Show links checkbox
-    const linksCheck = document.getElementById('showLinksCheck');
-    if (linksCheck) {
-        linksCheck.addEventListener('change', async (e) => {
-            await saveFormatSettings({ ...state.formatSettings, showLinks: e.target.checked });
-        });
-    }
-
-    // Preview button
-    const previewFormatBtn = document.getElementById('previewFormatBtn');
-    if (previewFormatBtn) {
-        previewFormatBtn.addEventListener('click', async () => {
-            if (!state.tailoredResume && !state.baseResume) {
-                showStatus("No resume to preview", "error");
-                return;
-            }
-            const resume = state.tailoredResume || state.baseResume;
-            // Show loading
-            previewFormatBtn.textContent = "Generating...";
-            try {
-                const result = await generatePdf(resume);
-                if (result instanceof Blob) {
-                    const url = URL.createObjectURL(result);
-                    chrome.tabs.create({ url });
-                    setTimeout(() => URL.revokeObjectURL(url), 120000);
-                }
-            } catch (e) {
-                showStatus(e.message, "error");
-            } finally {
-                previewFormatBtn.textContent = "👁 Preview";
-            }
-        });
-    }
-
-    // Reset button
-    const resetFormatBtn = document.getElementById('resetFormatBtn');
-    if (resetFormatBtn) {
-        resetFormatBtn.addEventListener('click', async () => {
-            await saveFormatSettings({ ...DEFAULT_FORMAT });
-            refreshFormatUI(DEFAULT_FORMAT);
-            showStatus("Format reset to defaults", "info");
-        });
-    }
-}
-
-// ========== DRAG & DROP RESUME ==========
-
-function updateDragCard(resumeData) {
-    const dragCard = document.getElementById('dragCard');
-    const dragFileName = document.getElementById('dragFileName');
-    if (!dragCard) return;
-
-    if (state.latestPdfBlob) {
-        dragCard.style.display = 'block';
-        dragCard.classList.remove('hidden');
-        if (dragFileName) {
-            dragFileName.textContent = generateFilename(resumeData);
-        }
-    } else {
-        dragCard.style.display = 'none';
-    }
-}
-
-function setupDragAndDrop() {
-    const dragHandle = document.getElementById('dragHandle');
-    if (!dragHandle) return;
-
-    dragHandle.addEventListener('dragstart', (e) => {
-        if (!state.latestPdfBlob) {
-            e.preventDefault();
-            showStatus("No PDF generated yet.", "error");
-            return;
-        }
-
-        const resumeData = state.tailoredResume || state.baseResume;
-        const filename = generateFilename(resumeData);
-
-        // Create a File object from the blob
-        const file = new File([state.latestPdfBlob], filename, {
-            type: 'application/pdf',
-            lastModified: Date.now()
-        });
-
-        // Add the file to dataTransfer
-        // This is the key line — it lets the browser treat the drag as a file drop
-        try {
-            e.dataTransfer.items.add(file);
-            e.dataTransfer.effectAllowed = 'copy';
-        } catch (err) {
-            // Fallback: some environments don't support items.add(file)
-            // In that case, we can at least set a download URL
-            const url = URL.createObjectURL(state.latestPdfBlob);
-            e.dataTransfer.setData('DownloadURL', "application/pdf:" + filename + ":" + url);
-            // Clean up after drag ends
-            dragHandle.addEventListener('dragend', () => URL.revokeObjectURL(url), { once: true });
-        }
-
-        dragHandle.classList.add('dragging');
-
-        // Custom drag image (optional)
-        const dragImage = document.createElement('div');
-        dragImage.textContent = "📄 " + filename;
-        dragImage.style.cssText = 'position:absolute; top:-1000px; padding:8px 12px; background:#4338ca; color:white; border-radius:6px; font-size:12px; font-weight:600; white-space:nowrap;';
-        document.body.appendChild(dragImage);
-        e.dataTransfer.setDragImage(dragImage, 0, 0);
-        setTimeout(() => document.body.removeChild(dragImage), 0);
-    });
-
-    dragHandle.addEventListener('dragend', () => {
-        dragHandle.classList.remove('dragging');
-    });
-}
-
-
-function invalidatePdfCache() {
-    updateState({ latestPdfBlob: null });
-    const dragCard = document.getElementById('dragCard');
-    if (dragCard) dragCard.style.display = 'none';
-}

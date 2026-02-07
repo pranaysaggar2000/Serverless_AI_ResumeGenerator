@@ -13,7 +13,8 @@
     ],
     "host_permissions": [
         "https://generativelanguage.googleapis.com/*",
-        "https://api.groq.com/*"
+        "https://api.groq.com/*",
+        "https://www.linkedin.com/*"
     ],
     "action": {
         "default_title": "ForgeCV",

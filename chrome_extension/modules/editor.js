@@ -732,6 +732,13 @@ export async function saveProfileChanges(section, containerId = 'profileFormCont
         currentEditingResume = state.tailoredResume || state.baseResume;
     }
 
+    // Safety check: prevent profile edits from leaking into tailored resume if currentEditingResume was mis-assigned
+    if (containerId === 'profileFormContainer' && currentEditingResumeSource === state.tailoredResume) {
+        console.log("saveProfileChanges: Rectifying source mismatch. Cloning from baseResume.");
+        currentEditingResume = JSON.parse(JSON.stringify(state.baseResume));
+        currentEditingResumeSource = state.baseResume;
+    }
+
     if (!currentEditingResume.section_titles) currentEditingResume.section_titles = {};
     const titleInput = document.getElementById('sectionTitleInput');
     if (titleInput) {

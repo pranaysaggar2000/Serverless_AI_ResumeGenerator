@@ -434,20 +434,21 @@ header .controls {
 /* Actions Grid */
 .actions-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    grid-template-columns: repeat(6, 1fr);
+    grid-gap: 8px;
     margin-top: 16px;
 }
 
 .actions-grid button {
     width: 100%;
     justify-content: center;
-    font-size: 12px;
-    padding: 8px;
+    font-size: 11px;
+    padding: 10px 4px;
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     color: var(--text-main);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+    box-shadow: var(--shadow-sm);
+    white-space: nowrap;
 }
 
 .actions-grid button:hover {
@@ -455,12 +456,114 @@ header .controls {
     border-color: #cbd5e1;
 }
 
-#analyzeBtn {
+/* Row 1: Preview & Download */
+.grid-preview {
+    grid-column: span 3;
+}
+
+.grid-download {
+    grid-column: span 3;
+}
+
+/* Row 2: Fine-Tune, Style It, Copy */
+.grid-edit {
     grid-column: span 2;
-    background: linear-gradient(90deg, #8E2DE2, #4A00E0);
-    color: white;
-    border: none;
+}
+
+.grid-style {
+    grid-column: span 2;
+}
+
+.grid-copy {
+    grid-column: span 2;
+}
+
+/* Row 3: ATS Score */
+.grid-analyze {
+    grid-column: span 6;
+    background: linear-gradient(90deg, #8E2DE2, #4A00E0) !important;
+    color: white !important;
+    border: none !important;
+    font-weight: 600 !important;
+    height: 40px;
+}
+
+/* Row 4: Past Forges */
+.grid-history {
+    grid-column: span 6;
     margin-top: 4px;
+    font-size: 10px !important;
+    color: var(--text-secondary) !important;
+    border: 1px dashed var(--border-color) !important;
+}
+
+/* Toast System */
+.toast {
+    background: white;
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border-left: 4px solid var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 200px;
+    max-width: 300px;
+    animation: toastIn 0.3s ease forwards;
+    pointer-events: auto;
+    font-size: 12px;
+}
+
+.toast.success {
+    border-left-color: var(--success);
+}
+
+.toast.error {
+    border-left-color: var(--error);
+}
+
+.toast.info {
+    border-left-color: var(--primary);
+}
+
+.toast.fade-out {
+    animation: toastOut 0.3s ease forwards;
+}
+
+@keyframes toastIn {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes toastOut {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+}
+
+/* ATS Badge */
+.ats-badge {
+    background: var(--primary-gradient);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-left: 8px;
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
 }
 
 /* Editor Styling */
@@ -716,4 +819,19 @@ header .controls {
     opacity: 0.6;
     border-color: #4f46e5;
     background: #e0e7ff;
+}
+
+/* Method Tabs */
+.method-tab {
+    transition: all 0.15s ease;
+}
+
+.method-tab:hover:not(.active) {
+    background: #f3f4f6 !important;
+    color: var(--text-main) !important;
+}
+
+.method-tab.active {
+    background: var(--primary) !important;
+    color: white !important;
 }

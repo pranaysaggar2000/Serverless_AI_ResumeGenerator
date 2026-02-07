@@ -40,3 +40,7 @@ mock_*.js
 popup original.js
 
 info.txt
+# Local Uploads & Assets
+chrome\ uploads/
+Social_Media_Assets/
+generate_social_images.py

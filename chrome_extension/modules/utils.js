@@ -56,3 +56,47 @@ export function setButtonLoading(btn, loading, originalText = null) {
         btn.textContent = originalText || btn.dataset.originalText || 'Done';
     }
 }
+
+export function generateDiffSummary(original, tailored) {
+    if (!original || !tailored) return null;
+
+    let bulletsChanged = 0;
+    let totalBullets = 0;
+    const listSections = ["experience", "projects", "leadership", "research", "volunteering"];
+
+    listSections.forEach(sec => {
+        const origItems = original[sec] || [];
+        const tailItems = tailored[sec] || [];
+        const maxLen = Math.max(origItems.length, tailItems.length);
+
+        for (let i = 0; i < maxLen; i++) {
+            const origBullets = origItems[i]?.bullets || [];
+            const tailBullets = tailItems[i]?.bullets || [];
+            totalBullets += Math.max(origBullets.length, tailBullets.length);
+
+            const maxB = Math.max(origBullets.length, tailBullets.length);
+            for (let j = 0; j < maxB; j++) {
+                if ((origBullets[j] || '').trim() !== (tailBullets[j] || '').trim()) {
+                    bulletsChanged++;
+                }
+            }
+        }
+    });
+
+    const summaryChanged = (original.summary || '').trim() !== (tailored.summary || '').trim();
+
+    const origSkills = original.skills || {};
+    const tailSkills = tailored.skills || {};
+    const origSkillSet = new Set(Object.values(origSkills).flat().map(s => s.toLowerCase().trim()));
+    const tailSkillSet = new Set(Object.values(tailSkills).flat().map(s => s.toLowerCase().trim()));
+    const skillsAdded = [...tailSkillSet].filter(s => !origSkillSet.has(s)).length;
+    const skillsRemoved = [...origSkillSet].filter(s => !tailSkillSet.has(s)).length;
+
+    return {
+        bulletsChanged,
+        totalBullets,
+        summaryChanged,
+        skillsAdded,
+        skillsRemoved
+    };
+}

@@ -102,6 +102,10 @@ async function callGroq(prompt, apiKey, options) {
                     signal: controller.signal
                 });
 
+                if (response.status === 401 || response.status === 403) {
+                    throw new Error("GROQ_AUTH_ERROR");
+                }
+
                 if (response.status === 429) {
                     console.warn(`Groq Rate Limit (${modelId}), switching...`);
                     continue;
@@ -120,6 +124,11 @@ async function callGroq(prompt, apiKey, options) {
                         body: JSON.stringify(payload),
                         signal: controller.signal
                     });
+
+                    if (retryResp.status === 401 || retryResp.status === 403) {
+                        throw new Error("GROQ_AUTH_ERROR");
+                    }
+
                     if (retryResp.ok) {
                         const data = await retryResp.json();
                         return data.choices[0].message.content;
@@ -134,13 +143,14 @@ async function callGroq(prompt, apiKey, options) {
                 return data.choices[0].message.content;
 
             } catch (e) {
-                if (e.name === 'AbortError') throw e; // Propagate abort
+                if (e.name === 'AbortError' || e.message === "GROQ_AUTH_ERROR") throw e; // Propagate abort and auth
                 console.warn(`Groq model failed: ${modelId}`, e);
                 continue;
             }
         }
     } catch (e) {
         if (e.name === 'AbortError') throw new Error('Request timed out after 60 seconds. Please try again.');
+        if (e.message === "GROQ_AUTH_ERROR") throw new Error("Groq API Key is invalid or expired. Please check your settings.");
         throw e;
     } finally {
         clearTimeout(timeout);

@@ -124,6 +124,31 @@
       <input type="file" id="reuploadResumeFile" accept=".pdf" style="margin-bottom:10px;">
       <button id="reuploadBtn" class="primary-btn" style="width:100%;">Upload New Resume</button>
 
+      <div class="divider-or"><span>OR LINKEDIN</span></div>
+
+      <div style="margin-bottom:12px;">
+        <label
+          style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:6px;">Upload
+          LinkedIn PDF</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="file" id="reuploadLinkedinPdf" accept=".pdf" style="flex:1;">
+          <button id="reuploadLinkedinPdfBtn" class="primary-btn"
+            style="white-space:nowrap; padding:8px 12px; font-size:11px;">Upload</button>
+        </div>
+      </div>
+
+      <div>
+        <label
+          style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:6px;">Or
+          paste LinkedIn URL</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="reuploadLinkedinUrl" placeholder="https://linkedin.com/in/..."
+            style="flex:1; font-size:11px;">
+          <button id="reuploadLinkedinUrlBtn" class="secondary-btn"
+            style="white-space:nowrap; padding:8px 12px; font-size:11px;">🔍 Fetch</button>
+        </div>
+      </div>
+
       <div class="divider-or"><span>OR PASTE TEXT</span></div>
 
       <textarea id="reuploadResumeText" placeholder="Paste full resume text..." style="height: 80px;"></textarea>
@@ -134,6 +159,7 @@
       <h4 style="margin-bottom:12px;">✏️ Manual Edit</h4>
       <label for="profileSectionSelect" class="text-sm text-muted">Select Section:</label>
       <select id="profileSectionSelect" style="margin-bottom:12px;">
+        <option value="summary">Summary</option>
         <option value="contact">Contact Info</option>
         <option value="education">Education</option>
         <option value="experience">Experience</option>
@@ -174,15 +200,80 @@
         <button id="backFromSetup" class="secondary-btn" style="font-size:11px; padding:4px 8px;">Back</button>
       </div>
 
-      <input type="file" id="resumeFile" accept=".pdf" style="margin: 16px 0;">
-      <button id="uploadBtn" class="primary-btn" style="width:100%;">Upload Resume</button>
-      <div id="uploadStatus"></div>
+      <div class="input-method-tabs"
+        style="display:flex; gap:0; margin-bottom:16px; border:1px solid var(--border-color); border-radius:var(--radius-md); overflow:hidden;">
+        <button class="method-tab active" data-method="resume"
+          style="flex:1; padding:10px 8px; font-size:11px; font-weight:600; border:none; cursor:pointer; background:var(--primary); color:white; transition:all 0.15s;">📄
+          Resume PDF</button>
+        <button class="method-tab" data-method="linkedin"
+          style="flex:1; padding:10px 8px; font-size:11px; font-weight:600; border:none; cursor:pointer; background:var(--card-bg); color:var(--text-secondary); border-left:1px solid var(--border-color); transition:all 0.15s;">💼
+          LinkedIn</button>
+        <button class="method-tab" data-method="text"
+          style="flex:1; padding:10px 8px; font-size:11px; font-weight:600; border:none; cursor:pointer; background:var(--card-bg); color:var(--text-secondary); border-left:1px solid var(--border-color); transition:all 0.15s;">📝
+          Paste Text</button>
+      </div>
 
-      <div class="divider-or"><span>OR PASTE TEXT</span></div>
+      <!-- Resume PDF Tab (default, visible) -->
+      <div id="methodResume" class="method-panel">
+        <input type="file" id="resumeFile" accept=".pdf" style="margin-bottom:12px;">
+        <button id="uploadBtn" class="primary-btn" style="width:100%;">Upload Resume</button>
+        <div id="uploadStatus"></div>
+      </div>
 
-      <textarea id="resumeTextInit" placeholder="Paste resume text..." style="height: 100px;"></textarea>
-      <button id="processTextInitBtn" class="primary-btn" style="width:100%; margin-top:8px;">Process Text</button>
-      <div id="textStatus" style="margin-top:8px;"></div>
+      <!-- LinkedIn Tab (hidden) -->
+      <div id="methodLinkedin" class="method-panel" style="display:none;">
+        <div style="margin-bottom:16px;">
+          <label
+            style="font-size:12px; font-weight:600; color:var(--text-main); display:block; margin-bottom:8px;">Upload
+            LinkedIn PDF</label>
+          <input type="file" id="linkedinPdfFile" accept=".pdf" style="margin-bottom:8px;">
+          <button id="uploadLinkedinPdfBtn" class="primary-btn" style="width:100%;">Upload LinkedIn PDF</button>
+          <details style="margin-top:8px; font-size:11px; color:var(--text-muted);">
+            <summary style="cursor:pointer; font-weight:500; color:var(--primary);">How to export your LinkedIn PDF
+            </summary>
+            <div style="padding:8px 0; line-height:1.6;">
+              <ol style="margin:4px 0 0 16px; padding:0;">
+                <li>Go to your <a href="https://www.linkedin.com/in/me" target="_blank">LinkedIn profile</a></li>
+                <li>Click the <strong>"More"</strong> button (below your banner)</li>
+                <li>Select <strong>"Save to PDF"</strong></li>
+                <li>Upload the downloaded PDF here</li>
+              </ol>
+              <div
+                style="margin-top:8px; padding:6px 8px; background:#f0fdf4; border-radius:4px; border:1px solid #a7f3d0; font-size:10px;">
+                ✅ This is the most reliable method — captures your full profile including all experience, education,
+                skills, and certifications.
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="divider-or"><span>OR</span></div>
+
+        <div>
+          <label
+            style="font-size:12px; font-weight:600; color:var(--text-main); display:block; margin-bottom:8px;">Paste
+            LinkedIn URL</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="linkedinUrlInput" placeholder="https://linkedin.com/in/your-name"
+              style="flex:1; font-size:12px;">
+            <button id="fetchLinkedinBtn" class="primary-btn"
+              style="white-space:nowrap; padding:10px 14px; font-size:12px;">🔍 Fetch</button>
+          </div>
+          <div style="margin-top:6px; font-size:10px; color:var(--text-muted); line-height:1.4;">
+            ⚠️ Works with public profiles only. LinkedIn may limit data visibility. If results are incomplete, try the
+            PDF method above.
+          </div>
+          <div id="linkedinUrlStatus" style="margin-top:8px;"></div>
+        </div>
+      </div>
+
+      <!-- Paste Text Tab (hidden) -->
+      <div id="methodText" class="method-panel" style="display:none;">
+        <textarea id="resumeTextInit" placeholder="Paste your full resume text here..."
+          style="height:120px;"></textarea>
+        <button id="processTextInitBtn" class="primary-btn" style="width:100%; margin-top:8px;">Process Text</button>
+        <div id="textStatus" style="margin-top:8px;"></div>
+      </div>
       <details style="margin-top: 16px; text-align: left;">
         <summary style="font-size: 12px; font-weight: 600; cursor: pointer; color: var(--primary);">ℹ️ How does ForgeCV
           work?</summary>
@@ -207,6 +298,7 @@
   <div id="mainUI" class="hidden">
     <div class="profile-pill">
       <span>Using:</span> <strong id="profileName">Loading...</strong>
+      <span id="atsScoreBadge" class="ats-badge" style="display:none;"></span>
       <span id="activeProfileLabel" style="font-size:10px; opacity:0.7; margin-left:4px;"></span>
     </div>
 
@@ -315,13 +407,13 @@
     <!-- Actions (Post-Generation) -->
     <div id="actions" class="hidden">
       <div class="actions-grid">
-        <button id="previewBtn">👁 Preview</button>
-        <button id="downloadBtn">⬇ Download</button>
-        <button id="editBtn">✏️ Fine-Tune</button>
-        <button id="formatBtn" class="secondary-btn">🎨 Style It</button>
-        <button id="copyContentBtn">📋 Copy Sections</button>
-        <button id="historyBtn" class="secondary-btn">🕰 Past Forges</button>
-        <button id="analyzeBtn" class="secondary-btn">📊 ATS Score</button>
+        <button id="previewBtn" class="grid-preview">🔍 Preview</button>
+        <button id="downloadBtn" class="grid-download">⬇ Download</button>
+        <button id="editBtn" class="grid-edit">✏️ Fine-Tune</button>
+        <button id="formatBtn" class="grid-style secondary-btn">🎨 Style It</button>
+        <button id="copyContentBtn" class="grid-copy">📋 Copy</button>
+        <button id="analyzeBtn" class="grid-analyze secondary-btn">📊 ATS Score</button>
+        <button id="historyBtn" class="grid-history secondary-btn">🕰 Past Forges</button>
       </div>
 
       <!-- Drag & Drop Resume Card -->
@@ -362,6 +454,7 @@
         </div>
         <div id="progressDetail" class="text-sm text-muted" style="margin-top: 6px; font-size: 11px;"></div>
       </div>
+      <div id="diffSummaryContainer"></div>
     </div>
 
     <!-- Copy UI -->
@@ -500,11 +593,14 @@
 
     <!-- Editor UI -->
     <div id="editorUI" class="hidden">
+      <button id="popoutEditorBtn"
+        style="width:100%; margin-bottom:10px; font-size:11px; padding:8px; background:#f0f4ff; border:1px dashed #818cf8; border-radius:8px; color:#4338ca; cursor:pointer;">
+        ↗ Open in Full Editor (Recommended for detailed editing)
+      </button>
+
       <div class="flex-between" style="margin-bottom:12px;">
         <div style="display:flex; align-items:center; gap:8px;">
           <h3>Edit Resume Content</h3>
-          <button id="popoutEditorBtn" class="icon-btn" title="Open in full window"
-            style="font-size: 12px; height:24px; padding:0 6px;">↗️</button>
         </div>
         <button id="reorderBtn"
           style="background:none; border:none; color:var(--primary); font-size:12px; cursor:pointer;">⇅ Reorder
@@ -595,7 +691,9 @@
     </div>
   </footer>
 
-  <div id="error" class="error"></div>
+  <div id="toastContainer"
+    style="position:fixed; top:12px; right:12px; z-index:1000; display:flex; flex-direction:column; gap:8px; pointer-events:none;">
+  </div>
 
   <!-- Scripts -->
   <script src="jspdf.umd.min.js"></script>

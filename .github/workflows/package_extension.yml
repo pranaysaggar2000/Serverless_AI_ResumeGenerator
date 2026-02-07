@@ -30,7 +30,7 @@ jobs:
           tag: latest
           name: Latest Release
           body: "Latest build of the extension."
-          artifacts: "ForgeCV_extension.zip"
+          artifacts: "ForgeCVextension.zip"
           allowUpdates: true
           removeArtifacts: true
           replacesArtifacts: true

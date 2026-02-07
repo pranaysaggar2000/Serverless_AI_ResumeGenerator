@@ -294,6 +294,24 @@ const Index = () => {
                     <div>
                       <strong className="text-card-foreground">Why Groq?</strong> Groq offers a generous free tier with very fast inference speeds. It's perfect for resume generation and works great with ForgeCV.
                     </div>
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <div className="bg-accent/10 border border-accent/30 rounded-md p-3">
+                        <div className="text-xs font-semibold text-accent mb-2">🙋 Still stuck? Last Resort:</div>
+                        <div className="text-xs text-muted-foreground mb-2">
+                          Copy this prompt and paste it into ChatGPT, Claude, or any AI chat:
+                        </div>
+                        <div
+                          className="bg-muted/80 border border-border rounded p-2 text-xs font-mono text-card-foreground cursor-pointer hover:bg-muted transition-colors"
+                          onClick={() => {
+                            navigator.clipboard.writeText("Explain how to get a free Groq API Key like I'm a time traveler from 1995 who just discovered the internet. Be super specific about clicking 'Create API Key'.");
+                            alert('Prompt copied to clipboard!');
+                          }}
+                        >
+                          "Explain how to get a free Groq API Key like I'm a time traveler from 1995 who just discovered the internet. Be super specific about clicking 'Create API Key'."
+                        </div>
+                        <div className="text-right text-[10px] text-accent mt-1">(Click to copy)</div>
+                      </div>
+                    </div>
                   </div>
                 </details>
               </div>
@@ -348,6 +366,24 @@ const Index = () => {
                     </div>
                     <div>
                       <strong className="text-card-foreground">Why Gemini?</strong> Google Gemini 2.0 Flash is very reliable and has a generous free tier. It's a great alternative if you prefer Google's ecosystem.
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <div className="bg-accent/10 border border-accent/30 rounded-md p-3">
+                        <div className="text-xs font-semibold text-accent mb-2">🙋 Still stuck? Last Resort:</div>
+                        <div className="text-xs text-muted-foreground mb-2">
+                          Copy this prompt and paste it into ChatGPT, Claude, or any AI chat:
+                        </div>
+                        <div
+                          className="bg-muted/80 border border-border rounded p-2 text-xs font-mono text-card-foreground cursor-pointer hover:bg-muted transition-colors"
+                          onClick={() => {
+                            navigator.clipboard.writeText("Explain how to get a free Google Gemini API Key like I'm 5 years old and easily confused by buttons. Walk me through every click starting from opening Google.");
+                            alert('Prompt copied to clipboard!');
+                          }}
+                        >
+                          "Explain how to get a free Google Gemini API Key like I'm 5 years old and easily confused by buttons. Walk me through every click starting from opening Google."
+                        </div>
+                        <div className="text-right text-[10px] text-accent mt-1">(Click to copy)</div>
+                      </div>
                     </div>
                   </div>
                 </details>

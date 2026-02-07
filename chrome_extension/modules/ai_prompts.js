@@ -450,7 +450,7 @@ export function clean_tailored_resume(resume_data) {
         }
     }
 
-    // Clean bullets
+    // Clean bullets.
     const sections = ['experience', 'projects', 'leadership', 'research', 'volunteering'];
     sections.forEach(sec => {
         if (resume_data[sec]) {

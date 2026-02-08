@@ -25,7 +25,6 @@ import { extractJobDescription } from './modules/jd_extractor.js';
 import { showProgress, hideProgress } from './modules/progress.js';
 import { saveVersion, setupHistoryUI } from './modules/history.js';
 import { setupFormatUI, loadFormatSettings, debouncedSaveFormat } from './modules/format.js';
-import { setupDragAndDrop, updateDragCard, invalidatePdfCache } from './modules/dragdrop.js';
 import { setupReorderUI } from './modules/reorder.js';
 
 let isScanning = false;
@@ -79,7 +78,7 @@ async function saveNewProfile(profileData) {
             user_profile_name: profileData.name || "User",
             profiles: profiles
         }),
-        chrome.storage.local.remove(['tailored_resume', 'last_analysis'])
+        chrome.storage.local.remove(['tailored_resume', 'jd_analysis', 'ats_analysis'])
     ]);
 
     // Update in-memory state
@@ -288,7 +287,7 @@ async function init() {
 
         setupEventListeners();
         setupHistoryUI();
-        setupDragAndDrop();
+        // Drag and drop removed
         setupProfileManagement();
         setupFormatUI();
         detectJobDescription().catch(e => console.log("Silent detect fail:", e));
@@ -330,6 +329,8 @@ async function loadState() {
         'tailored_resume',
         'user_profile_name',
         'tailoring_strategy',
+        'jd_analysis',
+        'ats_analysis',
         'last_analysis',
         'active_profile',
         'current_jd_text',
@@ -340,6 +341,9 @@ async function loadState() {
         'detected_company_description'
     ]);
 
+    // Backward compatibility: use last_analysis as fallback for jd_analysis
+    const jdAnalysis = data.jd_analysis || data.last_analysis || null;
+
     updateState({
         currentApiKey: data.gemini_api_key || "",
         currentGroqKey: data.groq_api_key || "",
@@ -347,12 +351,12 @@ async function loadState() {
         baseResume: data.base_resume || null,
         tailoredResume: data.tailored_resume || null,
         tailoringStrategy: data.tailoring_strategy || "balanced",
-        lastAnalysis: data.last_analysis || null,
-        currentJdAnalysis: data.last_analysis || null,
-        jdKeywords: data.last_analysis ? [
-            ...(data.last_analysis.mandatory_keywords || []),
-            ...(data.last_analysis.preferred_keywords || []),
-            ...(data.last_analysis.industry_terms || [])
+        lastAnalysis: data.ats_analysis || null,
+        currentJdAnalysis: jdAnalysis,
+        jdKeywords: jdAnalysis ? [
+            ...(jdAnalysis.mandatory_keywords || []),
+            ...(jdAnalysis.preferred_keywords || []),
+            ...(jdAnalysis.industry_terms || [])
         ].map(k => k.toLowerCase()) : [],
         activeProfile: data.active_profile || 'default',
         currentJdText: data.current_jd_text || "",
@@ -375,8 +379,14 @@ async function loadState() {
         if (checkCurrentProviderKey()) {
             showMainUI();
             if (state.tailoredResume) actionsDiv.style.display = 'block';
-            if (data.last_analysis) renderAnalysis(data.last_analysis);
-            else document.getElementById('analysisResults').classList.add('hidden'); // Ensure hidden by default
+            if (data.ats_analysis) renderAnalysis(data.ats_analysis);
+            else {
+                const analysisResults = document.getElementById('analysisResults');
+                if (analysisResults) {
+                    analysisResults.classList.add('hidden');
+                    analysisResults.style.display = 'none';
+                }
+            }
         } else {
             showSettings();
         }
@@ -406,7 +416,7 @@ async function loadState() {
         generatePdf(state.tailoredResume).then(blob => {
             if (blob instanceof Blob) {
                 updateState({ latestPdfBlob: blob });
-                updateDragCard(state.tailoredResume);
+                // Drag and drop removed
             }
         }).catch(e => console.log("Pre-cache PDF failed (non-critical):", e));
     }
@@ -1084,7 +1094,7 @@ function setupEventListeners() {
     // Generate Button
     generateBtn.addEventListener('click', async () => {
         console.log("Generate (AI) clicked");
-        invalidatePdfCache();
+        // Drag and drop removed
 
         if (!checkCurrentProviderKey()) {
             showStatus("API Key missing! Cannot generate AI resume.", "error");
@@ -1130,7 +1140,7 @@ function setupEventListeners() {
             updateState({ tailoredResume: newResume, currentJdAnalysis: analysis, jdKeywords: keywords });
             await chrome.storage.local.set({
                 tailored_resume: newResume,
-                last_analysis: analysis
+                jd_analysis: analysis
             });
 
             showProgress('complete');
@@ -1320,7 +1330,7 @@ function setupEventListeners() {
     if (saveManualBtn) {
         saveManualBtn.addEventListener('click', async () => {
             console.log("Save Manual clicked");
-            invalidatePdfCache();
+            // Drag and drop removed
             setButtonLoading(saveManualBtn, true);
             try {
                 const activeSection = document.getElementById('sectionSelect').value;
@@ -1347,7 +1357,7 @@ function setupEventListeners() {
     if (saveRegenBtn) {
         saveRegenBtn.addEventListener('click', async () => {
             console.log("Save & Regenerate clicked");
-            invalidatePdfCache();
+            // Drag and drop removed
             setButtonLoading(saveRegenBtn, true);
 
             try {
@@ -1361,11 +1371,11 @@ function setupEventListeners() {
                 const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
 
                 // We need the JD analysis to be present for regeneration context
-                let jdAnalysis = state.lastAnalysis; // Might need to ensure this is loaded
+                let jdAnalysis = state.currentJdAnalysis;
                 if (!jdAnalysis) {
                     // Attempt to recover from storage if not in state
-                    const data = await chrome.storage.local.get('last_analysis');
-                    jdAnalysis = data.last_analysis;
+                    const data = await chrome.storage.local.get('jd_analysis');
+                    jdAnalysis = data.jd_analysis;
                 }
 
                 if (!jdAnalysis) {
@@ -1498,7 +1508,8 @@ function setupEventListeners() {
                 if (data.error) throw new Error(data.error);
 
                 renderAnalysis(data);
-                updateState({ hasAnalyzed: true });
+                updateState({ lastAnalysis: data, hasAnalyzed: true });
+                await chrome.storage.local.set({ ats_analysis: data });
                 showStatus(`Analysis Complete! (${((Date.now() - start) / 1000).toFixed(1)}s)`, "success");
                 setTimeout(() => showStatus("", ""), 3000);
 
@@ -1528,7 +1539,7 @@ async function generateAndCachePDF(resumeData) {
         if (result instanceof Blob) {
             // Cache for drag-and-drop
             updateState({ latestPdfBlob: result });
-            updateDragCard(resumeData);
+            // Drag and drop removed
 
             showStatus("PDF Ready!", "success");
             setTimeout(() => { showStatus('', ''); }, 2000);

@@ -77,7 +77,6 @@ export function showMainUI() {
     } else {
         getEl('actions').style.display = 'none';
         if (getEl('analysisResults')) getEl('analysisResults').classList.add('hidden');
-        if (getEl('dragCard')) getEl('dragCard').style.display = 'none';
         if (getEl('atsScoreBadge')) getEl('atsScoreBadge').style.display = 'none';
     }
 }
@@ -123,7 +122,9 @@ export function renderAnalysis(analysis) {
 
     if (!analysis || !analysisResults) return;
 
-    analysisResults.style.display = 'block';
+    // Remove hidden class and clear any inline display override
+    analysisResults.classList.remove('hidden');
+    analysisResults.style.display = '';
 
     const score = parseInt(analysis.score) || 0;
 

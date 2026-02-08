@@ -239,6 +239,122 @@ const Index = () => {
               </div>
             </div>
 
+            {/* Update Instructions */}
+            <div className="bg-foreground/[0.04] dark:bg-foreground/10 border border-border rounded-md overflow-hidden mb-6">
+              <div className="px-5 py-4 sm:px-6">
+                <div className="flex items-center gap-2 mb-1">
+                  <Download size={16} className="text-accent" />
+                  <h4 className="font-bold text-sm text-card-foreground">How to Update ForgeCV</h4>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">When a new version is released &nbsp;·&nbsp; ~1 minute</p>
+
+                <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-3">
+                  <p className="text-xs text-green-900 dark:text-green-200">
+                    <strong>✅ Recommended:</strong> Use Method 1 to keep all your API keys and profiles intact!
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="border-2 border-green-500/30 rounded-md p-4 bg-green-50/50 dark:bg-green-900/10">
+                    <h5 className="font-semibold text-sm text-card-foreground mb-2">
+                      Method 1: Replace in Same Folder (Recommended ⭐)
+                    </h5>
+                    <ol className="space-y-2 text-sm text-card-foreground">
+                      <InstallStep n={1}>Download the latest version.</InstallStep>
+                      <InstallStep n={2}>
+                        Extract it and <strong>replace the contents</strong> of your existing ForgeCV folder.
+                      </InstallStep>
+                      <InstallStep n={3}>
+                        Go to <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">chrome://extensions</code>
+                      </InstallStep>
+                      <InstallStep n={4}>
+                        Click the <strong>reload icon</strong> (🔄) on the ForgeCV card. Done!
+                      </InstallStep>
+                    </ol>
+                    <div className="mt-3 bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded p-2">
+                      <p className="text-xs text-green-900 dark:text-green-200">
+                        ✅ Keeps all API keys and profiles automatically
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border border-border rounded-md p-4 bg-background/50">
+                    <h5 className="font-semibold text-sm text-card-foreground mb-2">Method 2: New Folder (Not Recommended)</h5>
+                    <ol className="space-y-2 text-sm text-card-foreground">
+                      <InstallStep n={1}>Download the latest version.</InstallStep>
+                      <InstallStep n={2}>
+                        Extract to a <strong>new/different folder</strong> (e.g., Downloads/ForgeCV_v2).
+                      </InstallStep>
+                      <InstallStep n={3}>
+                        Go to <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">chrome://extensions</code>
+                      </InstallStep>
+                      <InstallStep n={4}>
+                        Click <strong>"Remove"</strong> on the old ForgeCV extension.
+                      </InstallStep>
+                      <InstallStep n={5}>
+                        Click <strong>"Load unpacked"</strong> and select the new folder. Done!
+                      </InstallStep>
+                    </ol>
+                    <div className="mt-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded p-2">
+                      <p className="text-xs text-amber-900 dark:text-amber-200">
+                        ⚠️ May require re-entering API keys and profiles
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                  <p className="text-xs text-blue-800 dark:text-blue-200">
+                    <strong>💡 Tip:</strong> Method 1 preserves all your data automatically. Method 2 may require re-entering settings.
+                  </p>
+                </div>
+                <details className="mt-4 text-xs">
+                  <summary className="cursor-pointer text-accent hover:text-accent/80 font-semibold flex items-center gap-1">
+                    <ChevronDown size={14} className="inline" />
+                    Click for detailed update guide
+                  </summary>
+                  <div className="mt-3 space-y-3 pl-5 text-muted-foreground leading-relaxed">
+                    <div>
+                      <strong className="text-card-foreground">Method 1: Quick Reload (Recommended)</strong>
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 1:</strong> Download the latest version from this page. You'll get a new <code className="bg-muted px-1 py-0.5 rounded">ForgeCVextension.zip</code> file.
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 2:</strong> Extract it to a new folder (don't overwrite the old one yet). This gives you a backup in case something goes wrong.
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 3:</strong> Open Chrome and go to <code className="bg-muted px-1 py-0.5 rounded">chrome://extensions</code>. Find the ForgeCV extension card.
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 4:</strong> Look for a circular refresh/reload icon (🔄) on the ForgeCV card. Click it. Chrome will reload the extension from the same folder.
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 5:</strong> If you extracted to a different folder, you'll need to use Method 2 below.
+                    </div>
+                    <div className="mt-4">
+                      <strong className="text-card-foreground">Method 2: Remove and Reinstall</strong>
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 1:</strong> On <code className="bg-muted px-1 py-0.5 rounded">chrome://extensions</code>, click "Remove" on the old ForgeCV extension. Don't worry — your data is safe!
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 2:</strong> Click "Load unpacked" and select the new extracted folder.
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">Step 3:</strong> Your settings, API keys, and saved profiles will automatically restore because they're stored in Chrome's local storage, not in the extension folder.
+                    </div>
+                    <div className="mt-4">
+                      <strong className="text-card-foreground">What gets preserved:</strong> ✅ API keys, ✅ Saved profiles, ✅ Settings, ✅ Format preferences
+                    </div>
+                    <div>
+                      <strong className="text-card-foreground">What gets reset:</strong> ❌ Current session data (just regenerate your resume)
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </div>
+
             {/* API Key Setup - Groq */}
             <div className="bg-foreground/[0.04] dark:bg-foreground/10 border border-border rounded-md overflow-hidden mb-6">
               <div className="px-5 py-4 sm:px-6">

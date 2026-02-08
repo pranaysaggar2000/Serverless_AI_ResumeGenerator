@@ -806,6 +806,9 @@ function setupEventListeners() {
         const profiles = pData.profiles || {};
         profiles[pData.active_profile || 'default'] = state.baseResume; // state.baseResume is updated by saveProfileChanges
         await chrome.storage.local.set({ profiles });
+
+        // Close profile section and return to main UI
+        showMainUI();
     });
     document.getElementById('cancelProfileEditBtn').addEventListener('click', showMainUI);
 

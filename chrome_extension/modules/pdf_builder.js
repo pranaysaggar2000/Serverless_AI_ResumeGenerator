@@ -93,19 +93,59 @@ export function generateResumePdf(data, fmt = {}) {
         if (c.phone) parts.push(c.phone);
         if (c.email) parts.push(c.email);
 
-        // Only add LinkedIn/Portfolio text if links are enabled or just as text? 
-        // Original code added them as text. We will stick to that but respect checks if we were strictly removing them.
-        // But the setting says "Show clickable links". For now just showing the text part.
+        // Add LinkedIn and Portfolio as text placeholders
         if (c.linkedin_url) parts.push("LinkedIn");
         if (c.portfolio_url) parts.push("Portfolio");
         contactStr = parts.join(" | ");
     }
 
-    addText(contactStr, 0, cursorY, { align: 'center', size: BODY });
-    cursorY += LEADING + 2;
+    // Center the contact string
+    const contactY = cursorY;
+    addText(contactStr, 0, contactY, { align: 'center', size: BODY });
 
-    // We skip actual clickable link annotations to keep it matching the original robust visual implementation.
-    // If we wanted to add links we'd need to calculate X positions for each part of the string which is complex in PDF.
+    // Now add clickable link annotations for LinkedIn and Portfolio
+    if (data.contact && typeof data.contact !== 'string' && settings.showLinks) {
+        const c = data.contact;
+
+        // Calculate positions for each part to place links accurately
+        const parts = [];
+        if (c.location) parts.push(c.location);
+        if (c.phone) parts.push(c.phone);
+        if (c.email) parts.push(c.email);
+
+        // Build the text before LinkedIn/Portfolio to calculate offset
+        const beforeLinkedIn = parts.join(" | ");
+        const separator = parts.length > 0 ? " | " : "";
+
+        doc.setFont(settings.font, 'normal');
+        doc.setFontSize(BODY);
+
+        // Calculate center position
+        const fullWidth = doc.getTextWidth(contactStr);
+        const startX = (PAGE_WIDTH - fullWidth) / 2;
+
+        let currentX = startX + doc.getTextWidth(beforeLinkedIn + separator);
+
+        // Add LinkedIn link
+        if (c.linkedin_url) {
+            const linkedInText = "LinkedIn";
+            const linkedInWidth = doc.getTextWidth(linkedInText);
+
+            doc.link(currentX, contactY - BODY + 2, linkedInWidth, BODY + 2, { url: c.linkedin_url });
+
+            currentX += linkedInWidth + doc.getTextWidth(" | ");
+        }
+
+        // Add Portfolio link
+        if (c.portfolio_url) {
+            const portfolioText = "Portfolio";
+            const portfolioWidth = doc.getTextWidth(portfolioText);
+
+            doc.link(currentX, contactY - BODY + 2, portfolioWidth, BODY + 2, { url: c.portfolio_url });
+        }
+    }
+
+    cursorY += LEADING + 2;
 
     cursorY += DENSITY.sectionGap;
 

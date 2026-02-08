@@ -22,9 +22,10 @@ export function setupDragAndDrop() {
     const dragHandle = document.getElementById('dragHandle');
     if (!dragHandle) return;
 
-    dragHandle.addEventListener('dragstart', (e) => {
+    // Instead of dragging from side panel, clicking the drag card injects
+    // a draggable element into the active web page
+    dragHandle.addEventListener('click', async () => {
         if (!state.latestPdfBlob) {
-            e.preventDefault();
             showStatus("No PDF generated yet.", "error");
             return;
         }
@@ -32,35 +33,51 @@ export function setupDragAndDrop() {
         const resumeData = state.tailoredResume || state.baseResume;
         const filename = generateFilename(resumeData);
 
-        // Create a File object from the blob
-        const file = new File([state.latestPdfBlob], filename, {
-            type: 'application/pdf',
-            lastModified: Date.now()
-        });
-
-        // Add the file to dataTransfer
         try {
-            e.dataTransfer.items.add(file);
-            e.dataTransfer.effectAllowed = 'copy';
-        } catch (err) {
-            const url = URL.createObjectURL(state.latestPdfBlob);
-            e.dataTransfer.setData('DownloadURL', "application/pdf:" + filename + ":" + url);
-            dragHandle.addEventListener('dragend', () => URL.revokeObjectURL(url), { once: true });
+            // Convert blob to base64 for message passing
+            const reader = new FileReader();
+            const base64 = await new Promise((resolve, reject) => {
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(state.latestPdfBlob);
+            });
+
+            // Get active tab
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (!tab?.id) {
+                showStatus("No active tab found.", "error");
+                return;
+            }
+
+            // Inject the content script (only injects once due to duplicate check)
+            await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                files: ['inject_drag.js']
+            });
+
+            // Send PDF data to the injected script via message
+            await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                func: (base64Data, fname) => {
+                    window.postMessage({
+                        type: 'FORGECV_PDF_DATA',
+                        base64: base64Data,
+                        filename: fname
+                    }, '*');
+                },
+                args: [base64, filename]
+            });
+
+            showStatus("📄 Drag pill injected into the page! Drag it into any upload field.", "success");
+
+        } catch (e) {
+            console.error("Drag injection failed:", e);
+            showStatus("Could not inject drag element. Try downloading instead.", "error");
         }
-
-        dragHandle.classList.add('dragging');
-
-        const dragImage = document.createElement('div');
-        dragImage.textContent = "📄 " + filename;
-        dragImage.style.cssText = 'position:absolute; top:-1000px; padding:8px 12px; background:#4338ca; color:white; border-radius:6px; font-size:12px; font-weight:600; white-space:nowrap;';
-        document.body.appendChild(dragImage);
-        e.dataTransfer.setDragImage(dragImage, 0, 0);
-        setTimeout(() => document.body.removeChild(dragImage), 0);
     });
 
-    dragHandle.addEventListener('dragend', () => {
-        dragHandle.classList.remove('dragging');
-    });
+    // Remove draggable from the handle since we no longer drag from side panel
+    dragHandle.removeAttribute('draggable');
 }
 
 export function invalidatePdfCache() {

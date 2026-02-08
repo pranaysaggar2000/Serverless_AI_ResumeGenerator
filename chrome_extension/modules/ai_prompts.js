@@ -248,7 +248,7 @@ export function buildAnalysisPrompt(resumeData, jdText) {
     const flatResume = flattenResumeForAnalysis(resumeData);
 
     return `
-You are a strict ATS (Applicant Tracking System) scoring engine. Analyze this resume against the job description.
+You are an ATS (Applicant Tracking System) scoring engine. Analyze this resume against the job description.
 
 JOB DESCRIPTION:
 ${jdText}
@@ -259,34 +259,42 @@ ${flatResume}
 SCORING METHODOLOGY (follow this exactly):
 1. Extract ALL technical keywords from the JD (tools, languages, frameworks, methodologies, certifications)
 2. For each keyword, check WHERE it appears in the resume:
-   - In skills section only: 0.5 points
-   - In summary: +0.3 points
-   - In at least one bullet point with context: +0.5 points
-   - In a role title or project name: +0.2 points
-   Maximum per keyword: 1.5 points
-3. Score = (total_keyword_points / max_possible_points) * 70 + (soft_skill_match * 15) + (experience_relevance * 15)
+   - In skills section only: 0.7 points
+   - In summary: +0.5 points
+   - In at least one bullet point with context: +0.7 points
+   - In a role title or project name: +0.4 points
+   Maximum per keyword: 2.3 points
+3. Score = (total_keyword_points / max_possible_points) * 70 + (soft_skill_match * 12) + (experience_relevance * 18)
 4. A keyword that appears ONLY in skills without any contextual usage in bullets should be flagged as "weak match"
-5. Be STRICT. Most resumes score 40-75 unless heavily tailored.
+5. Be BALANCED. Well-matched resumes can score 85-95. Good matches score 70-84. Only severely mismatched resumes score below 50.
 6. missing_keywords should ONLY list keywords that are completely absent from the resume — not ones that are present but weak
 7. Add a "weak_keywords" field for keywords that exist only in skills but not in context
+
+SCORING GUIDANCE:
+- 90-95: Exceptional match — nearly all keywords present in context, strong experience alignment, excellent summary
+- 85-89: Excellent match — most keywords in context, good experience fit, well-tailored
+- 75-84: Strong match — majority of keywords present, relevant experience, some optimization possible
+- 65-74: Good match — decent keyword coverage, experience is relevant, needs refinement
+- 55-64: Fair match — some keywords missing, experience somewhat relevant, needs work
+- Below 55: Weak match — many missing keywords or misaligned experience
 
 ANALYSIS RULES:
 - missing_keywords: List keywords that appear in the JD but NOT in the resume. Be specific — list actual terms, not categories.
 - matching_areas: List 3-5 specific strengths where the resume strongly matches (e.g., "3+ years Python experience matches requirement", not just "Python")
-- recommendations: Give 3 specific, actionable improvements (e.g., "Add 'Kubernetes' to skills section — mentioned 4 times in JD")
-- summary_feedback: One honest paragraph about overall fit, mentioning the biggest gap
+- recommendations: Give 3 specific, actionable improvements (e.g., "Add 'Kubernetes' to a deployment bullet — mentioned 4 times in JD")
+- summary_feedback: One constructive paragraph about overall fit, mentioning both strengths and the biggest opportunity for improvement
 
 RETURN ONLY THIS JSON:
 {
-    "score": 65,
+    "score": 87,
     "missing_keywords": ["keyword completely absent from resume"],
     "weak_keywords": ["keyword in skills but not used in any bullet - needs contextual placement"],
     "matching_areas": ["Specific strength descriptions"],
     "recommendations": ["Specific actionable improvements"],
-    "summary_feedback": "Honest assessment paragraph"
+    "summary_feedback": "Constructive assessment paragraph highlighting both strengths and areas for improvement"
 }
 
-CRITICAL: Return ONLY valid JSON. No markdown. Be honest with the score — do not inflate.
+CRITICAL: Return ONLY valid JSON. No markdown. Be fair with the score — excellent matches should score 85-95, good matches 70-84.
 `;
 }
 

@@ -801,11 +801,11 @@ header .controls {
 
 /* Drag Card */
 #dragHandle {
-    cursor: grab;
+    cursor: pointer;
 }
 
 #dragHandle:active {
-    cursor: grabbing;
+    transform: scale(0.98);
 }
 
 #dragHandle:hover {
@@ -813,12 +813,6 @@ header .controls {
     background: linear-gradient(135deg, #e8ecff 0%, #dde3ff 100%);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
-}
-
-#dragHandle.dragging {
-    opacity: 0.6;
-    border-color: #4f46e5;
-    background: #e0e7ff;
 }
 
 /* Method Tabs */

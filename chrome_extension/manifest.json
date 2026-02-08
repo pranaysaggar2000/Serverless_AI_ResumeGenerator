@@ -30,6 +30,16 @@
     "background": {
         "service_worker": "background.js"
     },
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "inject_drag.js"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ],
     "content_security_policy": {
         "extension_pages": "script-src 'self'; object-src 'self'"
     }

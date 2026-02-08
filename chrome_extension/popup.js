@@ -681,6 +681,10 @@ function setupEventListeners() {
             });
             updateJdStatus();
             document.getElementById('manualJdInput').style.display = 'none';
+
+            // Hide ATS analysis UI when JD is updated
+            hideAtsAnalysisUI();
+
             showStatus("Job description loaded!", "success");
             setTimeout(() => showStatus('', ''), 2000);
         });
@@ -727,6 +731,10 @@ function setupEventListeners() {
                 jdExtractionMethod: 'manual'
             });
             jdEditSaveContainer.style.display = 'none';
+
+            // Hide ATS analysis UI when JD is updated
+            hideAtsAnalysisUI();
+
             showStatus("JD updated!", "success");
             setTimeout(() => showStatus('', ''), 2000);
             updateJdStatus();
@@ -1178,9 +1186,9 @@ function setupEventListeners() {
                 }
             }, 1000);
 
-            if (analysis) {
-                renderAnalysis(analysis);
-            }
+            // Don't show ATS analysis UI after forging - only when user clicks ATS Score button
+            // Hide the ATS analysis UI if it was previously shown
+            hideAtsAnalysisUI();
 
             // After tailoring success, pre-generate the PDF and download
             await generateAndDownloadPDF(newResume);
@@ -1749,6 +1757,15 @@ async function updateActiveTabLabel() {
     } catch (e) { /* ignore */ }
 }
 
+// Helper function to hide ATS analysis UI when JD changes
+function hideAtsAnalysisUI() {
+    const analysisResults = document.getElementById('analysisResults');
+    if (analysisResults) {
+        analysisResults.classList.add('hidden');
+        analysisResults.style.display = 'none';
+    }
+}
+
 function updateJdStatus() {
     const dot = document.getElementById('jdStatusDot');
     const text = document.getElementById('jdStatusText');
@@ -1807,6 +1824,9 @@ function updateJdStatus() {
             const jdEditSaveContainer = document.getElementById('jdEditSaveContainer');
             if (jdEditSaveContainer) jdEditSaveContainer.style.display = 'none';
         }
+
+        // Hide ATS analysis UI when JD changes
+        hideAtsAnalysisUI();
     } else {
         dot.style.background = '#9ca3af';
         text.textContent = 'No job description loaded';

@@ -1,8 +1,12 @@
-import { state } from './state.js';
+import { state, updateState } from './state.js';
 import { hasData, formatSectionName } from './utils.js';
-import { invalidatePdfCache } from './dragdrop.js';
 import { showStatus } from './ui.js';
 import { saveProfileChanges } from './editor.js';
+
+// Local helper to invalidate PDF cache (drag and drop removed)
+function invalidatePdfCache() {
+    updateState({ latestPdfBlob: null });
+}
 
 let dragSrcEl = null;
 

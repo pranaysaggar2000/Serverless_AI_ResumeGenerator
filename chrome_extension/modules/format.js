@@ -1,8 +1,12 @@
 import { state, updateState } from './state.js';
-import { invalidatePdfCache } from './dragdrop.js';
 import { generatePdf } from './api.js';
 import { showStatus, showMainUI, showSetupUI, showSettings } from './ui.js';
 import { checkCurrentProviderKey } from './utils.js';
+
+// Local helper to invalidate PDF cache (drag and drop removed)
+function invalidatePdfCache() {
+    updateState({ latestPdfBlob: null });
+}
 
 export const DEFAULT_FORMAT = {
     font: "times",

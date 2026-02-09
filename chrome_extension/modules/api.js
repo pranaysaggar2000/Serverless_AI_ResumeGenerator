@@ -46,6 +46,14 @@ export async function extractBaseProfile(text, apiKey, provider) {
 
     // NEW: Direct AI Call
     try {
+        console.log('📄 extractBaseProfile called with:', {
+            provider,
+            hasApiKey: !!apiKey,
+            apiKeyLength: apiKey?.length || 0,
+            authMode: state.authMode,
+            isLoggedIn: state.isLoggedIn
+        });
+
         const prompt = Prompts.buildExtractProfilePrompt(text);
 
         const actionId = `profile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

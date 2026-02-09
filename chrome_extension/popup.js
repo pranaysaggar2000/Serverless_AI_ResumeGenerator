@@ -393,12 +393,34 @@ async function loadState() {
         detectedCompany: data.detected_company || null,
         detectedPageUrl: data.detected_page_url || "",
         jdExtractionMethod: data.jd_extraction_method || 'none',
-        detectedCompanyDescription: data.detected_company_description || "",
-        authMode: data.auth_mode || (state.isLoggedIn ? 'free' : 'byok')
+        detectedCompanyDescription: data.detected_company_description || ""
+        // DO NOT set authMode here - wait until after loadAuthState()
     });
 
+    // Load authentication state first, which will set isLoggedIn and authMode if tokens exist
     const { loadAuthState } = await import('./modules/auth.js');
     await loadAuthState();
+
+    // NOW determine authMode based on the loaded auth state
+    // Priority: 1) Stored auth_mode preference, 2) If logged in, use 'free', 3) If has BYOK keys, use 'byok', 4) Default to 'free'
+    let finalAuthMode = data.auth_mode; // Respect user's explicit choice if stored
+    if (!finalAuthMode) {
+        // If no explicit choice, auto-determine
+        if (state.isLoggedIn) {
+            finalAuthMode = 'free';
+        } else if (data.gemini_api_key || data.groq_api_key || data.openrouter_api_key) {
+            finalAuthMode = 'byok';
+        } else {
+            finalAuthMode = 'free'; // Default to free tier (user will need to login)
+        }
+    }
+    console.log('🔐 Auth Mode Initialized:', {
+        authMode: finalAuthMode,
+        isLoggedIn: state.isLoggedIn,
+        hasStoredMode: !!data.auth_mode,
+        hasByokKeys: !!(data.gemini_api_key || data.groq_api_key || data.openrouter_api_key)
+    });
+    updateState({ authMode: finalAuthMode });
 
     updateActiveProfileLabel(state.activeProfile);
 
@@ -687,11 +709,14 @@ function setupEventListeners() {
             renderAuthSection();
             updateUsageDisplay();
 
-            // If we have a base resume, go to main UI. If not, they probably need to upload one still
-            // but usually login follows the onboarding path.
+            // Auto-redirection logic
             setTimeout(() => {
-                if (state.baseResume) showMainUI();
-            }, 1000);
+                if (state.baseResume) {
+                    showMainUI();
+                } else {
+                    showSetupUI();
+                }
+            }, 800);
         } catch (e) {
             showStatus('Login failed: ' + e.message, 'error', 'settingsStatus');
         }

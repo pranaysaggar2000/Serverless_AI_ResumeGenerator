@@ -55,6 +55,7 @@ CREATE TABLE public.usage (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   action_type TEXT NOT NULL,
+  action_id TEXT, -- Unique ID for the action to prevent double-counting
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

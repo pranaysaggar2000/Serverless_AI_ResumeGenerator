@@ -1,8 +1,17 @@
 import { state } from './state.js';
 
 export async function callAI(prompt, provider, apiKey, options = {}) {
+    console.log('🤖 callAI invoked:', {
+        provider,
+        hasApiKey: !!apiKey,
+        authMode: state.authMode,
+        isLoggedIn: state.isLoggedIn,
+        taskType: options.taskType
+    });
+
     // 1. Handle Free Tier (Server-side)
     if (state.authMode === 'free') {
+        console.log('✅ Using FREE tier (server-side AI)');
         if (!state.isLoggedIn) {
             const { showStatus } = await import('./ui.js');
             showStatus('Please sign in with Google to use the free tier.', 'error');
@@ -36,6 +45,7 @@ export async function callAI(prompt, provider, apiKey, options = {}) {
     }
 
     // 2. Handle BYOK (Direct API calls)
+    console.log('🔑 Using BYOK mode (Bring Your Own Key)');
     if (!apiKey) {
         throw new Error(`Please configure your ${provider.toUpperCase()} API key in settings.`);
     }

@@ -132,9 +132,14 @@ export function renderQuickStatus() {
     if (!el) return;
 
     if (state.authMode === 'free') {
-        const { used, limit, remaining } = state.freeUsage;
-        el.innerHTML = `⚡ Free Tier · ${remaining}/${limit} left`;
-        el.style.color = remaining === 0 ? 'var(--error)' : remaining <= 3 ? 'var(--warning)' : 'var(--text-secondary)';
+        if (!state.isLoggedIn) {
+            el.innerHTML = `⚡ Free Tier: Please login`;
+            el.style.color = 'var(--text-secondary)';
+        } else {
+            const { used, limit, remaining } = state.freeUsage;
+            el.innerHTML = `⚡ Free Tier · ${remaining}/${limit} left`;
+            el.style.color = remaining === 0 ? 'var(--error)' : remaining <= 3 ? 'var(--warning)' : 'var(--text-secondary)';
+        }
     } else {
         const providerName = state.currentProvider.charAt(0).toUpperCase() + state.currentProvider.slice(1);
         el.innerHTML = `🔑 ${providerName} Mode (BYOK)`;
@@ -175,54 +180,61 @@ export function renderAuthSection() {
         // Hide login prompt
         const loginPrompt = getEl('freeLoginPrompt');
         if (loginPrompt) loginPrompt.classList.add('hidden');
-    } else if (!hasKeys) {
-        // Welcoming "Two Paths" for new users
-        container.innerHTML = `
-            <div style="text-align: center; background: var(--primary-gradient); color: white; padding: 20px; border-radius: var(--radius-lg); margin-bottom: 12px; box-shadow: var(--shadow-md);">
-                <h3 style="margin: 0; color: white;">Welcome to ForgeCV!</h3>
-                <p style="font-size: 11px; opacity: 0.9; margin: 8px 0;">Choose how you'd like to power your AI features:</p>
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
-                    <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);">
-                        <div style="font-size: 14px;">⚡</div>
-                        <div style="font-weight: bold; font-size: 11px;">Path A</div>
-                        <div style="font-size: 10px; opacity: 0.8;">Free tier (15/day)</div>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);">
-                        <div style="font-size: 14px;">🔑</div>
-                        <div style="font-weight: bold; font-size: 11px;">Path B</div>
-                        <div style="font-size: 10px; opacity: 0.8;">Unlimited (BYOK)</div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // Show login prompt if in free mode
-        const loginPrompt = getEl('freeLoginPrompt');
-        if (loginPrompt && state.authMode === 'free') {
-            loginPrompt.classList.remove('hidden');
-            loginPrompt.style.textAlign = 'center';
-            loginPrompt.innerHTML = `
-                <p class="text-sm" style="font-weight: bold; margin-bottom: 8px;">Path A: Quick Start (Free)</p>
+    } else {
+        // Shared login button HTML for both new users and BYOK users
+        const loginBtnHtml = `
+            <div id="loginPromptContent" style="text-align: center;">
+                <p class="text-sm" style="font-weight: bold; margin-bottom: 8px;">Path A: Quick Start (Free Tier)</p>
                 <button id="googleLoginBtn" class="google-btn">
                     <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="G">
                     Sign in with Google
                 </button>
                 <p class="text-xs text-muted" style="margin-top: 8px;">Get 15 free AI resumes/day instantly</p>
-            `;
-        }
-    } else {
-        // Standard signed out state with keys already present
-        container.innerHTML = `
-            <div style="text-align: center; padding: 10px;">
-                <p class="text-sm" style="margin-bottom: 4px; font-weight: 600;">Standard Tier</p>
-                <p class="text-xs text-muted">Using your own API keys. Sign in to use our Free Tier instead.</p>
             </div>
         `;
 
-        const loginPrompt = getEl('freeLoginPrompt');
-        if (loginPrompt && state.authMode === 'free') {
-            loginPrompt.classList.remove('hidden');
+        if (!hasKeys) {
+            // Welcoming "Two Paths" for new users
+            container.innerHTML = `
+                <div style="text-align: center; background: var(--primary-gradient); color: white; padding: 20px; border-radius: var(--radius-lg); margin-bottom: 12px; box-shadow: var(--shadow-md);">
+                    <h3 style="margin: 0; color: white;">Welcome to ForgeCV!</h3>
+                    <p style="font-size: 11px; opacity: 0.9; margin: 8px 0;">Choose how you'd like to power your AI features:</p>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+                        <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);">
+                            <div style="font-size: 14px;">⚡</div>
+                            <div style="font-weight: bold; font-size: 11px;">Path A</div>
+                            <div style="font-size: 10px; opacity: 0.8;">Free tier (15/day)</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);">
+                            <div style="font-size: 14px;">🔑</div>
+                            <div style="font-weight: bold; font-size: 11px;">Path B</div>
+                            <div style="font-size: 10px; opacity: 0.8;">Unlimited (BYOK)</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const loginPrompt = getEl('freeLoginPrompt');
+            if (loginPrompt) {
+                loginPrompt.innerHTML = loginBtnHtml;
+                loginPrompt.classList.remove('hidden');
+            }
+        } else {
+            // Standard signed out state with keys already present
+            container.innerHTML = `
+                <div style="text-align: center; border: 1px dashed var(--border-color); padding: 15px; border-radius: var(--radius-md); margin-bottom: 12px; background: #f9fafb;">
+                    <div style="font-size: 18px; margin-bottom: 4px;">🎯</div>
+                    <p class="text-sm" style="margin-bottom: 4px; font-weight: 600;">Custom Keys Active</p>
+                    <p class="text-xs text-muted">You are currently using your own API keys.</p>
+                </div>
+            `;
+
+            const loginPrompt = getEl('freeLoginPrompt');
+            if (loginPrompt) {
+                loginPrompt.innerHTML = loginBtnHtml;
+                loginPrompt.classList.remove('hidden');
+            }
         }
     }
 
@@ -240,10 +252,25 @@ export function updateUsageDisplay() {
     const banner = getEl('usageLimitBanner');
     if (!container) return;
 
-    if (!state.isLoggedIn || state.authMode !== 'free') {
+    if (state.authMode !== 'free') {
         container.innerHTML = '';
         if (banner) banner.classList.add('hidden');
         enableAiButtons(true);
+        renderQuickStatus();
+        return;
+    }
+
+    if (!state.isLoggedIn) {
+        container.innerHTML = `
+            <div class="usage-container" style="border: 1px dashed var(--border-color); opacity: 0.8;">
+                <p class="text-xs" style="text-align: center; margin: 0;">
+                    ⚡ <strong>Free Tier:</strong> Please login to use AI features
+                </p>
+            </div>
+        `;
+        if (banner) banner.classList.add('hidden');
+        enableAiButtons(false); // Can't use AI in free mode if logged out
+        renderQuickStatus();
         return;
     }
 

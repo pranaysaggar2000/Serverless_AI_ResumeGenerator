@@ -13,9 +13,12 @@ module.exports = withCors(async (req, res) => {
 
     try {
         // Get the callback URL (Prioritize manual production URL for Supabase consistency)
-        const baseUrl = process.env.API_BASE_URL
+        let baseUrl = process.env.API_BASE_URL
             ? process.env.API_BASE_URL
             : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+
+        // Strip trailing slash if present
+        if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
 
         const redirectTo = `${baseUrl}/api/auth/callback`;
 

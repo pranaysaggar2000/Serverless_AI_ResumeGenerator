@@ -70,13 +70,14 @@
 <body>
     <div class="container">
         <h1>Privacy Policy for ForgeCV</h1>
-        <p><strong>Last Updated:</strong> February 6, 2026</p>
+        <p><strong>Last Updated:</strong> February 9, 2026</p>
 
         <p>ForgeCV ("we", "our", or "us") respects your privacy. This Privacy Policy explains how we handle your data
-            when you use the ForgeCV Chrome Extension.</p>
+            when you use the ForgeCV Chrome Extension and our associated API services.</p>
 
         <h2>1. Data Collection and Usage</h2>
-        <p>ForgeCV is designed with privacy in mind. We minimize data collection and prioritize local storage.</p>
+        <p>ForgeCV is designed with a "local-first" philosophy. We minimize data collection and prioritize local storage
+            for your sensitive resume data.</p>
 
         <h3>A. Personal Information (Resume Data)</h3>
         <ul>
@@ -84,53 +85,68 @@
                 Email, Phone, Experience, etc.).</li>
             <li><strong>How:</strong> This data is parsed and stored <strong>locally</strong> in your browser's storage
                 (<code>chrome.storage.local</code>).</li>
-            <li><strong>Why:</strong> To allow the extension to generate tailored resumes based on your profile.</li>
-            <li><strong>Sharing:</strong> This data is sent <strong>only</strong> to your selected AI provider (Google
-                Gemini or Groq) for the sole purpose of generating your resume content. We do not store this data on our
-                own servers.</li>
+            <li><strong>Processing (BYOK Mode):</strong> If you use your own API keys, your resume data is sent directly
+                from your browser to the AI provider (Google or Groq). It never touches our servers.</li>
+            <li><strong>Processing (Free Mode):</strong> If you use our Free tier, your resume data and job descriptions
+                are sent to our secure Vercel API, which proxies the request to the AI provider using our project keys.
+                We do not permanently store your resume content on our servers.</li>
         </ul>
 
-        <h3>B. Website Content (Job Descriptions)</h3>
+        <h3>B. User Accounts & Authentication</h3>
         <ul>
-            <li><strong>What:</strong> We read the text content of the web page you are currently viewing when you click
-                the "Process Page" button.</li>
-            <li><strong>How:</strong> This is done via the <code>activeTab</code> permission.</li>
-            <li><strong>Why:</strong> To analyze the job description and key requirements needed to tailor your resume.
-            </li>
-            <li><strong>Sharing:</strong> This text is sent to your selected AI provider for analysis.</li>
+            <li><strong>What:</strong> If you sign in via Google, we store your email address, name, and a unique user
+                ID using Supabase.</li>
+            <li><strong>Why:</strong> To manage your account, track your daily usage limits, and provide access to the
+                Free tier service.</li>
         </ul>
 
-        <h3>C. User Queries (Smart Q&A)</h3>
+        <h3>C. Usage & Security Monitoring</h3>
         <ul>
-            <li><strong>What:</strong> Questions you explicitly ask via the "Smart Q&A" feature.</li>
-            <li><strong>Sharing:</strong> Your question, along with relevant resume and job description context, is sent
-                to your selected AI provider.</li>
-            <li><strong>Storage:</strong> Queries are ephemeral and not permanently stored by the extension.</li>
+            <li><strong>Usage Tracking:</strong> We track the number and type of AI actions (e.g., 'tailor', 'score')
+                you perform daily to enforce rate limits.</li>
+            <li><strong>Security Audits:</strong> To prevent API abuse (such as non-resume related queries or prompt
+                injection attacks), our server may log truncated previews of AI prompts. These logs are used strictly
+                for security monitoring and are deleted periodically.</li>
+        </ul>
+
+        <h3>D. Website Content (Job Descriptions)</h3>
+        <ul>
+            <li><strong>What:</strong> We read the text content of the job description web page you are currently
+                viewing.</li>
+            <li><strong>How:</strong> This is done via the <code>activeTab</code> permission when you explicitly trigger
+                a forge or analysis.</li>
+            <li><strong>Sharing:</strong> This text is processed using the same logic as your Resume Data (Direct in
+                BYOK mode, Proxied in Free mode).</li>
         </ul>
 
         <h2>2. API Keys</h2>
         <ul>
             <li>Any API keys you provide (e.g., Gemini API Key, Groq API Key) are stored <strong>locally</strong> in
                 your browser.</li>
-            <li>They are never sent to our servers.</li>
-            <li>They are used strictly to authenticate requests with the respective AI providers.</li>
+            <li>They are used strictly to authenticate direct requests between your browser and the AI providers. They
+                are never sent to our servers.</li>
         </ul>
 
         <h2>3. Third-Party Services</h2>
-        <p>We use the following third-party services to provide core functionality. Their use of your data is governed
-            by their respective privacy policies:</p>
+        <p>We use the following third-party services to provide core functionality:</p>
         <ul>
-            <li><strong>Google Gemini API:</strong> Used for AI text generation. <a
-                    href="https://policies.google.com/privacy" target="_blank">Google Privacy Policy</a></li>
-            <li><strong>Groq API:</strong> Used for AI text generation. <a href="https://wow.groq.com/privacy-policy/"
+            <li><strong>Google Gemini API:</strong> AI generation. <a href="https://policies.google.com/privacy"
+                    target="_blank">Google Privacy Policy</a></li>
+            <li><strong>Groq API:</strong> AI generation. <a href="https://wow.groq.com/privacy-policy/"
                     target="_blank">Groq Privacy Policy</a></li>
+            <li><strong>OpenRouter:</strong> AI generation. <a href="https://openrouter.ai/privacy"
+                    target="_blank">OpenRouter Privacy</a></li>
+            <li><strong>Supabase:</strong> Account management and usage database. <a href="https://supabase.com/privacy"
+                    target="_blank">Supabase Privacy</a></li>
+            <li><strong>Vercel:</strong> Hosting for our API proxy. <a href="https://vercel.com/privacy"
+                    target="_blank">Vercel Privacy</a></li>
         </ul>
 
         <h2>4. Data Security</h2>
         <ul>
-            <li>Your data is stored locally on your device.</li>
-            <li>Transmission to AI providers occurs over secure HTTPS connections.</li>
-            <li>We do not sell, trade, or rent your personal identification information to others.</li>
+            <li>Your primary resume profile is stored locally on your device.</li>
+            <li>All transmissions occur over secure, encrypted HTTPS connections.</li>
+            <li>We do not sell, trade, or rent your personal identification information to third parties.</li>
         </ul>
 
         <h2>5. Contact Us</h2>

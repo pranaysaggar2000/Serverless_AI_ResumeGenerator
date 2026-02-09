@@ -46,8 +46,8 @@ const stateShape = {
     freeUsage: { used: 0, remaining: 15, limit: 15, resetsAt: null },
     isLoggedIn: false,
     pageMode: "1page",           // "1page" | "2page"  
-    excludedItems: null,          // { projects: [0,2], experience: [], leadership: [1] } — indices of items AI removed
-    mustIncludeItems: null        // { projects: [2], experience: [] } — items user wants re-included on next forge
+    excludedItems: null,          // { projects: ["Resumatrix"], leadership: ["Org Name"] } — string identifiers of items AI removed
+    mustIncludeItems: null        // { projects: ["Resumatrix"] } — string identifiers of items user wants re-included on next forge
 };
 
 // Internal mutable state

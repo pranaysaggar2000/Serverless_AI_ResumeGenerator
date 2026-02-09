@@ -188,12 +188,25 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
             research: [], certifications: [], awards: [], volunteering: []
         };
 
-        // Validate: ensure all values are arrays of integers
+        // Accept both strings (new format) and numbers (legacy), convert numbers to strings
         for (const key of Object.keys(excludedItems)) {
             if (!Array.isArray(excludedItems[key])) {
                 excludedItems[key] = [];
             }
-            excludedItems[key] = excludedItems[key].filter(i => typeof i === 'number' && Number.isInteger(i));
+            excludedItems[key] = excludedItems[key]
+                .map(i => {
+                    if (typeof i === 'string') return i.trim();
+                    if (typeof i === 'number') {
+                        // Legacy: convert index to item name from baseResume
+                        const sectionItems = state.baseResume?.[key] || [];
+                        if (i < sectionItems.length) {
+                            const item = sectionItems[i];
+                            return item.company || item.name || item.organization || item.title || '';
+                        }
+                    }
+                    return null;
+                })
+                .filter(i => i && i.length > 0);
         }
 
         // Remove excluded_items from the resume data itself (it's metadata, not resume content)
@@ -251,14 +264,30 @@ export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis,
         let excludedItems = newTailoredData.excluded_items || {};
         delete newTailoredData.excluded_items;
 
-        // Validate excluded items
+        // Accept both strings (new format) and numbers (legacy), convert numbers to strings
         for (const key of Object.keys(excludedItems)) {
-            if (!Array.isArray(excludedItems[key])) excludedItems[key] = [];
-            excludedItems[key] = excludedItems[key].filter(i => typeof i === 'number');
+            if (!Array.isArray(excludedItems[key])) {
+                excludedItems[key] = [];
+            }
+            excludedItems[key] = excludedItems[key]
+                .map(i => {
+                    if (typeof i === 'string') return i.trim();
+                    if (typeof i === 'number') {
+                        // Legacy: convert index to item name from baseResume
+                        const sectionItems = state.baseResume?.[key] || [];
+                        if (i < sectionItems.length) {
+                            const item = sectionItems[i];
+                            return item.company || item.name || item.organization || item.title || '';
+                        }
+                    }
+                    return null;
+                })
+                .filter(i => i && i.length > 0);
         }
 
         // Post-process
-        newTailoredData = Prompts.restore_immutable_fields(base, newTailoredData);
+        // Use baseResume for immutable field restoration to maintain data integrity
+        newTailoredData = Prompts.restore_immutable_fields(state.baseResume || base, newTailoredData);
         newTailoredData = Prompts.clean_tailored_resume(newTailoredData);
         newTailoredData = Prompts.enforce_bullet_limits(newTailoredData, bulletCounts);
 

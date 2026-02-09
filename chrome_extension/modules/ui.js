@@ -81,6 +81,7 @@ export function showMainUI() {
     getEl('setupUI').style.display = 'none';
     getEl('settingsUI').style.display = 'none';
     getEl('profileUI').style.display = 'none';
+    getEl('editorUI').style.display = 'none'; // Ensure editor is hidden
     getEl('mainUI').style.display = 'block';
 
     if (getEl('editorUI')) getEl('editorUI').style.display = 'none';

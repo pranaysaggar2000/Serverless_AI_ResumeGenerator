@@ -217,3 +217,22 @@ CREATE TABLE public.api_keys (
   last_used_at TIMESTAMPTZ
 );
 ```
+
+### `public.prompt_audit` (Security Monitoring)
+
+Tracks suspicious or low-quality prompts to detect API abuse or injection attempts.
+
+```sql
+CREATE TABLE public.prompt_audit (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    marker_hits INTEGER,      -- Number of "ForgeCV" markers found
+    prompt_preview TEXT,      -- Truncated preview of the prompt
+    task_type TEXT,          -- Type of AI task (tailor, score, etc)
+    flagged BOOLEAN DEFAULT false, -- True if prompt was blocked
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for monitoring performance
+CREATE INDEX idx_prompt_audit_flagged ON public.prompt_audit(flagged, created_at);
+```

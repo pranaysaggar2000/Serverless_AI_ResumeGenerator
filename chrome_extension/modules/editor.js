@@ -9,30 +9,37 @@ let currentEditingResumeSource = null; // Track which state object we cloned fro
 let inputTimeout = null;
 
 function getExcludedItemsForSection(section) {
-    const excludedIndices = getSectionData(state.excludedItems, section);
-    if (!excludedIndices || !Array.isArray(excludedIndices)) return [];
+    if (!state.excludedItems || !state.excludedItems[section]) return [];
+    if (!state.baseResume || !state.baseResume[section]) return [];
 
-    const baseItems = getSectionData(state.baseResume, section);
-    const tailoredItems = getSectionData(state.tailoredResume, section) || [];
+    const excludedIds = state.excludedItems[section]; // array of string identifiers
+    if (!Array.isArray(excludedIds) || excludedIds.length === 0) return [];
 
-    if (!baseItems) return [];
+    const baseItems = state.baseResume[section];
+    const tailoredItems = state.tailoredResume?.[section] || [];
 
-    // Find items in baseResume that are NOT in tailoredResume (by content matching)
     return baseItems
         .map((item, idx) => ({ index: idx, item }))
-        .filter(({ item, index }) => {
-            // Only consider items the AI explicitly flagged as excluded
-            if (!excludedIndices.includes(index)) return false;
+        .filter(({ item }) => {
+            const itemId = (item.company || item.name || item.organization || item.title || '').toLowerCase().trim();
 
-            // Verify they aren't actually present in the tailored resume (robustness check)
-            const identifier = (item.company || item.name || item.organization || item.title || '').toLowerCase();
-            const role = (item.role || item.tech || item.conference || '').toLowerCase();
-
-            return !tailoredItems.some(t => {
-                const tId = (t.company || t.name || t.organization || t.title || '').toLowerCase();
-                const tRole = (t.role || t.tech || t.conference || '').toLowerCase();
-                return tId === identifier && tRole === role;
+            // Check 1: Is this item in the excluded list (by name match)?
+            const isExcluded = excludedIds.some(id => {
+                const excludedLower = String(id).toLowerCase().trim();
+                return excludedLower === itemId ||
+                    itemId.includes(excludedLower) ||
+                    excludedLower.includes(itemId);
             });
+
+            if (!isExcluded) return false;
+
+            // Check 2: Verify it's actually missing from the tailored resume
+            const isPresentInTailored = tailoredItems.some(t => {
+                const tId = (t.company || t.name || t.organization || t.title || '').toLowerCase().trim();
+                return tId === itemId || tId.includes(itemId) || itemId.includes(tId);
+            });
+
+            return !isPresentInTailored;
         });
 }
 
@@ -469,7 +476,12 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
                 const currentMustIncludeForSection = mustInclude[section] || [];
 
                 excludedForSection.forEach(({ index, item }) => {
-                    const isMarkedForInclusion = currentMustIncludeForSection.includes(index);
+                    const itemIdentifier = item.company || item.name || item.organization || item.title || '';
+                    const isMarkedForInclusion = currentMustIncludeForSection.some(id => {
+                        const idLower = String(id).toLowerCase().trim();
+                        const itemLower = itemIdentifier.toLowerCase().trim();
+                        return idLower === itemLower || idLower.includes(itemLower) || itemLower.includes(idLower);
+                    });
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'excluded-item';
                     itemDiv.style.cssText = `padding:10px; margin-bottom:8px; background:${isMarkedForInclusion ? '#d1fae5' : '#fff'}; border:1px solid ${isMarkedForInclusion ? '#10b981' : '#e5e7eb'}; border-radius:6px; opacity:${isMarkedForInclusion ? '1' : '0.7'}; transition:all 0.2s;`;
@@ -481,7 +493,7 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
 
                     itemDiv.innerHTML = `
                         <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; font-size:12px;">
-                            <input type="checkbox" class="include-toggle" data-section="${section}" data-index="${index}" 
+                            <input type="checkbox" class="include-toggle" data-section="${section}" data-index="${index}" data-item-id="${escapeHtml(item.company || item.name || item.organization || item.title || '')}" 
                                 ${isMarkedForInclusion ? 'checked' : ''} 
                                 style="margin-top:2px; accent-color:#10b981; width:16px; height:16px;">
                             <div>
@@ -501,7 +513,7 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
                     if (!e.target.classList.contains('include-toggle')) return;
 
                     const sec = e.target.dataset.section;
-                    const idx = parseInt(e.target.dataset.index);
+                    const itemId = e.target.dataset.itemId; // string identifier
                     const checked = e.target.checked;
 
                     // Update mustIncludeItems in state
@@ -509,9 +521,9 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
                     if (!current[sec]) current[sec] = [];
 
                     if (checked) {
-                        if (!current[sec].includes(idx)) current[sec].push(idx);
+                        if (!current[sec].includes(itemId)) current[sec].push(itemId);
                     } else {
-                        current[sec] = current[sec].filter(i => i !== idx);
+                        current[sec] = current[sec].filter(i => i !== itemId);
                     }
 
                     updateState({ mustIncludeItems: current });

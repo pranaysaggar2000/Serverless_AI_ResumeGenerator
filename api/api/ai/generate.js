@@ -42,6 +42,68 @@ module.exports = withCors(async (req, res) => {
             return res.status(400).json({ error: `Invalid taskType: ${taskType}` });
         }
 
+        // === PROMPT ABUSE PREVENTION ===
+        // Validate that the prompt is actually a ForgeCV resume-related prompt.
+        // We check for the presence of ForgeCV-specific markers that our prompt builder always includes.
+
+        const promptLower = prompt.toLowerCase();
+
+        // Our buildTailorPrompt, buildAnalysisPrompt, buildParseJobDescriptionPrompt, 
+        // buildExtractProfilePrompt, buildQuestionPrompt, and buildExtractJDFromPagePrompt
+        // all contain distinctive structural markers. Check for at least one.
+        const FORGECV_MARKERS = [
+            'return only valid json',           // Present in all JSON-expecting prompts
+            'section_order',                     // Present in tailor and extract prompts
+            'ats',                               // Present in analysis prompts  
+            'job description',                   // Present in JD parse and tailor prompts
+            'resume',                            // Present in almost all ForgeCV prompts
+            'bullet',                            // Present in tailor prompts
+            'mandatory_keywords',                // Present in JD parse output format
+            'excluded_items',                    // Present in tailor prompt output format
+            'extract structured data',           // Present in profile extraction prompt
+            'applicant',                         // Present in question prompt
+        ];
+
+        // Require at least 3 markers to be present — normal ForgeCV prompts hit 5+
+        const markerHits = FORGECV_MARKERS.filter(m => promptLower.includes(m)).length;
+
+        // Log low-marker prompts for monitoring (don't block the request flow)
+        if (markerHits < 5) {
+            try {
+                const { supabaseAdmin } = require('../../lib/supabase');
+                await supabaseAdmin.from('prompt_audit').insert({
+                    user_id: user.id,
+                    marker_hits: markerHits,
+                    prompt_preview: prompt.substring(0, 200).replace(/\0/g, ''),
+                    task_type: taskType || 'default',
+                    flagged: markerHits < 3,
+                    created_at: new Date().toISOString()
+                }).catch(() => { }); // Silent fail — don't break the request
+            } catch (_) { }
+        }
+
+        if (markerHits < 3) {
+            console.warn(`Prompt abuse suspected: only ${markerHits} ForgeCV markers found. User: ${user.id}`);
+            return res.status(400).json({
+                error: 'Invalid prompt format. This API only accepts ForgeCV resume prompts.'
+            });
+        }
+
+        // Additional check: block prompts that look like direct chat/conversation
+        const ABUSE_PATTERNS = [
+            /^(hi|hello|hey|what is|explain|tell me|write me|help me|can you)/i,
+            /^(translate|summarize this article|write a (poem|story|essay|code))/i,
+            /^(ignore previous|disregard|forget your|you are now|act as)/i,  // prompt injection patterns
+        ];
+
+        const isAbuse = ABUSE_PATTERNS.some(pattern => pattern.test(prompt.trim()));
+        if (isAbuse) {
+            console.warn(`Prompt injection/abuse blocked. User: ${user.id}, prompt start: "${prompt.substring(0, 100)}"`);
+            return res.status(400).json({
+                error: 'Invalid prompt format.'
+            });
+        }
+
         // Check rate limit and increment usage
         const usageResult = await checkAndIncrementUsage(user.id, taskType || 'default', actionId);
 

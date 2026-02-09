@@ -1609,8 +1609,7 @@ function setupEventListeners() {
 
                 import('./modules/ats_live.js').then(m => m.renderLiveAtsBadge('formContainer'));
 
-                document.getElementById('editorUI').style.display = 'none';
-                document.getElementById('actions').style.display = 'block';
+                showMainUI();
             } catch (e) {
                 console.error("Save Manual Error:", e);
                 showStatus(`Error: ${e.message}`, "error");
@@ -1685,8 +1684,7 @@ function setupEventListeners() {
                     await saveVersion(finalResume, jdAnalysis.title || jdAnalysis.job_title || "Edited Role");
                 }
 
-                document.getElementById('editorUI').style.display = 'none';
-                document.getElementById('actions').style.display = 'block';
+                showMainUI();
 
             } catch (e) {
                 console.error("Regeneration Error:", e);

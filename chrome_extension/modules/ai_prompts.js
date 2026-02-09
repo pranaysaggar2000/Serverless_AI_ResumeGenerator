@@ -187,8 +187,8 @@ FILL THE PAGE: With ${fmt.bodySize}pt font and ${fmt.density} spacing, a single 
 
 ${mustIncludeItems ? `
 MANDATORY INCLUSIONS — The user explicitly requested these items be KEPT:
-${Object.entries(mustIncludeItems).filter(([k, v]) => v && v.length > 0).map(([section, indices]) =>
-            `   - ${section}: items at indices [${indices.join(', ')}] MUST be included`
+${Object.entries(mustIncludeItems).filter(([k, v]) => v && v.length > 0).map(([section, ids]) =>
+            `   - ${section}: items named [${ids.map(id => `"${id}"`).join(', ')}] MUST be included and tailored`
         ).join('\n')}
    Tailor their bullets to be concise and JD-relevant but do NOT remove them.
 ` : ''}
@@ -327,7 +327,7 @@ Return ONLY valid JSON:
         "volunteering": []
     }
 }
-// The "excluded_items" field MUST contain arrays of INTEGER INDICES (0-based) referencing items from the BASE RESUME input that you decided to remove. If you kept everything, use empty arrays. This is critical for the user to know what was removed.
+// The "excluded_items" field MUST contain arrays of STRING IDENTIFIERS for items you removed. Use the item's primary name as the identifier — for experience use the company name (e.g. "EazyML"), for projects use the project name (e.g. "Resumatrix"), for leadership use the organization name, for research use the paper title, for certifications/awards use the cert/award name. If you kept everything in a section, use an empty array [].
 
 No markdown code blocks. No text before or after. Verify all brackets match.
 `;

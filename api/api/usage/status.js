@@ -7,6 +7,7 @@ const { withCors } = require('../../lib/cors');
  * GET /api/usage/status
  */
 module.exports = withCors(async (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
 
     // Only allow GET
     if (req.method !== 'GET') {

@@ -6,6 +6,7 @@ const { withCors } = require('../../lib/cors');
  * POST /api/auth/refresh
  */
 module.exports = withCors(async (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
 
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });

@@ -6,6 +6,7 @@ const { withCors } = require('../../lib/cors');
  * GET /api/auth/callback
  */
 module.exports = withCors(async (req, res) => {
+  res.setHeader('Content-Type', 'text/html');
   try {
     // Extract code from query parameters
     const { code, error: oauthError } = req.query;

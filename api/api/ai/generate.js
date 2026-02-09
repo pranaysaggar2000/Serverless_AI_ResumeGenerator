@@ -8,6 +8,7 @@ const { withCors } = require('../../lib/cors');
  * POST /api/ai/generate
  */
 module.exports = withCors(async (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
     // Only allow POST
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });

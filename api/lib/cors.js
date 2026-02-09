@@ -11,7 +11,7 @@ function withCors(handler) {
     return async (req, res) => {
         // Set CORS headers
         Object.entries(CORS_HEADERS).forEach(([key, val]) => res.setHeader(key, val));
-        res.setHeader('Content-Type', 'application/json');
+
 
         // Handle preflight
         if (req.method === 'OPTIONS') {

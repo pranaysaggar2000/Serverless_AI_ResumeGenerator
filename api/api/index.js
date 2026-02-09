@@ -5,6 +5,7 @@ const { withCors } = require('../lib/cors');
  * or handles landing from OAuth redirects.
  */
 module.exports = withCors(async (req, res) => {
+    res.setHeader('Content-Type', 'text/html');
     // If we have tokens in the path (though they are usually in fragment)
     // or just landing on the root of the API.
 

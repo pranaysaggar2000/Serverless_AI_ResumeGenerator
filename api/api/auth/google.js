@@ -6,6 +6,7 @@ const { withCors } = require('../../lib/cors');
  * GET /api/auth/google
  */
 module.exports = withCors(async (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
     // Only allow GET
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });

@@ -1,4 +1,36 @@
+import { state } from './state.js';
+
 export async function callAI(prompt, provider, apiKey, options = {}) {
+    // Check if we should use free tier (server) instead of direct call
+    if (state.authMode === 'free' && state.isLoggedIn) {
+        try {
+            // Use server-proxied call
+            const { callServerAI } = await import('./auth.js');
+            return await callServerAI(prompt, options.taskType || 'default', options.expectJson || false, options.actionId);
+        } catch (error) {
+            const { showStatus } = await import('./ui.js');
+            const { checkCurrentProviderKey } = await import('./utils.js');
+
+            if (error.message === 'SERVER_ERROR' && checkCurrentProviderKey()) {
+                showStatus('Free tier server unavailable. Using your own API key instead.', 'warning');
+                console.log('Fallback to BYOK due to server error');
+                // Fall through to BYOK logic at the bottom
+            } else if (error.message === 'LIMIT_REACHED') {
+                showStatus("You've used all 15 free actions today! 🔄 Resets at midnight UTC. Or switch to your own key for unlimited use.", 'warning');
+                throw error;
+            } else if (error.message === 'AUTH_EXPIRED') {
+                showStatus('Please sign in again to continue using free tier.', 'error');
+                throw error;
+            } else if (error.message === 'SERVER_ERROR') {
+                showStatus('Our servers are taking a quick break. Try again in a moment or add your own API key in Settings!', 'error');
+                throw error;
+            } else {
+                throw error;
+            }
+        }
+    }
+
+    // Original BYOK logic unchanged
     if (provider === 'gemini') {
         return callGemini(prompt, apiKey, options);
     } else if (provider === 'groq') {

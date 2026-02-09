@@ -9,7 +9,8 @@
         "downloads",
         "storage",
         "sidePanel",
-        "tabs"
+        "tabs",
+        "identity"
     ],
     "optional_host_permissions": [
         "https://*/*",
@@ -20,8 +21,8 @@
         "https://api.groq.com/*",
         "https://openrouter.ai/*",
         "https://www.linkedin.com/*",
-        "https://YOUR-API-DOMAIN.vercel.app/*",
-        "https://xxxxx.supabase.co/*"
+        "https://serverless-ai-resume-generator-api.vercel.app/*",
+        "https://*.supabase.co/*"
     ],
     "action": {
         "default_title": "ForgeCV",

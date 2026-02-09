@@ -48,9 +48,10 @@ export async function extractBaseProfile(text, apiKey, provider) {
     try {
         const prompt = Prompts.buildExtractProfilePrompt(text);
 
+        const actionId = `profile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         let responseText;
         try {
-            responseText = await callAI(prompt, provider, apiKey, { expectJson: true });
+            responseText = await callAI(prompt, provider, apiKey, { expectJson: true, actionId });
         } catch (e) {
             if (window.location.hostname === 'localhost') {
                 console.warn("Mocking extractBaseProfile failure for local testing fallback");
@@ -106,6 +107,7 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
     // Wait, the signature in api.js was `tailorResume(baseResume, jdText, ...)`
     // The python `tailor_resume` endpoint did: jd_analysis = parse_job_description(jd_text...) then tailor_resume(...)
     // So we must replicate that pipeline.
+    const actionId = `forge_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     try {
         let jdAnalysis;
@@ -131,7 +133,7 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
             // Parse JD (only if JD changed or no cache)
             console.log('🔍 Parsing JD (first time or JD changed)');
             const jdPrompt = Prompts.buildParseJobDescriptionPrompt(jdText);
-            const jdResponse = await callAI(jdPrompt, provider, apiKey, { expectJson: true, taskType: 'jdParse' });
+            const jdResponse = await callAI(jdPrompt, provider, apiKey, { expectJson: true, taskType: 'jdParse', actionId });
             jdAnalysis = extractJSON(jdResponse) || {
                 // Fallback if parsing fails
                 company_name: "Unknown_Company", job_title: "Role", mandatory_keywords: []
@@ -161,7 +163,7 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
         // UI `generateBtn` handler calls `tailorResume`. It doesn't pass bullet counts.
 
         const tailorPrompt = Prompts.buildTailorPrompt(baseResume, jdAnalysis, tailoringStrategy, null);
-        const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true, taskType: 'tailor' });
+        const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true, taskType: 'tailor', actionId });
         let tailoredData = extractJSON(tailorResponse);
 
         if (!tailoredData) throw new Error("Failed to generate tailored resume JSON");
@@ -206,8 +208,9 @@ export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis,
             jdAnalysis.company_description = state.detectedCompanyDescription;
         }
 
+        const actionId = `regen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const tailorPrompt = Prompts.buildTailorPrompt(base, jdAnalysis, tailoringStrategy, bulletCounts);
-        const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true, taskType: 'tailor' });
+        const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true, taskType: 'tailor', actionId });
         let newTailoredData = extractJSON(tailorResponse);
 
         if (!newTailoredData) throw new Error("Failed to regenerate resume JSON");
@@ -230,8 +233,9 @@ export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis,
 
 export async function askQuestion(question, resumeData, jdText, apiKey, provider) {
     try {
+        const actionId = `ask_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const prompt = Prompts.buildQuestionPrompt(question, resumeData, jdText);
-        const responseText = await callAI(prompt, provider, apiKey, { expectJson: false }); // Plain text answer
+        const responseText = await callAI(prompt, provider, apiKey, { expectJson: false, actionId }); // Plain text answer
         // Python wrapped it in { answer: ... }
         return { answer: responseText.trim() };
     } catch (e) {
@@ -243,8 +247,9 @@ export async function askQuestion(question, resumeData, jdText, apiKey, provider
 
 export async function analyzeResume(resumeData, jdText, apiKey, provider) {
     try {
+        const actionId = `score_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const prompt = Prompts.buildAnalysisPrompt(resumeData, jdText);
-        const responseText = await callAI(prompt, provider, apiKey, { expectJson: true, useProModel: true, taskType: 'score' });
+        const responseText = await callAI(prompt, provider, apiKey, { expectJson: true, useProModel: true, taskType: 'score', actionId });
         const data = extractJSON(responseText);
         if (!data) throw new Error("Failed to parse analysis JSON");
         return data;
@@ -256,8 +261,9 @@ export async function analyzeResume(resumeData, jdText, apiKey, provider) {
 
 export async function extractJDWithAI(rawPageText, apiKey, provider) {
     try {
+        const actionId = `jd_ext_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const prompt = Prompts.buildExtractJDFromPagePrompt(rawPageText);
-        const responseText = await callAI(prompt, provider, apiKey, { expectJson: true, taskType: 'jdParse' });
+        const responseText = await callAI(prompt, provider, apiKey, { expectJson: true, taskType: 'jdParse', actionId });
         const data = extractJSON(responseText);
 
         if (!data || data.error) {

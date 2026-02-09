@@ -1,6 +1,10 @@
 import { state } from './state.js';
 
 export function checkCurrentProviderKey() {
+    // If using free tier and logged in, no key needed
+    if (state.authMode === 'free' && state.isLoggedIn) return true;
+
+    // Original BYOK logic
     if (state.currentProvider === 'gemini') return !!state.currentApiKey;
     if (state.currentProvider === 'groq') return !!state.currentGroqKey;
     if (state.currentProvider === 'openrouter') return !!state.currentOpenRouterKey;
@@ -8,6 +12,10 @@ export function checkCurrentProviderKey() {
 }
 
 export function getApiKeyForProvider() {
+    // If using free tier, return empty string (not used)
+    if (state.authMode === 'free' && state.isLoggedIn) return '';
+
+    // Original BYOK logic
     if (state.currentProvider === 'gemini') return state.currentApiKey;
     if (state.currentProvider === 'groq') return state.currentGroqKey;
     if (state.currentProvider === 'openrouter') return state.currentOpenRouterKey;

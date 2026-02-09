@@ -815,3 +815,204 @@ header .controls {
     background: var(--primary) !important;
     color: white !important;
 }
+
+/* Authentication & Dual Mode UI */
+.auth-section {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+}
+
+.google-btn {
+    background: white;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px 16px;
+    width: 100%;
+    border-radius: var(--radius-md);
+    margin-top: 12px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.google-btn:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+
+.google-btn img {
+    width: 18px;
+    height: 18px;
+}
+
+.mode-toggle {
+    display: flex;
+    background: #f3f4f6;
+    border-radius: var(--radius-md);
+    padding: 4px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+}
+
+.mode-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.mode-btn.active {
+    background: white;
+    color: var(--primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.usage-container {
+    margin-top: 12px;
+}
+
+.usage-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.usage-bar-bg {
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.usage-fill {
+    height: 100%;
+    background: var(--primary-gradient);
+    transition: width 0.3s ease;
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--border-color);
+}
+
+.user-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-email {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.logout-link {
+    font-size: 11px;
+    color: var(--error);
+    cursor: pointer;
+    text-decoration: underline;
+    background: none;
+    border: none;
+    padding: 0;
+}
+
+.mode-info {
+    animation: fadeIn 0.2s ease;
+}
+
+.dot-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 10px;
+    height: 10px;
+    background: var(--error);
+    border: 2px solid white;
+    border-radius: 50%;
+}
+
+.text-xs {
+    font-size: 11px;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.font-bold {
+    font-weight: 700;
+}
+
+/* Quick Status & Banners */
+.quick-status {
+    text-align: center;
+    padding: 4px 0;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: #f9fafb;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.quick-status:hover {
+    background: #f3f4f6;
+}
+
+.usage-banner {
+    background: #fef2f2;
+    border: 1px solid #fee2e2;
+    color: #991b1b;
+    padding: 10px;
+    border-radius: var(--radius-md);
+    margin-bottom: 16px;
+    font-size: 11px;
+    text-align: center;
+    animation: slideIn 0.3s ease;
+}
+
+.usage-banner a {
+    color: var(--primary);
+    text-decoration: underline;
+    font-weight: 700;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

@@ -1,4 +1,5 @@
-export const API_BASE_URL = "https://serverless-ai-resume-generator.vercel.app/api";
+// Production Vercel deployment URL
+export const API_BASE_URL = "https://serverless-ai-resume-generator-api.vercel.app";
 
 const stateShape = {
     currentJdText: "",
@@ -35,7 +36,14 @@ const stateShape = {
         showLinks: true,         // show clickable LinkedIn/Portfolio in contact
         dateAlign: "right",      // "right" | "inline"
         pageSize: "letter"       // "letter" | "a4"
-    }
+    },
+    // Authentication & Free Tier Support
+    authMode: "free",          // "free" | "byok" — which mode is active for AI calls
+    user: null,                // { id, email, name, avatar_url } or null
+    accessToken: null,         // Supabase JWT
+    refreshToken: null,        // Supabase refresh token
+    freeUsage: { used: 0, remaining: 15, limit: 15, resetsAt: null },
+    isLoggedIn: false
 };
 
 // Internal mutable state

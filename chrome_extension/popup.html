@@ -23,106 +23,106 @@
     </div>
   </header>
 
+  <div id="quickStatus" class="quick-status"></div>
+
   <div id="status"></div>
 
   <!-- Settings UI -->
   <div id="settingsUI" class="hidden">
-    <div class="flex-between" style="margin-bottom: 16px;">
-      <p class="text-sm text-muted" style="margin-bottom: 12px;">Pick your AI brain and plug in a key. Takes 30 seconds.
-        Your key stays on YOUR device — pinky promise. 🤙</p>
+    <div class="flex-between" style="margin-bottom: 16px; align-items: flex-start;">
+      <div>
+        <h3 style="margin:0; color:var(--text-main);">Settings</h3>
+        <p class="text-xs text-muted">Configure how you power your AI actions.</p>
+      </div>
       <button id="backFromSettings" class="secondary-btn icon-btn"
         style="width:auto; padding: 4px 8px; font-size:11px;">✕</button>
     </div>
 
+    <!-- Auth Section (Injected by ui.js) -->
+    <div id="authSection" class="auth-section"></div>
+
+    <div class="mode-toggle">
+      <button id="modeFreeBtn" class="mode-btn active" data-mode="free">⚡ Free Tier</button>
+      <button id="modeByokBtn" class="mode-btn" data-mode="byok">🔑 Your Own Keys</button>
+    </div>
+
     <div class="settings-card">
-      <div class="edit-field">
-        <label for="providerSelect">AI Provider</label>
-        <select id="providerSelect">
-          <option value="gemini">Google Gemini (Recommended)</option>
-          <option value="groq">Groq (Llama 3)</option>
-          <option value="openrouter">OpenRouter (Multi-Model)</option>
-        </select>
-      </div>
-
-      <div id="geminiKeyData" class="key-section">
-        <label for="apiKey">Gemini API Key</label>
-        <div style="position:relative;">
-          <input type="password" id="apiKey" placeholder="Enter Gemini API Key">
+      <!-- Free Tier Info -->
+      <div id="freeModeInfo" class="mode-info">
+        <div id="freeUsageDisplay"></div>
+        <div id="freeLoginPrompt" class="hidden">
+          <p class="text-sm">Sign in to activate 15 free AI actions per day.</p>
+          <button id="googleLoginBtn" class="google-btn">
+            <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google">
+            Sign in with Google
+          </button>
         </div>
-        <details class="help-details">
-          <summary>How to get a Free Gemini API Key</summary>
-          <div style="margin-bottom:8px; font-weight:600; color:var(--success);">✨ One-time setup. Using free tier.
-          </div>
-          <ol>
-            <li>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.</li>
-            <li>Click the blue <strong>"Get API key"</strong> button.</li>
-            <li>Select <strong>"Create API key in new project"</strong>.</li>
-            <li>Copy the key that starts with <code>AIza...</code> and paste it above.</li>
-          </ol>
-          <div class="ask-ai-box">
-            <div class="ask-ai-label">🙋 Still stuck? Copy & Paste this into ChatGPT/Claude:</div>
-            <div class="ask-ai-prompt" onclick="navigator.clipboard.writeText(this.innerText); alert('Copied!')">
-              "Explain how to get a free Google Gemini API Key like I'm 5 years old and easily confused by buttons. Walk
-              me through every click starting from opening Google."
-            </div>
-            <div style="text-align:right; font-size:9px; color:var(--primary); margin-top:2px;">(Click to copy)</div>
-          </div>
-        </details>
       </div>
 
-      <div id="groqKeyData" class="key-section hidden">
-        <label for="groqApiKey">Groq API Key</label>
-        <input type="password" id="groqApiKey" placeholder="Enter Groq API Key">
-        <details class="help-details">
-          <summary>How to get a Free Groq Key</summary>
-          <div style="margin-bottom:8px; font-weight:600; color:var(--success);">✨ One-time setup. Using free tier.
-          </div>
-          <ol>
-            <li>Go to <a href="https://console.groq.com/keys" target="_blank">Groq Console</a>.</li>
-            <li><strong>Important:</strong> Sign up using <strong>Google</strong> or <strong>GitHub</strong> (Email
-              signup often fails).</li>
-            <li>Click <strong>"Create API Key"</strong>.</li>
-            <li>Name it "Resume" and copy the key starting with <code>gsk_...</code>.</li>
-          </ol>
-          <div class="ask-ai-box">
-            <div class="ask-ai-label">🙋 Still stuck? Copy & Paste this into ChatGPT/Claude:</div>
-            <div class="ask-ai-prompt" onclick="navigator.clipboard.writeText(this.innerText); alert('Copied!')">
-              "Explain how to get a free Groq API Key like I'm a time traveler from 1995 who just discovered the
-              internet. Be super specific about clicking 'Create API Key'."
+      <!-- BYOK Settings -->
+      <div id="byokSettings" class="mode-info hidden">
+        <div class="edit-field">
+          <label for="providerSelect">AI Provider</label>
+          <select id="providerSelect">
+            <option value="gemini">Google Gemini (Recommended)</option>
+            <option value="groq">Groq (Llama 3)</option>
+            <option value="openrouter">OpenRouter (Multi-Model)</option>
+          </select>
+        </div>
+
+        <div id="geminiKeyData" class="key-section">
+          <label for="apiKey">Gemini API Key</label>
+          <input type="password" id="apiKey" placeholder="Enter Gemini API Key">
+          <details class="help-details">
+            <summary>How to get a Free Gemini API Key</summary>
+            <div style="margin-bottom:8px; font-weight:600; color:var(--success);">✨ One-time setup. Using free tier.
             </div>
-            <div style="text-align:right; font-size:9px; color:var(--primary); margin-top:2px;">(Click to copy)</div>
-          </div>
-        </details>
+            <ol>
+              <li>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.</li>
+              <li>Click <strong>"Get API key"</strong>.</li>
+              <li>Copy and paste the key above.</li>
+            </ol>
+          </details>
+        </div>
+
+        <div id="groqKeyData" class="key-section hidden">
+          <label for="groqApiKey">Groq API Key</label>
+          <input type="password" id="groqApiKey" placeholder="Enter Groq API Key">
+          <details class="help-details">
+            <summary>How to get a Free Groq Key</summary>
+            <ol>
+              <li>Go to <a href="https://console.groq.com/keys" target="_blank">Groq Console</a>.</li>
+              <li>Create an API Key and paste it above.</li>
+            </ol>
+          </details>
+        </div>
+
+        <div id="openrouterKeyData" class="key-section hidden">
+          <label for="openrouterApiKey">OpenRouter API Key</label>
+          <input type="password" id="openrouterApiKey" placeholder="Enter OpenRouter API Key">
+          <details class="help-details">
+            <summary>How to get a Free OpenRouter Key</summary>
+            <ol>
+              <li>Go to <a href="https://openrouter.ai/keys" target="_blank">OpenRouter Keys</a>.</li>
+              <li>Create a key and paste it above.</li>
+            </ol>
+          </details>
+        </div>
+
+        <p class="text-xs text-muted" style="margin-top: 12px; font-style: italic;">
+          Unlimited generations · Your keys stay on <b>your</b> device
+        </p>
       </div>
 
-      <div id="openrouterKeyData" class="key-section hidden">
-        <label for="openrouterApiKey">OpenRouter API Key</label>
-        <input type="password" id="openrouterApiKey" placeholder="Enter OpenRouter API Key">
-        <details class="help-details">
-          <summary>How to get a Free OpenRouter Key</summary>
-          <div style="margin-bottom:8px; font-weight:600; color:var(--success);">✨ One-time setup. Free tier available.
-          </div>
-          <ol>
-            <li>Go to <a href="https://openrouter.ai/keys" target="_blank">OpenRouter Keys</a>.</li>
-            <li>Sign up or log in with your Google account.</li>
-            <li>Click <strong>"Create Key"</strong>.</li>
-            <li>Name it "Resume" and copy the key starting with <code>sk-or-...</code>.</li>
-          </ol>
-          <div class="ask-ai-box">
-            <div class="ask-ai-label">🙋 Still stuck? Copy & Paste this into ChatGPT/Claude:</div>
-            <div class="ask-ai-prompt" onclick="navigator.clipboard.writeText(this.innerText); alert('Copied!')">
-              "Explain how to get a free OpenRouter API Key step by step. I need clear instructions on signing up and
-              creating an API key."
-            </div>
-            <div style="text-align:right; font-size:9px; color:var(--primary); margin-top:2px;">(Click to copy)</div>
-          </div>
-        </details>
-      </div>
-
-      <button id="saveSettingsBtn" class="primary-btn" style="width:100%; margin-top:16px;">Save Settings</button>
+      <button id="saveSettingsBtn" class="primary-btn" style="width:100%; margin-top:16px;">Save & Apply</button>
       <button id="skipSettingsBtn" class="secondary-btn" style="width:100%; margin-top:8px;">Skip for now</button>
       <div id="settingsStatus"></div>
     </div>
+
+    <p class="text-center text-xs text-muted" style="margin-top: 16px; padding: 0 10px;">
+      Free tier uses open-source AI models via ForgeCV servers. For best quality and unlimited use, bring your own
+      Gemini key.
+    </p>
   </div>
 
   <!-- Profile Management UI -->
@@ -321,6 +321,7 @@
 
   <!-- Main UI -->
   <div id="mainUI" class="hidden">
+    <div id="usageLimitBanner" class="hidden"></div>
     <div class="profile-pill">
       <span>Using:</span> <strong id="profileName">Loading...</strong>
       <span id="atsScoreBadge" class="ats-badge" style="display:none;"></span>

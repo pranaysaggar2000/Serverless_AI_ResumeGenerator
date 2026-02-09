@@ -89,6 +89,9 @@ export function showMainUI() {
         if (getEl('analysisResults')) getEl('analysisResults').classList.add('hidden');
         if (getEl('atsScoreBadge')) getEl('atsScoreBadge').style.display = 'none';
     }
+
+    renderQuickStatus();
+    updateUsageDisplay(); // Ensure usage limits are reflected
 }
 
 export function showSetupUI() {
@@ -109,6 +112,184 @@ export function showSettings() {
     getEl('setupUI').style.display = 'none';
     getEl('mainUI').style.display = 'none';
     getEl('profileUI').style.display = 'none';
+
+    // Refresh auth UI when showing settings
+    renderAuthSection();
+    renderQuickStatus();
+}
+
+/**
+ * Render small status line below header
+ */
+export function renderQuickStatus() {
+    const el = getEl('quickStatus');
+    if (!el) return;
+
+    if (state.authMode === 'free') {
+        const { used, limit, remaining } = state.freeUsage;
+        el.innerHTML = `⚡ Free Tier · ${remaining}/${limit} left`;
+        el.style.color = remaining === 0 ? 'var(--error)' : remaining <= 3 ? 'var(--warning)' : 'var(--text-secondary)';
+    } else {
+        const providerName = state.currentProvider.charAt(0).toUpperCase() + state.currentProvider.slice(1);
+        el.innerHTML = `🔑 ${providerName} Mode (BYOK)`;
+        el.style.color = 'var(--text-secondary)';
+    }
+
+    // Clicking quick status opens settings
+    el.onclick = () => showSettings();
+}
+
+/**
+ * Render the authentication section in Settings
+ */
+export function renderAuthSection() {
+    const container = getEl('authSection');
+    if (!container) return;
+
+    const hasKeys = !!(state.currentApiKey || state.currentGroqKey || state.currentOpenRouterKey);
+
+    if (state.isLoggedIn && state.user) {
+        container.innerHTML = `
+            <div class="user-profile">
+                <img src="${state.user.user_metadata?.avatar_url || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" class="user-avatar" alt="User">
+                <div class="user-details">
+                    <div class="user-email">${state.user.email}</div>
+                    <button id="logoutBtn" class="logout-link">Sign out</button>
+                </div>
+            </div>
+        `;
+
+        // Hide login prompt
+        const loginPrompt = getEl('freeLoginPrompt');
+        if (loginPrompt) loginPrompt.classList.add('hidden');
+    } else if (!hasKeys) {
+        // Welcoming "Two Paths" for new users
+        container.innerHTML = `
+            <div style="text-align: center; background: var(--primary-gradient); color: white; padding: 20px; border-radius: var(--radius-lg); margin-bottom: 12px; box-shadow: var(--shadow-md);">
+                <h3 style="margin: 0; color: white;">Welcome to ForgeCV!</h3>
+                <p style="font-size: 11px; opacity: 0.9; margin: 8px 0;">Choose how you'd like to power your AI features:</p>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+                    <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);">
+                        <div style="font-size: 14px;">⚡</div>
+                        <div style="font-weight: bold; font-size: 11px;">Path A</div>
+                        <div style="font-size: 10px; opacity: 0.8;">Free tier (15/day)</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);">
+                        <div style="font-size: 14px;">🔑</div>
+                        <div style="font-weight: bold; font-size: 11px;">Path B</div>
+                        <div style="font-size: 10px; opacity: 0.8;">Unlimited (BYOK)</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Show login prompt if in free mode
+        const loginPrompt = getEl('freeLoginPrompt');
+        if (loginPrompt && state.authMode === 'free') {
+            loginPrompt.classList.remove('hidden');
+            loginPrompt.style.textAlign = 'center';
+            loginPrompt.innerHTML = `
+                <p class="text-sm" style="font-weight: bold; margin-bottom: 8px;">Path A: Quick Start (Free)</p>
+                <button id="googleLoginBtn" class="google-btn">
+                    <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="G">
+                    Sign in with Google
+                </button>
+                <p class="text-xs text-muted" style="margin-top: 8px;">Get 15 free AI resumes/day instantly</p>
+            `;
+        }
+    } else {
+        // Standard signed out state with keys already present
+        container.innerHTML = `
+            <div style="text-align: center; padding: 10px;">
+                <p class="text-sm" style="margin-bottom: 4px; font-weight: 600;">Standard Tier</p>
+                <p class="text-xs text-muted">Using your own API keys. Sign in to use our Free Tier instead.</p>
+            </div>
+        `;
+
+        const loginPrompt = getEl('freeLoginPrompt');
+        if (loginPrompt && state.authMode === 'free') {
+            loginPrompt.classList.remove('hidden');
+        }
+    }
+
+    // Refresh usage if in free mode
+    if (state.authMode === 'free') {
+        updateUsageDisplay();
+    }
+}
+
+/**
+ * Update the usage bar and text
+ */
+export function updateUsageDisplay() {
+    const container = getEl('freeUsageDisplay');
+    const banner = getEl('usageLimitBanner');
+    if (!container) return;
+
+    if (!state.isLoggedIn || state.authMode !== 'free') {
+        container.innerHTML = '';
+        if (banner) banner.classList.add('hidden');
+        enableAiButtons(true);
+        return;
+    }
+
+    const { used, limit, remaining } = state.freeUsage;
+    const progress = Math.min((used / limit) * 100, 100);
+
+    // Color coding
+    let barColor = 'var(--primary-gradient)';
+    if (remaining === 0) barColor = 'var(--error)';
+    else if (remaining <= 3) barColor = 'orange';
+
+    container.innerHTML = `
+        <div class="usage-container">
+            <div class="usage-header">
+                <span>Daily Usage</span>
+                <span style="color: ${remaining === 0 ? 'var(--error)' : 'inherit'}; font-weight: bold;">${used} / ${limit}</span>
+            </div>
+            <div class="usage-bar-bg">
+                <div class="usage-fill" style="width: ${progress}%; background: ${barColor}"></div>
+            </div>
+            <p class="text-xs text-muted" style="margin-top: 6px; text-align: center;">
+                ${remaining} actions left today · Resets at midnight UTC
+            </p>
+        </div>
+    `;
+
+    // Handle Limit Banner & Button State
+    if (remaining === 0) {
+        if (banner) {
+            banner.innerHTML = `<div class="usage-banner">
+                You've used all 15 free actions today! 🔄 Resets at midnight UTC.<br>
+                <a href="#" id="bannerSwitchMode">Switch to Your Own Key →</a>
+            </div>`;
+            banner.classList.remove('hidden');
+            getEl('bannerSwitchMode').onclick = (e) => {
+                e.preventDefault();
+                showSettings();
+            };
+        }
+        enableAiButtons(false);
+    } else {
+        if (banner) banner.classList.add('hidden');
+        enableAiButtons(true);
+    }
+
+    renderQuickStatus();
+}
+
+function enableAiButtons(enabled) {
+    const aiButtons = ['generateBtn', 'analyzeBtn', 'askBtn', 'saveRegenBtn'];
+    aiButtons.forEach(id => {
+        const btn = getEl(id);
+        if (btn) {
+            btn.disabled = !enabled;
+            btn.title = enabled ? '' : "Daily free limit reached. Switch to your own API key in Settings.";
+            if (!enabled) btn.style.opacity = '0.7';
+            else btn.style.opacity = '1';
+        }
+    });
 }
 
 export function showProfileUI() {

@@ -8,8 +8,12 @@ import {
     showSettings,
     showProfileUI,
     renderAnalysis,
-    renderCopyList
+    renderCopyList,
+    updateUsageDisplay,
+    renderAuthSection,
+    renderQuickStatus
 } from './modules/ui.js';
+import { loginWithGoogle, logout, fetchUsageStatus } from './modules/auth.js';
 import {
     extractText,
     extractBaseProfile,
@@ -287,11 +291,29 @@ async function init() {
 
         setupEventListeners();
         setupHistoryUI();
-        // Drag and drop removed
         setupProfileManagement();
         setupFormatUI();
-        // Auto-detection disabled - user must click 'Fetch from Page' button
-        // detectJobDescription().catch(e => console.log("Silent detect fail:", e));
+
+        // Refresh usage if logged in
+        if (state.isLoggedIn && state.authMode === 'free') {
+            const { fetchUsageStatus } = await import('./modules/auth.js');
+            fetchUsageStatus().catch(e => console.log("Silent usage refresh fail:", e));
+        }
+
+        renderQuickStatus();
+
+        // Route to correct screen
+        const isSetTypeA = state.isLoggedIn;
+        const isSetTypeB = checkCurrentProviderKey();
+
+        if (!isSetTypeA && !isSetTypeB && !state.baseResume) {
+            // New user, show onboarding in Settings
+            showSettings();
+        } else if (!state.baseResume) {
+            showSetupUI();
+        } else {
+            showMainUI();
+        }
     } catch (e) {
         console.error("Critical Init Error:", e);
         const errDiv = document.getElementById('error');
@@ -340,7 +362,8 @@ async function loadState() {
         'detected_company',
         'detected_page_url',
         'jd_extraction_method',
-        'detected_company_description'
+        'detected_company_description',
+        'auth_mode'
     ]);
 
     // Backward compatibility: use last_analysis as fallback for jd_analysis
@@ -368,8 +391,12 @@ async function loadState() {
         detectedCompany: data.detected_company || null,
         detectedPageUrl: data.detected_page_url || "",
         jdExtractionMethod: data.jd_extraction_method || 'none',
-        detectedCompanyDescription: data.detected_company_description || ""
+        detectedCompanyDescription: data.detected_company_description || "",
+        authMode: data.auth_mode || (state.isLoggedIn ? 'free' : 'byok')
     });
+
+    const { loadAuthState } = await import('./modules/auth.js');
+    await loadAuthState();
 
     updateActiveProfileLabel(state.activeProfile);
 
@@ -425,6 +452,17 @@ async function loadState() {
         }).catch(e => console.log("Pre-cache PDF failed (non-critical):", e));
     }
     updateJdStatus();
+
+    // Setup Badge
+    if (!checkCurrentProviderKey()) {
+        const toggle = document.getElementById('settingsToggle');
+        if (toggle && !toggle.querySelector('.dot-badge')) {
+            const badge = document.createElement('div');
+            badge.className = 'dot-badge';
+            toggle.style.position = 'relative';
+            toggle.appendChild(badge);
+        }
+    }
 }
 
 function setupSettings() {
@@ -441,6 +479,27 @@ function setupSettings() {
         providerSelect.value = state.currentProvider;
         toggleProviderUI(state.currentProvider);
     }
+
+    // Auth Mode UI
+    const mode = state.authMode;
+    const modeFreeBtn = document.getElementById('modeFreeBtn');
+    const modeByokBtn = document.getElementById('modeByokBtn');
+    const freeModeInfo = document.getElementById('freeModeInfo');
+    const byokSettings = document.getElementById('byokSettings');
+
+    if (mode === 'free') {
+        modeFreeBtn?.classList.add('active');
+        modeByokBtn?.classList.remove('active');
+        freeModeInfo?.classList.remove('hidden');
+        byokSettings?.classList.add('hidden');
+    } else {
+        modeFreeBtn?.classList.remove('active');
+        modeByokBtn?.classList.add('active');
+        freeModeInfo?.classList.add('hidden');
+        byokSettings?.classList.remove('hidden');
+    }
+
+    renderAuthSection();
 }
 
 function setupEventListeners() {
@@ -581,6 +640,65 @@ function setupEventListeners() {
     // JD Status buttons
 
 
+
+    // Mode Toggles
+    const modeFreeBtn = document.getElementById('modeFreeBtn');
+    const modeByokBtn = document.getElementById('modeByokBtn');
+    const freeModeInfo = document.getElementById('freeModeInfo');
+    const byokSettings = document.getElementById('byokSettings');
+
+    const updateModeUI = (mode) => {
+        if (mode === 'free') {
+            modeFreeBtn.classList.add('active');
+            modeByokBtn.classList.remove('active');
+            freeModeInfo.classList.remove('hidden');
+            byokSettings.classList.add('hidden');
+        } else {
+            modeFreeBtn.classList.remove('active');
+            modeByokBtn.classList.add('active');
+            freeModeInfo.classList.add('hidden');
+            byokSettings.classList.remove('hidden');
+        }
+        updateState({ authMode: mode });
+        chrome.storage.local.set({ auth_mode: mode });
+        renderAuthSection(); // Refresh login prompt visibility
+    };
+
+    if (modeFreeBtn) {
+        modeFreeBtn.addEventListener('click', () => updateModeUI('free'));
+    }
+    if (modeByokBtn) {
+        modeByokBtn.addEventListener('click', () => updateModeUI('byok'));
+    }
+
+    // Google Login
+    const googleLoginBtn = document.getElementById('googleLoginBtn');
+    if (googleLoginBtn) {
+        googleLoginBtn.addEventListener('click', async () => {
+            try {
+                showStatus('Opening Google Login...', 'info', 'settingsStatus');
+                await loginWithGoogle();
+                showStatus('Login successful!', 'success', 'settingsStatus');
+                renderAuthSection();
+                updateUsageDisplay();
+            } catch (e) {
+                showStatus('Login failed: ' + e.message, 'error', 'settingsStatus');
+            }
+        });
+    }
+
+    // Auth Section Delegation (for Logout)
+    const authSection = document.getElementById('authSection');
+    if (authSection) {
+        authSection.addEventListener('click', async (e) => {
+            if (e.target.id === 'logoutBtn') {
+                await logout();
+                showStatus('Signed out', 'info', 'settingsStatus');
+                renderAuthSection();
+                updateUsageDisplay();
+            }
+        });
+    }
 
     const manualJdBtn = document.getElementById('manualJdBtn');
     const manualJdInput = document.getElementById('manualJdInput');
@@ -1126,6 +1244,11 @@ function setupEventListeners() {
             return;
         }
 
+        if (state.authMode === 'free' && state.freeUsage.remaining <= 0) {
+            showStatus("Daily limit reached! Switch to your own API key or try again tomorrow.", "error");
+            return;
+        }
+
         if (!state.currentJdText || state.currentJdText.length < 50) {
             console.warn("No JD detected");
             showStatus("No valid job description detected. Navigate to a job post.", "error");
@@ -1162,6 +1285,7 @@ function setupEventListeners() {
             ].map(k => k.toLowerCase()) : [];
 
             updateState({ tailoredResume: newResume, currentJdAnalysis: analysis, jdKeywords: keywords });
+            if (state.authMode === 'free') updateUsageDisplay();
             await chrome.storage.local.set({
                 tailored_resume: newResume,
                 jd_analysis: analysis
@@ -1260,6 +1384,10 @@ function setupEventListeners() {
                 showStatus("Please enter a question.", "error");
                 return;
             }
+            if (state.authMode === 'free' && state.freeUsage.remaining <= 0) {
+                showStatus("Daily limit reached! Switch to your own API key or try again tomorrow.", "error");
+                return;
+            }
             if (!state.tailoredResume && !state.baseResume) {
                 showStatus("No profile loaded.", "error");
                 return;
@@ -1277,7 +1405,7 @@ function setupEventListeners() {
                 const res = await askQuestion(question, resumeToUse, state.currentJdText || "", activeKey, state.currentProvider);
 
                 if (res.error) throw new Error(res.error);
-
+                if (state.authMode === 'free') updateUsageDisplay();
                 answerOutput.textContent = res.answer || "No answer generated.";
             } catch (e) {
                 answerOutput.textContent = `Error: ${e.message}`;
@@ -1381,6 +1509,10 @@ function setupEventListeners() {
     if (saveRegenBtn) {
         saveRegenBtn.addEventListener('click', async () => {
             console.log("Save & Regenerate clicked");
+            if (state.authMode === 'free' && state.freeUsage.remaining <= 0) {
+                showStatus("Daily limit reached! Switch to your own API key or try again tomorrow.", "error");
+                return;
+            }
             // Drag and drop removed
             setButtonLoading(saveRegenBtn, true);
 
@@ -1421,6 +1553,7 @@ function setupEventListeners() {
                     const finalResume = regenData;
 
                     updateState({ tailoredResume: finalResume });
+                    if (state.authMode === 'free') updateUsageDisplay();
                     await chrome.storage.local.set({ tailored_resume: finalResume });
 
                     // Generate PDF (cache only for regeneration)
@@ -1504,6 +1637,10 @@ function setupEventListeners() {
                 showStatus("No Job Description detected. Refresh the page.", "error");
                 return;
             }
+            if (state.authMode === 'free' && state.freeUsage.remaining <= 0) {
+                showStatus("Daily limit reached! Switch to your own API key or try again tomorrow.", "error");
+                return;
+            }
 
             const statusMessage = state.hasAnalyzed ? "Re-analyzing ATS Score..." : "Analyzing ATS Score...";
             setButtonLoading(analyzeBtn, true);
@@ -1532,6 +1669,7 @@ function setupEventListeners() {
                 if (data.error) throw new Error(data.error);
 
                 renderAnalysis(data);
+                if (state.authMode === 'free') updateUsageDisplay();
                 updateState({ lastAnalysis: data, hasAnalyzed: true });
                 await chrome.storage.local.set({ ats_analysis: data });
                 showStatus(`Analysis Complete! (${((Date.now() - start) / 1000).toFixed(1)}s)`, "success");

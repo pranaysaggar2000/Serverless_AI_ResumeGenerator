@@ -71,6 +71,21 @@ export function refreshFormatUI(settings) {
     // Checkbox
     const linksCheck = document.getElementById('showLinksCheck');
     if (linksCheck) linksCheck.checked = settings.showLinks;
+
+    // Update preset active state
+    const presetMap = {
+        presetCompact: { density: 'compact', margins: 'narrow' },
+        presetStandard: { density: 'normal', margins: 'normal' },
+        presetSpacious: { density: 'spacious', margins: 'wide' }
+    };
+
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        const expected = presetMap[btn.id];
+        if (expected) {
+            const matches = Object.entries(expected).every(([k, v]) => settings[k] === v);
+            btn.classList.toggle('preset-active', matches);
+        }
+    });
 }
 
 export function setupFormatUI() {
@@ -204,4 +219,40 @@ export function setupFormatUI() {
             showStatus("Format reset to defaults", "info");
         });
     }
+
+    // Quick Preset Buttons
+    const presets = {
+        presetCompact: {
+            font: 'times', density: 'compact', margins: 'narrow',
+            nameSize: 18, bodySize: 9.5, headerSize: 11, subheaderSize: 10,
+            headerStyle: 'uppercase_line', bulletChar: '•', pageSize: 'letter', showLinks: true
+        },
+        presetStandard: {
+            font: 'times', density: 'normal', margins: 'normal',
+            nameSize: 21, bodySize: 10, headerSize: 12, subheaderSize: 11,
+            headerStyle: 'uppercase_line', bulletChar: '•', pageSize: 'letter', showLinks: true
+        },
+        presetSpacious: {
+            font: 'helvetica', density: 'spacious', margins: 'wide',
+            nameSize: 24, bodySize: 11, headerSize: 14, subheaderSize: 12,
+            headerStyle: 'bold_line', bulletChar: '–', pageSize: 'letter', showLinks: true
+        }
+    };
+
+    Object.entries(presets).forEach(([id, settings]) => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.addEventListener('click', async () => {
+                // Apply preset
+                await saveFormatSettings({ ...state.formatSettings, ...settings });
+                refreshFormatUI({ ...state.formatSettings, ...settings });
+
+                // Update active state on preset buttons
+                document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('preset-active'));
+                btn.classList.add('preset-active');
+
+                showStatus('Preset applied!', 'success');
+            });
+        }
+    });
 }

@@ -115,7 +115,7 @@
       </div>
 
       <button id="saveSettingsBtn" class="primary-btn" style="width:100%; margin-top:16px;">Save & Apply</button>
-      <button id="skipSettingsBtn" class="secondary-btn" style="width:100%; margin-top:8px;">Skip for now</button>
+
       <div id="settingsStatus"></div>
     </div>
 
@@ -225,94 +225,80 @@
         <button id="backFromSetup" class="secondary-btn" style="font-size:11px; padding:4px 8px;">Back</button>
       </div>
 
-      <div class="input-method-tabs"
-        style="display:flex; gap:0; margin-bottom:16px; border:1px solid var(--border-color); border-radius:var(--radius-md); overflow:hidden;">
-        <button class="method-tab active" data-method="resume"
-          style="flex:1; padding:10px 8px; font-size:11px; font-weight:600; border:none; cursor:pointer; background:var(--primary); color:white; transition:all 0.15s;">📄
-          Resume PDF</button>
-        <button class="method-tab" data-method="linkedin"
-          style="flex:1; padding:10px 8px; font-size:11px; font-weight:600; border:none; cursor:pointer; background:var(--card-bg); color:var(--text-secondary); border-left:1px solid var(--border-color); transition:all 0.15s;">💼
-          LinkedIn</button>
-        <button class="method-tab" data-method="text"
-          style="flex:1; padding:10px 8px; font-size:11px; font-weight:600; border:none; cursor:pointer; background:var(--card-bg); color:var(--text-secondary); border-left:1px solid var(--border-color); transition:all 0.15s;">📝
-          Paste Text</button>
+      <!-- Primary: PDF Upload -->
+      <div id="methodUpload" class="setup-hero-upload">
+        <div class="upload-zone" id="uploadDropZone">
+          <div class="upload-zone-content">
+            <span class="upload-icon">📄</span>
+            <p class="upload-title">Upload Your Resume</p>
+            <p class="upload-subtitle">Drop a PDF here or click to browse</p>
+            <input type="file" id="resumeFile" accept=".pdf" style="display:none">
+            <button id="uploadBtn" class="upload-choose-btn">Choose PDF File</button>
+          </div>
+        </div>
+        <div id="uploadStatus" style="margin-top:8px;"></div>
       </div>
 
-      <!-- Resume PDF Tab (default, visible) -->
-      <div id="methodResume" class="method-panel">
-        <input type="file" id="resumeFile" accept=".pdf" style="margin-bottom:12px;">
-        <button id="uploadBtn" class="primary-btn" style="width:100%;">Upload Resume</button>
-        <div id="uploadStatus"></div>
-      </div>
-
-      <!-- LinkedIn Tab (hidden) -->
-      <div id="methodLinkedin" class="method-panel" style="display:none;">
-        <div style="margin-bottom:16px;">
-          <label
-            style="font-size:12px; font-weight:600; color:var(--text-main); display:block; margin-bottom:8px;">Upload
-            LinkedIn PDF</label>
-          <input type="file" id="linkedinPdfFile" accept=".pdf" style="margin-bottom:8px;">
-          <button id="uploadLinkedinPdfBtn" class="primary-btn" style="width:100%;">Upload LinkedIn PDF</button>
-          <details style="margin-top:8px; font-size:11px; color:var(--text-muted);">
-            <summary style="cursor:pointer; font-weight:500; color:var(--primary);">How to export your LinkedIn PDF
-            </summary>
-            <div style="padding:8px 0; line-height:1.6;">
-              <ol style="margin:4px 0 0 16px; padding:0;">
-                <li>Go to your <a href="https://www.linkedin.com/in/me" target="_blank">LinkedIn profile</a></li>
-                <li>Click the <strong>"More"</strong> button (below your banner)</li>
-                <li>Select <strong>"Save to PDF"</strong></li>
-                <li>Upload the downloaded PDF here</li>
-              </ol>
-              <div
-                style="margin-top:8px; padding:6px 8px; background:#f0fdf4; border-radius:4px; border:1px solid #a7f3d0; font-size:10px;">
-                ✅ This is the most reliable method — captures your full profile including all experience, education,
-                skills, and certifications.
+      <!-- Alternative methods — collapsed -->
+      <details class="alt-methods-details">
+        <summary class="alt-methods-toggle">
+          <span>Other ways to import</span>
+          <span class="toggle-chevron">▾</span>
+        </summary>
+        <div class="alt-methods-content">
+          <!-- LinkedIn Import -->
+          <div class="alt-method-card" id="methodLinkedIn">
+            <div class="alt-method-header">
+              <span>🔗</span>
+              <div>
+                <strong>Import from LinkedIn</strong>
+                <span class="alt-method-note">Opens your profile in a new tab</span>
               </div>
             </div>
-          </details>
-        </div>
-
-        <div class="divider-or"><span>OR</span></div>
-
-        <div>
-          <label
-            style="font-size:12px; font-weight:600; color:var(--text-main); display:block; margin-bottom:8px;">Paste
-            LinkedIn URL</label>
-          <div style="display:flex; gap:8px;">
-            <input type="text" id="linkedinUrlInput" placeholder="https://linkedin.com/in/your-name"
-              style="flex:1; font-size:12px;">
-            <button id="fetchLinkedinBtn" class="primary-btn"
-              style="white-space:nowrap; padding:10px 14px; font-size:12px;">🔍 Fetch</button>
+            <div style="display:flex; gap:6px; margin-top:8px;">
+              <input type="text" id="linkedinUrlInput" placeholder="https://linkedin.com/in/your-profile"
+                style="flex:1; font-size:11px; padding:8px;">
+              <button id="fetchLinkedinBtn" class="primary-btn"
+                style="padding:8px 12px; font-size:11px; white-space:nowrap;">🔍 Fetch</button>
+            </div>
+            <div class="alt-method-warning">
+              ⚠️ LinkedIn may limit data visibility. PDF upload gives better results.
+            </div>
+            <div id="linkedinUrlStatus" style="margin-top:6px;"></div>
           </div>
-          <div style="margin-top:6px; font-size:10px; color:var(--text-muted); line-height:1.4;">
-            ⚠️ Works with public profiles only. LinkedIn may limit data visibility. If results are incomplete, try the
-            PDF method above.
-          </div>
-          <div id="linkedinUrlStatus" style="margin-top:8px;"></div>
-        </div>
-      </div>
 
-      <!-- Paste Text Tab (hidden) -->
-      <div id="methodText" class="method-panel" style="display:none;">
-        <textarea id="resumeTextInit" placeholder="Paste your full resume text here..."
-          style="height:120px;"></textarea>
-        <button id="processTextInitBtn" class="primary-btn" style="width:100%; margin-top:8px;">Process Text</button>
-        <div id="textStatus" style="margin-top:8px;"></div>
-      </div>
-      <details style="margin-top: 16px; text-align: left;">
-        <summary style="font-size: 12px; font-weight: 600; cursor: pointer; color: var(--primary);">ℹ️ How does ForgeCV
-          work?</summary>
-        <div style="font-size: 11px; color: var(--text-secondary); padding: 10px 0; line-height: 1.6;">
-          <p><strong>Your data is private.</strong> Your resume and API key stay on your device. We never store or
-            transmit your personal information.</p>
-          <p><strong>Step 1:</strong> Upload your resume once. ForgeCV extracts and stores your profile locally.</p>
-          <p><strong>Step 2:</strong> Open any job posting in your browser. ForgeCV automatically reads the job
-            description from the page.</p>
-          <p><strong>Step 3:</strong> Click Generate. AI rewrites your resume to match the job's keywords while
-            preserving your real experience.</p>
-          <p><strong>Step 4:</strong> Download the tailored PDF, or drag it directly into the application form.</p>
+          <!-- Paste Text -->
+          <div class="alt-method-card" id="methodText">
+            <div class="alt-method-header">
+              <span>📝</span>
+              <div>
+                <strong>Paste Resume Text</strong>
+                <span class="alt-method-note">Copy-paste from any source</span>
+              </div>
+            </div>
+            <textarea id="resumeTextInit" placeholder="Paste your full resume text here..."
+              style="height:100px; margin-top:8px; font-size:11px;"></textarea>
+            <button id="processTextInitBtn" class="primary-btn"
+              style="width:100%; margin-top:8px; font-size:12px;">Process Text</button>
+            <div id="textStatus" style="margin-top:6px;"></div>
+          </div>
         </div>
       </details>
+
+      <!-- How it works — collapsed -->
+      <details class="how-it-works-details">
+        <summary class="how-it-works-toggle">ℹ️ How does ForgeCV work?</summary>
+        <div class="how-it-works-content">
+          <p><strong>Your data is private.</strong> Your resume and API key stay on your device.</p>
+          <p><strong>Step 1:</strong> Upload your resume once. ForgeCV extracts and stores your profile locally.</p>
+          <p><strong>Step 2:</strong> Open any job posting. ForgeCV reads the job description from the page.</p>
+          <p><strong>Step 3:</strong> Click Forge. AI rewrites your resume to match the job's keywords.</p>
+          <p><strong>Step 4:</strong> Download the tailored PDF or copy content directly.</p>
+        </div>
+      </details>
+      <div style="margin-top: 12px; text-align: center; font-size: 10px; color: var(--text-muted);">
+        ✨ Trusted by job seekers. Powered by AI. Zero data leaves your device.
+      </div>
       <div style="margin-top: 12px; text-align: center; font-size: 10px; color: var(--text-muted);">
         ✨ Trusted by job seekers. Powered by AI. Zero data leaves your device.
       </div>
@@ -405,55 +391,109 @@
       </div>
     </div>
 
-    <!-- Tailoring Strategy -->
-    <div class="card">
-      <label class="text-sm font-bold text-muted" style="display:block; margin-bottom:8px;">TAILORING BASIS</label>
-      <input type="range" id="tailoringSlider" min="0" max="2" value="1" step="1">
-      <div class="strategy-labels">
-        <span>🛡 Keep It Real</span>
-        <span>⚖️ Sweet Spot</span>
-        <span>🎯 ATS Destroyer</span>
-      </div>
-      <div id="strategyDescription" class="text-sm text-muted" style="margin-top:12px; font-style:italic;">
-        Balanced approach - integrates JD keywords...
-      </div>
-    </div>
-
-    <div style="display:flex; flex-direction:column; gap:8px;">
-      <!-- Page mode toggle row -->
-      <div
-        style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
-        <span style="font-size:12px; font-weight:600; color:var(--text-main);">📄 Pages:</span>
-        <div id="pageModeToggle" style="display:flex; background:#e2e8f0; border-radius:6px; overflow:hidden; flex:1;">
-          <button id="pageMode1" class="page-mode-btn active" data-mode="1page"
-            style="flex:1; padding:6px 12px; font-size:11px; font-weight:600; border:none; cursor:pointer; transition:all 0.2s;">1
-            Page</button>
-          <button id="pageMode2" class="page-mode-btn" data-mode="2page"
-            style="flex:1; padding:6px 12px; font-size:11px; font-weight:600; border:none; cursor:pointer; transition:all 0.2s;">2
-            Pages</button>
+    <!-- Forge Section — Primary CTA -->
+    <div class="forge-section">
+      <button id="generateBtn" class="forge-btn">
+        <span class="forge-btn-icon">🔥</span>
+        <div class="forge-btn-text">
+          <span class="forge-btn-title">Forge My Resume</span>
+          <span class="forge-btn-desc">AI tailors your resume to match the job description</span>
         </div>
-      </div>
-      <button id="generateBtn" class="primary-btn" style="padding:14px; font-size: 14px;"
-        title="AI reads the job description and tailors your resume for maximum ATS match">
-        🔥 Forge My Resume
       </button>
-      <button id="generateBaseBtn" class="secondary-btn" style="font-size: 12px;"
-        title="Generate a clean PDF from your base profile without AI tailoring">
-        📄 Export Base Resume (No AI)
-      </button>
+
+      <!-- Forge Options — collapsed by default -->
+      <details class="forge-options-details" id="forgeOptionsDetails">
+        <summary class="forge-options-toggle">
+          <span>⚙️ Forge Options</span>
+          <span class="toggle-chevron">▾</span>
+        </summary>
+        <div class="forge-options-content">
+          <!-- Tailoring Strategy -->
+          <div class="forge-option-group">
+            <label class="forge-option-label">Tailoring Strength</label>
+            <input type="range" id="tailoringSlider" min="0" max="2" value="1" step="1" class="forge-slider">
+            <div class="strategy-labels">
+              <span>🛡 Preserve</span>
+              <span>⚖️ Balanced</span>
+              <span>🎯 Aggressive</span>
+            </div>
+            <div id="strategyDescription" class="forge-option-desc">
+              Balanced — integrates JD keywords while keeping it authentic
+            </div>
+          </div>
+
+          <!-- Page Mode -->
+          <div class="forge-option-group">
+            <label class="forge-option-label">Page Length</label>
+            <div class="page-mode-toggle-bar">
+              <button id="pageMode1" class="page-mode-btn active" data-mode="1page">1 Page</button>
+              <button id="pageMode2" class="page-mode-btn" data-mode="2page">2 Pages</button>
+            </div>
+          </div>
+
+          <!-- Export Base (no AI) -->
+          <button id="generateBaseBtn" class="forge-base-btn">
+            📄 Export without AI
+            <span class="forge-base-desc">Download your base profile as PDF — no tailoring</span>
+          </button>
+        </div>
+      </details>
     </div>
 
     <!-- Actions (Post-Generation) -->
     <div id="actions" class="hidden">
-      <div class="actions-grid">
-        <button id="previewBtn" class="grid-preview">🔍 Preview</button>
-        <button id="downloadBtn" class="grid-download">⬇ Download</button>
-        <button id="editBtn" class="grid-edit">✏️ Fine-Tune</button>
-        <button id="formatBtn" class="grid-style secondary-btn">🎨 Style It</button>
-        <button id="copyContentBtn" class="grid-copy">📋 Copy</button>
-        <button id="analyzeBtn" class="grid-analyze secondary-btn">📊 ATS Score</button>
-        <button id="historyBtn" class="grid-history secondary-btn">🕰 Past Forges</button>
+      <!-- Primary Actions — always visible, large -->
+      <div class="actions-primary">
+        <button id="previewBtn" class="action-btn action-primary">
+          <span class="action-icon">🔍</span>
+          <span class="action-label">Preview</span>
+          <span class="action-desc">Open PDF in new tab</span>
+        </button>
+        <button id="downloadBtn" class="action-btn action-primary">
+          <span class="action-icon">⬇️</span>
+          <span class="action-label">Download</span>
+          <span class="action-desc">Save PDF to your device</span>
+        </button>
       </div>
+
+      <!-- Edit Actions — always visible, medium -->
+      <div class="actions-edit">
+        <button id="editBtn" class="action-btn action-secondary">
+          <span class="action-icon">✏️</span>
+          <span class="action-label">Fine-Tune</span>
+          <span class="action-desc">Edit bullets & sections</span>
+        </button>
+        <button id="copyContentBtn" class="action-btn action-secondary">
+          <span class="action-icon">📋</span>
+          <span class="action-label">Copy</span>
+          <span class="action-desc">Copy text to clipboard</span>
+        </button>
+      </div>
+
+      <!-- More Actions — collapsed by default -->
+      <details class="more-actions-details">
+        <summary class="more-actions-toggle">
+          <span>More tools</span>
+          <span class="toggle-chevron">▾</span>
+        </summary>
+        <div class="actions-more">
+          <button id="analyzeBtn" class="action-btn action-tertiary">
+            <span class="action-icon">📊</span>
+            <span class="action-label">ATS Score</span>
+            <span class="action-desc">AI keyword analysis</span>
+          </button>
+          <button id="formatBtn" class="action-btn action-tertiary">
+            <span class="action-icon">🎨</span>
+            <span class="action-label">Style</span>
+            <span class="action-desc">Font, margins, layout</span>
+          </button>
+          <button id="historyBtn" class="action-btn action-tertiary">
+            <span class="action-icon">🕰</span>
+            <span class="action-label">History</span>
+            <span class="action-desc">Past generated resumes</span>
+          </button>
+        </div>
+      </details>
 
       <!-- Drag and drop feature removed -->
 
@@ -484,117 +524,152 @@
 
     <!-- Format Settings UI -->
     <div id="formatUI" class="hidden card">
-      <div class="flex-between" style="margin-bottom: 12px;">
-        <h3>Resume Format</h3>
-        <button id="closeFormatBtn" class="secondary-btn icon-btn">✕</button>
+      <!-- Header -->
+      <div class="format-header">
+        <h3 class="format-title">Resume Style</h3>
+        <button id="closeFormatBtn" class="editor-icon-btn" title="Close">✕</button>
       </div>
 
-      <div class="edit-field" style="margin-bottom: 12px;">
-        <label class="text-sm text-muted">FONT FAMILY</label>
-        <div style="display: flex; gap: 6px;">
-          <button class="format-option" data-setting="font" data-value="times"
-            style="flex:1; font-family: 'Times New Roman', serif; font-size: 12px; padding: 8px;">Times</button>
-          <button class="format-option" data-setting="font" data-value="helvetica"
-            style="flex:1; font-family: Helvetica, Arial, sans-serif; font-size: 12px; padding: 8px;">Helvetica</button>
-          <button class="format-option" data-setting="font" data-value="courier"
-            style="flex:1; font-family: 'Courier New', monospace; font-size: 12px; padding: 8px;">Courier</button>
+      <!-- Quick Presets -->
+      <div class="format-presets">
+        <label class="format-section-label">Quick Presets</label>
+        <div class="preset-grid">
+          <button class="preset-btn" id="presetCompact">
+            <span class="preset-icon">📐</span>
+            <span class="preset-name">Compact</span>
+            <span class="preset-desc">Small text, narrow margins — fits more content</span>
+          </button>
+          <button class="preset-btn preset-active" id="presetStandard">
+            <span class="preset-icon">📄</span>
+            <span class="preset-name">Standard</span>
+            <span class="preset-desc">Clean, professional, balanced spacing</span>
+          </button>
+          <button class="preset-btn" id="presetSpacious">
+            <span class="preset-icon">📰</span>
+            <span class="preset-name">Spacious</span>
+            <span class="preset-desc">Larger text, wide margins — easy to read</span>
+          </button>
         </div>
       </div>
 
-      <div class="edit-field" style="margin-bottom: 12px;">
-        <label class="text-sm text-muted">DENSITY</label>
-        <div style="display: flex; gap: 6px;">
-          <button class="format-option" data-setting="density" data-value="compact"
-            style="flex:1; font-size: 11px; padding: 8px;">Compact</button>
-          <button class="format-option" data-setting="density" data-value="normal"
-            style="flex:1; font-size: 11px; padding: 8px;">Normal</button>
-          <button class="format-option" data-setting="density" data-value="spacious"
-            style="flex:1; font-size: 11px; padding: 8px;">Spacious</button>
+      <!-- Fine-tune — collapsed -->
+      <details class="finetune-details">
+        <summary class="finetune-toggle">
+          <span>🎛️ Fine-tune individual settings</span>
+          <span class="toggle-chevron">▾</span>
+        </summary>
+        <div class="finetune-content">
+
+          <!-- Font -->
+          <div class="finetune-group">
+            <label class="format-section-label">Font</label>
+            <div class="finetune-btn-row">
+              <button class="format-option" data-setting="font" data-value="times"
+                style="font-family:'Times New Roman',serif;">Times</button>
+              <button class="format-option" data-setting="font" data-value="helvetica"
+                style="font-family:Helvetica,Arial,sans-serif;">Helvetica</button>
+              <button class="format-option" data-setting="font" data-value="courier"
+                style="font-family:'Courier New',monospace;">Courier</button>
+            </div>
+          </div>
+
+          <!-- Density -->
+          <div class="finetune-group">
+            <label class="format-section-label">Density</label>
+            <div class="finetune-btn-row">
+              <button class="format-option" data-setting="density" data-value="compact">Tight</button>
+              <button class="format-option" data-setting="density" data-value="normal">Normal</button>
+              <button class="format-option" data-setting="density" data-value="spacious">Airy</button>
+            </div>
+          </div>
+
+          <!-- Margins -->
+          <div class="finetune-group">
+            <label class="format-section-label">Margins</label>
+            <div class="finetune-btn-row">
+              <button class="format-option" data-setting="margins" data-value="narrow">Narrow</button>
+              <button class="format-option" data-setting="margins" data-value="normal">Normal</button>
+              <button class="format-option" data-setting="margins" data-value="wide">Wide</button>
+            </div>
+          </div>
+
+          <!-- Size Sliders -->
+          <div class="finetune-group">
+            <label class="format-section-label">Name Size</label>
+            <div class="slider-row">
+              <input type="range" id="nameSizeSlider" min="16" max="28" value="21" step="1">
+              <span id="nameSizeValue" class="slider-value">21pt</span>
+            </div>
+          </div>
+
+          <div class="finetune-group">
+            <label class="format-section-label">Body Text</label>
+            <div class="slider-row">
+              <input type="range" id="bodySizeSlider" min="9" max="14" value="10" step="0.5">
+              <span id="bodySizeValue" class="slider-value">10pt</span>
+            </div>
+          </div>
+
+          <div class="finetune-group">
+            <label class="format-section-label">Section Headers</label>
+            <div class="slider-row">
+              <input type="range" id="headerSizeSlider" min="10" max="24" value="12" step="1">
+              <span id="headerSizeValue" class="slider-value">12pt</span>
+            </div>
+          </div>
+
+          <div class="finetune-group">
+            <label class="format-section-label">Sub-headings</label>
+            <div class="slider-row">
+              <input type="range" id="subheaderSizeSlider" min="10" max="18" value="11" step="0.5">
+              <span id="subheaderSizeValue" class="slider-value">11pt</span>
+            </div>
+          </div>
+
+          <!-- Header Style -->
+          <div class="finetune-group">
+            <label class="format-section-label">Header Style</label>
+            <select id="headerStyleSelect" class="finetune-select">
+              <option value="uppercase_line">UPPERCASE + Line</option>
+              <option value="uppercase_noline">UPPERCASE Only</option>
+              <option value="bold_line">Bold Title Case + Line</option>
+              <option value="bold_noline">Bold Title Case Only</option>
+            </select>
+          </div>
+
+          <!-- Bullet & Page -->
+          <div class="finetune-row-split">
+            <div class="finetune-group" style="flex:1;">
+              <label class="format-section-label">Bullets</label>
+              <div class="finetune-btn-row">
+                <button class="format-option" data-setting="bulletChar" data-value="•">•</button>
+                <button class="format-option" data-setting="bulletChar" data-value="–">–</button>
+              </div>
+            </div>
+            <div class="finetune-group" style="flex:1;">
+              <label class="format-section-label">Page Size</label>
+              <div class="finetune-btn-row">
+                <button class="format-option" data-setting="pageSize" data-value="letter">Letter</button>
+                <button class="format-option" data-setting="pageSize" data-value="a4">A4</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Show Links -->
+          <div class="finetune-group">
+            <label class="finetune-checkbox-label">
+              <input type="checkbox" id="showLinksCheck" checked>
+              <span>Show clickable links in contact line</span>
+            </label>
+          </div>
+
         </div>
-      </div>
+      </details>
 
-      <div class="edit-field" style="margin-bottom: 12px;">
-        <label class="text-sm text-muted">MARGINS</label>
-        <div style="display: flex; gap: 6px;">
-          <button class="format-option" data-setting="margins" data-value="narrow"
-            style="flex:1; font-size: 11px; padding: 8px;">Narrow</button>
-          <button class="format-option" data-setting="margins" data-value="normal"
-            style="flex:1; font-size: 11px; padding: 8px;">Normal</button>
-          <button class="format-option" data-setting="margins" data-value="wide"
-            style="flex:1; font-size: 11px; padding: 8px;">Wide</button>
-        </div>
-      </div>
-
-      <div class="edit-field" style="margin-bottom: 12px;">
-        <label class="text-sm text-muted">NAME SIZE</label>
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <input type="range" id="nameSizeSlider" min="16" max="28" value="21" step="1" style="flex: 1;">
-          <span id="nameSizeValue" style="font-size: 12px; min-width: 30px; text-align: center;">21pt</span>
-        </div>
-      </div>
-
-      <div class="edit-field" style="margin-bottom: 12px;">
-        <label class="text-sm text-muted">BODY TEXT SIZE</label>
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <input type="range" id="bodySizeSlider" min="9" max="14" value="10" step="0.5" style="flex: 1;">
-          <span id="bodySizeValue" style="font-size: 12px; min-width: 30px; text-align: center;">10pt</span>
-        </div>
-      </div>
-
-      <div class="edit-field" style="margin-bottom: 12px;">
-        <label class="text-sm text-muted">SECTION HEADER SIZE</label>
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <input type="range" id="headerSizeSlider" min="10" max="24" value="12" step="1" style="flex: 1;">
-          <span id="headerSizeValue" style="font-size: 12px; min-width: 30px; text-align: center;">12pt</span>
-        </div>
-      </div>
-
-      <div class="edit-field" style="margin-bottom: 12px;">
-        <label class="text-sm text-muted">SUB-HEADING SIZE</label>
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <input type="range" id="subheaderSizeSlider" min="10" max="18" value="11" step="0.5" style="flex: 1;">
-          <span id="subheaderSizeValue" style="font-size: 12px; min-width: 30px; text-align: center;">11pt</span>
-        </div>
-      </div>
-
-      <div class="edit-field" style="margin-bottom: 12px;">
-        <label class="text-sm text-muted">SECTION HEADERS</label>
-        <select id="headerStyleSelect" style="font-size: 12px;">
-          <option value="uppercase_line">UPPERCASE + Line (Default)</option>
-          <option value="uppercase_noline">UPPERCASE Only</option>
-          <option value="bold_line">Bold Title Case + Line</option>
-          <option value="bold_noline">Bold Title Case Only</option>
-        </select>
-      </div>
-
-      <div class="edit-field" style="margin-bottom: 12px;">
-        <label class="text-sm text-muted">BULLET STYLE</label>
-        <div style="display: flex; gap: 6px;">
-          <button class="format-option" data-setting="bulletChar" data-value="•"
-            style="flex:1; font-size: 14px; padding: 8px;">•</button>
-          <button class="format-option" data-setting="bulletChar" data-value="–"
-            style="flex:1; font-size: 14px; padding: 8px;">–</button>
-        </div>
-      </div>
-
-      <div class="edit-field" style="margin-bottom: 12px;">
-        <label class="text-sm text-muted">PAGE SIZE</label>
-        <div style="display: flex; gap: 6px;">
-          <button class="format-option" data-setting="pageSize" data-value="letter"
-            style="flex:1; font-size: 11px; padding: 8px;">US Letter</button>
-          <button class="format-option" data-setting="pageSize" data-value="a4"
-            style="flex:1; font-size: 11px; padding: 8px;">A4</button>
-        </div>
-      </div>
-
-      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-        <input type="checkbox" id="showLinksCheck" checked style="width: auto;">
-        <label for="showLinksCheck" class="text-sm" style="margin: 0;">Show clickable links in contact line</label>
-      </div>
-
-      <div style="display: flex; gap: 8px; margin-top: 16px;">
-        <button id="previewFormatBtn" class="primary-btn" style="flex: 1; font-size: 12px;">👁 Preview</button>
-        <button id="resetFormatBtn" class="secondary-btn" style="flex: 1; font-size: 12px;">↩ Reset Defaults</button>
+      <!-- Footer Actions -->
+      <div class="format-footer">
+        <button id="previewFormatBtn" class="format-preview-btn">👁 Preview</button>
+        <button id="resetFormatBtn" class="format-reset-btn">↩ Reset</button>
       </div>
     </div>
 
@@ -609,21 +684,19 @@
 
     <!-- Editor UI -->
     <div id="editorUI" class="hidden">
-      <button id="popoutEditorBtn"
-        style="width:100%; margin-bottom:10px; font-size:11px; padding:8px; background:#f0f4ff; border:1px dashed #818cf8; border-radius:8px; color:#4338ca; cursor:pointer;">
-        ↗ Open in Full Editor (Recommended for detailed editing)
-      </button>
-
-      <div class="flex-between" style="margin-bottom:12px;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <h3>Edit Resume Content</h3>
+      <!-- Editor Header — compact -->
+      <div class="editor-header">
+        <div class="editor-header-left">
+          <h3 class="editor-title">Edit Resume</h3>
+          <span id="atsScoreBadge" class="ats-badge" style="display:none;"></span>
         </div>
-        <button id="reorderBtn"
-          style="background:none; border:none; color:var(--primary); font-size:12px; cursor:pointer;">⇅ Reorder
-          Sections</button>
+        <div class="editor-header-actions">
+          <button id="reorderBtn" class="editor-icon-btn" title="Reorder sections">⇅</button>
+          <button id="popoutEditorBtn" class="editor-icon-btn" title="Open in full editor">↗</button>
+        </div>
       </div>
 
-      <!-- Reorder Box -->
+      <!-- Reorder Box (hidden by default) -->
       <div id="reorderUI" class="hidden card" style="background:#f1f5f9;">
         <h4 style="font-size:13px; margin-bottom:10px;">Drag to Reorder</h4>
         <ul id="sortableSections" style="list-style:none; padding:0; margin:0 0 10px 0;"></ul>
@@ -633,8 +706,9 @@
         </div>
       </div>
 
-      <div class="edit-field">
-        <select id="sectionSelect">
+      <!-- Section Selector — clean dropdown -->
+      <div class="editor-section-selector">
+        <select id="sectionSelect" class="editor-section-dropdown">
           <optgroup label="Sections">
             <option value="summary">Summary</option>
             <option value="education">Education</option>
@@ -647,24 +721,25 @@
             <option value="awards">Awards & Honors</option>
             <option value="volunteering">Volunteering</option>
             <option value="languages">Languages</option>
-            <option value="contact">Contact Info (Location/Links)</option>
+            <option value="contact">Contact Info</option>
           </optgroup>
         </select>
       </div>
 
-      <div
-        style="font-size: 10px; color: var(--text-muted); margin-bottom: 10px; padding: 6px 8px; background: #f9fafb; border-radius: 6px; border: 1px solid #f3f4f6;">
-        💡 <strong>Tip:</strong> Edit bullets to include job-specific keywords. Use ↑↓ arrows to reorder items. Press
-        <kbd style="background:#e5e7eb; padding:1px 4px; border-radius:3px; font-size:9px;">Ctrl+S</kbd> to save.
-      </div>
+      <!-- Editor Form Content — scrollable -->
+      <div id="formContainer" class="editor-form-scroll"></div>
 
-      <div id="formContainer" style="max-height: 400px; overflow-y: auto; padding-bottom: 20px;"></div>
-
+      <!-- Sticky Footer — simplified to 3 buttons -->
       <div class="editor-footer">
-        <button id="saveManualBtn" style="background:var(--primary); color:white;">Save Changes</button>
-        <button id="saveRegenBtn" style="background:var(--success); color:white;">Save & Regenerate</button>
-        <button id="editorPreviewBtn" class="secondary-btn">👁 Preview</button>
-        <button id="cancelEditBtn" class="secondary-btn">Cancel</button>
+        <div class="editor-footer-primary">
+          <button id="saveManualBtn" class="editor-save-btn">
+            <span>💾 Save</span>
+          </button>
+          <button id="saveRegenBtn" class="editor-regen-btn">
+            <span>✨ Save & Re-tailor</span>
+          </button>
+        </div>
+        <button id="cancelEditBtn" class="editor-cancel-btn">Cancel</button>
       </div>
     </div>
 

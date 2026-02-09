@@ -553,65 +553,44 @@ function setupSettings() {
 }
 
 function setupEventListeners() {
-    // Input method tabs (Setup UI)
-    document.querySelectorAll('.method-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            // Update active tab styling
-            document.querySelectorAll('.method-tab').forEach(t => {
-                t.classList.remove('active');
-                t.style.background = 'var(--card-bg)';
-                t.style.color = 'var(--text-secondary)';
-            });
-            tab.classList.add('active');
-            tab.style.background = 'var(--primary)';
-            tab.style.color = 'white';
+    // Resume Upload Trigger (Hero section)
+    if (uploadBtn) {
+        uploadBtn.addEventListener('click', () => resumeFile.click());
+    }
 
-            // Show correct panel
-            document.querySelectorAll('.method-panel').forEach(p => p.style.display = 'none');
-            const method = tab.dataset.method;
-            if (method === 'resume') document.getElementById('methodResume').style.display = 'block';
-            else if (method === 'linkedin') document.getElementById('methodLinkedin').style.display = 'block';
-            else if (method === 'text') document.getElementById('methodText').style.display = 'block';
+    // Auto-process on file selection
+    if (resumeFile) {
+        resumeFile.addEventListener('change', async () => {
+            const file = resumeFile.files[0];
+            if (!file) return;
+
+            // Re-use logic from lines below (referenced by ID)
+            processResumeUpload(file);
         });
-    });
+    }
 
-    // LinkedIn PDF upload (Setup UI)
-    document.getElementById('uploadLinkedinPdfBtn').addEventListener('click', async () => {
-        const file = document.getElementById('linkedinPdfFile').files[0];
-        if (!file) {
-            showStatus('Please select a LinkedIn PDF file.', 'error', 'uploadStatus');
-            return;
-        }
-        if (!checkCurrentProviderKey()) {
-            showStatus('API Key required. Go to Settings.', 'error', 'uploadStatus');
-            setTimeout(showSettings, 2000);
-            return;
-        }
-
-        setButtonLoading(document.getElementById('uploadLinkedinPdfBtn'), true);
-        showStatus('Extracting LinkedIn profile...', 'info', 'uploadStatus');
-
-        try {
-            const textData = await extractText(file);
-            if (textData.error) throw new Error(textData.error);
-
-            const profileData = await extractBaseProfile(textData.text, getApiKeyForProvider(), state.currentProvider);
-            if (profileData.error) throw new Error(profileData.error);
-
-            await saveNewProfile(profileData);
-
-            showStatus('✅ LinkedIn profile imported!', 'success', 'uploadStatus');
-            setTimeout(showMainUI, 1500);
-        } catch (e) {
-            if (e.message === 'SERVER_UNAVAILABLE') {
-                showStatus('Server unavailable. <a onclick="showSettings()">Add your own API key</a> for uninterrupted access.', 'warning', 'uploadStatus');
+    // Drag and drop for hero zone
+    const dropZone = document.getElementById('uploadDropZone');
+    if (dropZone) {
+        dropZone.addEventListener('click', () => resumeFile.click());
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type === 'application/pdf') {
+                processResumeUpload(file);
             } else {
-                showStatus(`Error: ${e.message}`, 'error', 'uploadStatus');
+                showStatus("Please drop a valid PDF file.", "error", "uploadStatus");
             }
-        } finally {
-            setButtonLoading(document.getElementById('uploadLinkedinPdfBtn'), false, 'Upload LinkedIn PDF');
-        }
-    });
+        });
+    }
+
+
 
     // LinkedIn URL fetch (Setup UI)
     document.getElementById('fetchLinkedinBtn').addEventListener('click', async () => {
@@ -1097,36 +1076,24 @@ function setupEventListeners() {
         }, 1000);
     });
 
-    // Skip Settings
-    const skipSettingsBtn = document.getElementById('skipSettingsBtn');
-    if (skipSettingsBtn) {
-        skipSettingsBtn.addEventListener('click', () => {
-            if (state.baseResume) showMainUI();
-            else showSetupUI();
-        });
-    }
 
-    // Upload Resume
-    uploadBtn.addEventListener('click', async () => {
-        const file = resumeFile.files[0];
-        if (!file) {
-            showStatus("Please select a PDF file.", "error", "uploadStatus");
-            return;
-        }
+
+    // Logic for Resume Upload (shared by button and drop zone)
+    async function processResumeUpload(file) {
         if (!checkCurrentProviderKey()) {
             showStatus("API Key required. Please go to Settings to add it.", "error", "uploadStatus");
             setTimeout(showSettings, 2000);
             return;
         }
 
-        setButtonLoading(uploadBtn, true);
+        const processBtn = document.getElementById('uploadBtn');
+        setButtonLoading(processBtn, true);
         showStatus("Extracting resume info...", "info", "uploadStatus");
 
         try {
             const textData = await extractText(file);
             if (textData.error) throw new Error(textData.error);
 
-            // Use correct key for extraction
             const profileData = await extractBaseProfile(textData.text, getApiKeyForProvider(), state.currentProvider);
             if (profileData.error) throw new Error(profileData.error);
 
@@ -1138,9 +1105,9 @@ function setupEventListeners() {
         } catch (e) {
             showStatus(`Error: ${e.message}`, "error", "uploadStatus");
         } finally {
-            setButtonLoading(uploadBtn, false, "Upload & Create Profile");
+            setButtonLoading(processBtn, false, "Upload & Create Profile");
         }
-    });
+    }
 
     // Manual Text Processing
     const handleManualText = async (text, btnId, statusId) => {

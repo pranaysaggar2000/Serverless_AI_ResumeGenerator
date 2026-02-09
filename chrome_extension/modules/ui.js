@@ -24,6 +24,12 @@ export function showStatus(message, type = 'info', elementId = 'status') {
         }[type] || 'ℹ️';
 
         toast.innerHTML = `<span style="flex-shrink:0;">${icon}</span> <span style="line-height:1.4;">${message}</span>`;
+
+        // Limit to 3 visible toasts
+        while (container.children.length >= 3) {
+            container.removeChild(container.firstChild);
+        }
+
         container.appendChild(toast);
 
         const duration = type === 'error' ? 5000 : 3000;
@@ -149,15 +155,22 @@ export function renderAuthSection() {
     const hasKeys = !!(state.currentApiKey || state.currentGroqKey || state.currentOpenRouterKey);
 
     if (state.isLoggedIn && state.user) {
+        const avatarUrl = (state.user.user_metadata?.avatar_url && state.user.user_metadata.avatar_url.startsWith('https://'))
+            ? state.user.user_metadata.avatar_url
+            : 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+
         container.innerHTML = `
             <div class="user-profile">
-                <img src="${state.user.user_metadata?.avatar_url || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" class="user-avatar" alt="User">
+                <img src="${avatarUrl}" class="user-avatar" alt="User">
                 <div class="user-details">
-                    <div class="user-email">${state.user.email}</div>
+                    <div class="user-email" id="userEmailDisplay"></div>
                     <button id="logoutBtn" class="logout-link">Sign out</button>
                 </div>
             </div>
         `;
+
+        const emailEl = document.getElementById('userEmailDisplay');
+        if (emailEl) emailEl.textContent = state.user.email;
 
         // Hide login prompt
         const loginPrompt = getEl('freeLoginPrompt');

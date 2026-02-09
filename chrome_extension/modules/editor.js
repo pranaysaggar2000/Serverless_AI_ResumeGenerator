@@ -1,5 +1,6 @@
 import { state, updateState } from './state.js';
 import { showStatus, showMainUI, refreshProfileName } from './ui.js';
+import { showConfirmDialog } from './utils.js';
 
 let currentEditingResume = null;
 let currentEditingResumeSource = null; // Track which state object we cloned from
@@ -248,8 +249,8 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
         const removeSummaryBtn = document.createElement('button');
         removeSummaryBtn.textContent = '🗑️ Remove Summary';
         removeSummaryBtn.style.cssText = "width: 100%; padding: 8px; background: #ffebee; border: 1px dashed #ffcdd2; color: #c62828; cursor: pointer; margin-top: 8px; border-radius: 6px; font-size: 11px;";
-        removeSummaryBtn.onclick = () => {
-            if (confirm("Remove the summary section?")) {
+        removeSummaryBtn.onclick = async () => {
+            if (await showConfirmDialog("Remove the summary section?")) {
                 const textarea = document.getElementById('edit_summary_text');
                 if (textarea) textarea.value = '';
             }
@@ -270,8 +271,8 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
         const removeLangBtn = document.createElement('button');
         removeLangBtn.textContent = '🗑️ Remove Languages';
         removeLangBtn.style.cssText = "width: 100%; padding: 8px; background: #ffebee; border: 1px dashed #ffcdd2; color: #c62828; cursor: pointer; margin-top: 8px; border-radius: 6px; font-size: 11px;";
-        removeLangBtn.onclick = () => {
-            if (confirm("Remove languages section?")) {
+        removeLangBtn.onclick = async () => {
+            if (await showConfirmDialog("Remove languages section?")) {
                 const textarea = document.getElementById('edit_languages_text');
                 if (textarea) textarea.value = '';
             }
@@ -308,8 +309,8 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
         const removeSkillsSectionBtn = document.createElement('button');
         removeSkillsSectionBtn.textContent = '🗑️ Remove Entire Skills Section';
         removeSkillsSectionBtn.style.cssText = "width: 100%; padding: 8px; background: #ffebee; border: 1px dashed #ffcdd2; color: #c62828; cursor: pointer; margin-top: 5px; border-radius: 6px; font-size: 11px;";
-        removeSkillsSectionBtn.onclick = () => {
-            if (confirm("Remove the entire Skills section?")) {
+        removeSkillsSectionBtn.onclick = async () => {
+            if (await showConfirmDialog("Remove the entire Skills section?")) {
                 listDiv.innerHTML = '';
             }
         };
@@ -342,8 +343,8 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
         const removeSectionBtn = document.createElement('button');
         removeSectionBtn.textContent = `🗑️ Remove Entire ${section} Section`;
         removeSectionBtn.style.cssText = "width: 100%; padding: 8px; background: #ffebee; border: 1px dashed #ffcdd2; color: #c62828; cursor: pointer; margin-top: 5px;";
-        removeSectionBtn.onclick = () => {
-            if (confirm(`Are you sure you want to remove the entire '${section}' section?`)) {
+        removeSectionBtn.onclick = async () => {
+            if (await showConfirmDialog(`Are you sure you want to remove the entire '${section}' section?`)) {
                 listDiv.innerHTML = '';
             }
         };
@@ -361,7 +362,8 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
             moveBtn.textContent = "Move All Research to Projects Section";
 
             moveBtn.onclick = async () => {
-                if (!confirm("This will move all Research items to the Projects section and clear the Research section. Continue?")) return;
+                const confirmed = await showConfirmDialog("This will move all Research items to the Projects section and clear the Research section. Continue?");
+                if (!confirmed) return;
 
                 if (!data.projects) data.projects = [];
                 const researchItems = await saveProfileChanges('research'); // Get current state from DOM
@@ -848,7 +850,6 @@ export async function saveProfileChanges(section, containerId = 'profileFormCont
 
     const statusTarget = containerId === 'profileFormContainer' ? 'profileStatus' : 'status';
     showStatus('✅ Profile saved!', 'success', statusTarget);
-    setTimeout(() => showStatus('', ''), 2000);
 
     return currentEditingResume[section]; // Return data for immediate use if needed
 }

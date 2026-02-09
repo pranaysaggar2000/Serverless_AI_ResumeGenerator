@@ -1,33 +1,13 @@
 const { verifyUser } = require('../../lib/auth');
 const { checkAndIncrementUsage } = require('../../lib/rate-limit');
 const { callAIServer } = require('../../lib/ai-providers');
-
-/**
- * CORS headers for all responses
- */
-const CORS_HEADERS = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Content-Type': 'application/json'
-};
+const { withCors } = require('../../lib/cors');
 
 /**
  * Main AI generation endpoint
  * POST /api/ai/generate
  */
-module.exports = async (req, res) => {
-    // Set CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Content-Type', 'application/json');
-
-    // Handle OPTIONS preflight
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
-
+module.exports = withCors(async (req, res) => {
     // Only allow POST
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -95,7 +75,7 @@ module.exports = async (req, res) => {
             message: error.message
         });
     }
-};
+});
 
 /**
  * Get next UTC midnight as ISO string

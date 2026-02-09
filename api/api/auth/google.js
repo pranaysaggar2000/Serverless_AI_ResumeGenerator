@@ -1,41 +1,21 @@
 const { supabaseAdmin } = require('../../lib/supabase');
-
-/**
- * CORS headers for all responses
- */
-const CORS_HEADERS = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Content-Type': 'application/json'
-};
+const { withCors } = require('../../lib/cors');
 
 /**
  * Initiate Google OAuth flow
  * GET /api/auth/google
  */
-module.exports = async (req, res) => {
-    // Set CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Content-Type', 'application/json');
-
-    // Handle OPTIONS preflight
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
-
+module.exports = withCors(async (req, res) => {
     // Only allow GET
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        // Get the callback URL from environment or construct it
-        const baseUrl = process.env.VERCEL_URL
-            ? `https://${process.env.VERCEL_URL}`
-            : process.env.API_BASE_URL || 'http://localhost:3000';
+        // Get the callback URL (Prioritize manual production URL for Supabase consistency)
+        const baseUrl = process.env.API_BASE_URL
+            ? process.env.API_BASE_URL
+            : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
 
         const redirectTo = `${baseUrl}/api/auth/callback`;
 
@@ -68,4 +48,4 @@ module.exports = async (req, res) => {
             message: error.message
         });
     }
-};
+});

@@ -1,6 +1,7 @@
 import { state, updateState } from './state.js';
 import { showStatus } from './ui.js';
 import { renderProfileEditor } from './editor.js';
+import { showConfirmDialog } from './utils.js';
 
 export async function saveVersion(resumeData, jdTitle) {
     try {
@@ -71,7 +72,8 @@ export async function renderHistoryList() {
         // Listeners
         list.querySelectorAll('.restore-btn').forEach(btn => {
             btn.onclick = async () => {
-                if (!confirm("Restore this version? It will replace your current tailored resume.")) return;
+                const confirmed = await showConfirmDialog("Restore this version? It will replace your current tailored resume.");
+                if (!confirmed) return;
                 const id = parseInt(btn.dataset.id);
                 // Refresh data to be sure
                 const latestData = await chrome.storage.local.get('resume_versions');

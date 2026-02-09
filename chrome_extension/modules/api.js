@@ -53,7 +53,8 @@ export async function extractBaseProfile(text, apiKey, provider) {
         try {
             responseText = await callAI(prompt, provider, apiKey, { expectJson: true, actionId });
         } catch (e) {
-            if (window.location.hostname === 'localhost') {
+            const DEBUG_MODE = false; // Set to true only for local testing
+            if (DEBUG_MODE && window.location.hostname === 'localhost') {
                 console.warn("Mocking extractBaseProfile failure for local testing fallback");
                 return {
                     name: "Mock User",

@@ -1,31 +1,12 @@
 const { verifyUser } = require('../../lib/auth');
 const { supabaseAdmin } = require('../../lib/supabase');
-
-/**
- * CORS headers for all responses
- */
-const CORS_HEADERS = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Content-Type': 'application/json'
-};
+const { withCors } = require('../../lib/cors');
 
 /**
  * Get usage status endpoint
  * GET /api/usage/status
  */
-module.exports = async (req, res) => {
-    // Set CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Content-Type', 'application/json');
-
-    // Handle OPTIONS preflight
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
+module.exports = withCors(async (req, res) => {
 
     // Only allow GET
     if (req.method !== 'GET') {
@@ -82,4 +63,4 @@ module.exports = async (req, res) => {
             message: error.message
         });
     }
-};
+});

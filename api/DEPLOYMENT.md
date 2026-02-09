@@ -18,11 +18,13 @@ CREATE TABLE public.usage (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   action_type TEXT NOT NULL,
+  action_id TEXT DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Create index for performance
 CREATE INDEX idx_usage_user_date ON public.usage(user_id, created_at);
+CREATE INDEX idx_usage_action_id ON public.usage(user_id, action_id);
 
 -- Enable RLS (optional, we use service role)
 ALTER TABLE public.usage ENABLE ROW LEVEL SECURITY;

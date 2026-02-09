@@ -116,3 +116,48 @@ export function generateDiffSummary(original, tailored) {
         skillsRemoved
     };
 }
+
+/**
+ * Custom styled confirmation dialog
+ */
+export function showConfirmDialog(message) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.id = 'customConfirmOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px);';
+
+        const box = document.createElement('div');
+        box.style.cssText = 'background:white;border-radius:12px;padding:24px;width:80%;max-width:300px;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,0.3);animation: slideIn 0.3s ease;';
+        box.innerHTML = `
+            <div style="font-size: 24px; margin-bottom: 12px;">⚠️</div>
+            <p style="margin:0 0 20px;font-size:14px;color:#374151;font-weight:500;line-height:1.5;">${message}</p>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button id="confirmNo" style="flex:1;padding:10px;background:#f3f4f6;color:#4b5563;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Cancel</button>
+                <button id="confirmYes" style="flex:1;padding:10px;background:#ef4444;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Confirm</button>
+            </div>
+        `;
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        // Style overrides for Confirm button if it's not a destructive action (optional)
+        if (!message.toLowerCase().includes('delete') && !message.toLowerCase().includes('remove')) {
+            const yesBtn = box.querySelector('#confirmYes');
+            yesBtn.style.background = '#6366f1';
+        }
+
+        const cleanup = (val) => {
+            overlay.style.opacity = '0';
+            overlay.style.transition = 'opacity 0.2s ease';
+            setTimeout(() => {
+                if (document.body.contains(overlay)) {
+                    document.body.removeChild(overlay);
+                }
+            }, 200);
+            resolve(val);
+        };
+
+        box.querySelector('#confirmYes').onclick = () => cleanup(true);
+        box.querySelector('#confirmNo').onclick = () => cleanup(false);
+        overlay.onclick = (e) => { if (e.target === overlay) cleanup(false); };
+    });
+}

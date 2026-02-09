@@ -39,34 +39,69 @@ export async function loginWithGoogle() {
 
         // Listen for the callback
         return new Promise((resolve, reject) => {
+            let messageReceived = false;
+
             const timeoutId = setTimeout(() => {
                 chrome.tabs.onUpdated.removeListener(listener);
-                reject(new Error('OAuth timeout - please try again'));
+                chrome.runtime.onMessage.removeListener(messageListener);
+                if (!messageReceived) {
+                    reject(new Error('OAuth timeout - please try again'));
+                }
             }, 120000); // 2 minute timeout
 
-            const listener = async (tabId, changeInfo, updatedTab) => {
-                if (tabId !== tab.id) return;
+            const messageListener = (message) => {
+                if (messageReceived) return;
+                if (message.type === 'FORGECV_AUTH_SUCCESS') {
+                    messageReceived = true;
+                    clearTimeout(timeoutId);
+                    chrome.tabs.onUpdated.removeListener(listener);
+                    chrome.runtime.onMessage.removeListener(messageListener);
 
-                // Listen for messages from the callback page
-                chrome.runtime.onMessage.addListener(function messageListener(message) {
-                    if (message.type === 'FORGECV_AUTH_SUCCESS') {
-                        clearTimeout(timeoutId);
-                        chrome.tabs.onUpdated.removeListener(listener);
-                        chrome.runtime.onMessage.removeListener(messageListener);
+                    console.log('✓ Auth tokens received via message');
 
-                        console.log('✓ Auth tokens received');
+                    // Close the auth tab
+                    chrome.tabs.remove(tab.id).catch(() => { });
 
-                        // Close the auth tab
-                        chrome.tabs.remove(tabId).catch(() => { });
-
-                        // Handle the tokens
-                        handleAuthTokens(message.accessToken, message.refreshToken)
-                            .then(resolve)
-                            .catch(reject);
-                    }
-                });
+                    // Handle the tokens
+                    handleAuthTokens(message.accessToken, message.refreshToken)
+                        .then(resolve)
+                        .catch(reject);
+                }
             };
 
+            const listener = async (tabId, changeInfo, updatedTab) => {
+                if (tabId !== tab.id || messageReceived) return;
+
+                if (changeInfo.status === 'complete' && updatedTab.url) {
+                    // Fallback: Direct URL-based token extraction
+                    const url = updatedTab.url;
+                    if (url.includes('/api/auth/callback')) {
+                        // Extract tokens from hash (#access_token=...&refresh_token=...)
+                        const hash = new URL(url).hash;
+                        if (hash) {
+                            const params = new URLSearchParams(hash.substring(1));
+                            const accessToken = params.get('access_token');
+                            const refreshToken = params.get('refresh_token');
+
+                            if (accessToken && refreshToken) {
+                                messageReceived = true;
+                                clearTimeout(timeoutId);
+                                chrome.tabs.onUpdated.removeListener(listener);
+                                chrome.runtime.onMessage.removeListener(messageListener);
+
+                                console.log('✓ Auth tokens extracted from URL hash');
+                                chrome.tabs.remove(tabId).catch(() => { });
+
+                                handleAuthTokens(accessToken, refreshToken)
+                                    .then(resolve)
+                                    .catch(reject);
+                            }
+                        }
+                    }
+                }
+            };
+
+            chrome.runtime.onMessage.addListener(messageListener);
             chrome.tabs.onUpdated.addListener(listener);
         });
 
@@ -235,7 +270,7 @@ export async function fetchUsageStatus() {
 /**
  * Call server-side AI (free tier)
  */
-export async function callServerAI(prompt, taskType = 'default', expectJson = false, actionId = null) {
+export async function callServerAI(prompt, taskType = 'default', expectJson = false, actionId = null, retryCount = 0) {
     try {
         const token = await getValidToken();
 
@@ -249,9 +284,10 @@ export async function callServerAI(prompt, taskType = 'default', expectJson = fa
         });
 
         if (response.status === 401) {
+            if (retryCount >= 1) throw new Error('AUTH_EXPIRED');
             tokenRefreshPromise = refreshSession().finally(() => { tokenRefreshPromise = null; });
             await tokenRefreshPromise;
-            return await callServerAI(prompt, taskType, expectJson, actionId);
+            return await callServerAI(prompt, taskType, expectJson, actionId, retryCount + 1);
         }
 
         if (response.status === 429) {

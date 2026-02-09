@@ -1,5 +1,5 @@
 import { state, updateState } from './modules/state.js';
-import { checkCurrentProviderKey, getApiKeyForProvider, updateStrategyDescription, generateFilename, setButtonLoading, generateDiffSummary } from './modules/utils.js';
+import { checkCurrentProviderKey, getApiKeyForProvider, updateStrategyDescription, generateFilename, setButtonLoading, generateDiffSummary, showConfirmDialog } from './modules/utils.js';
 import {
     showStatus,
     toggleProviderUI,
@@ -183,7 +183,8 @@ function renderProfileList(profiles, activeProfile) {
     list.querySelectorAll('.profile-delete-btn').forEach(btn => {
         btn.onclick = async () => {
             const name = btn.dataset.name;
-            if (!confirm(`Delete profile "${name}"?`)) return;
+            const confirmed = await showConfirmDialog(`Delete profile "${name}"?`);
+            if (!confirmed) return;
 
             const data = await chrome.storage.local.get(['profiles', 'active_profile']);
             const profiles = data.profiles || {};
@@ -363,6 +364,7 @@ async function loadState() {
         'detected_page_url',
         'jd_extraction_method',
         'detected_company_description',
+        'last_parsed_jd_text',
         'auth_mode'
     ]);
 
@@ -671,21 +673,20 @@ function setupEventListeners() {
         modeByokBtn.addEventListener('click', () => updateModeUI('byok'));
     }
 
-    // Google Login
-    const googleLoginBtn = document.getElementById('googleLoginBtn');
-    if (googleLoginBtn) {
-        googleLoginBtn.addEventListener('click', async () => {
-            try {
-                showStatus('Opening Google Login...', 'info', 'settingsStatus');
-                await loginWithGoogle();
-                showStatus('Login successful!', 'success', 'settingsStatus');
-                renderAuthSection();
-                updateUsageDisplay();
-            } catch (e) {
-                showStatus('Login failed: ' + e.message, 'error', 'settingsStatus');
-            }
-        });
-    }
+    // Google Login — use delegation because renderAuthSection() recreates this button dynamically
+    document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('#googleLoginBtn');
+        if (!btn) return;
+        try {
+            showStatus('Opening Google Login...', 'info', 'settingsStatus');
+            await loginWithGoogle();
+            showStatus('Login successful!', 'success', 'settingsStatus');
+            renderAuthSection();
+            updateUsageDisplay();
+        } catch (e) {
+            showStatus('Login failed: ' + e.message, 'error', 'settingsStatus');
+        }
+    });
 
     // Auth Section Delegation (for Logout)
     const authSection = document.getElementById('authSection');
@@ -748,7 +749,6 @@ function setupEventListeners() {
                 } else {
                     showStatus("❌ Could not detect a job description on this page. Try pasting it manually.", "error");
                 }
-                setTimeout(() => showStatus('', ''), 4000);
 
             } catch (e) {
                 if (e.message === 'PERMISSION_DENIED') {
@@ -817,7 +817,6 @@ function setupEventListeners() {
             hideAtsAnalysisUI();
 
             showStatus("Job description loaded!", "success");
-            setTimeout(() => showStatus('', ''), 2000);
         });
     }
 
@@ -867,7 +866,6 @@ function setupEventListeners() {
             hideAtsAnalysisUI();
 
             showStatus("JD updated!", "success");
-            setTimeout(() => showStatus('', ''), 2000);
             updateJdStatus();
         });
     }
@@ -1470,8 +1468,9 @@ function setupEventListeners() {
 
     // Cancel Edit (Tailored)
     if (cancelEditBtn) {
-        cancelEditBtn.addEventListener('click', () => {
-            if (confirm("Discard unsaved changes?")) {
+        cancelEditBtn.addEventListener('click', async () => {
+            const confirmed = await showConfirmDialog("Discard unsaved changes?");
+            if (confirmed) {
                 document.getElementById('editorUI').style.display = 'none';
                 document.getElementById('actions').style.display = 'block';
             }
@@ -1706,7 +1705,6 @@ async function generateAndCachePDF(resumeData) {
             // Drag and drop removed
 
             showStatus("PDF Ready!", "success");
-            setTimeout(() => { showStatus('', ''); }, 2000);
             return result;
         } else if (result.error) {
             throw new Error(result.error);
@@ -1795,9 +1793,9 @@ async function detectJobDescription() {
             console.warn('Content script injection failed:', scriptError);
 
             // Offer to reload the page to enable detection
-            const userWantsReload = confirm(
+            const userWantsReload = await showConfirmDialog(
                 '⚠️ Cannot scan this page (it was loaded before the extension opened).\n\n' +
-                '✅ Click OK to reload the page.\n' +
+                '✅ Click Confirm to reload the page.\n' +
                 '   After reload, click "Fetch from Page" again.\n\n' +
                 '❌ Click Cancel to paste the job description manually instead.'
             );

@@ -61,12 +61,15 @@ export function generateResumePdf(data, fmt = {}) {
         doc.setFont(settings.font, options.style || 'normal');
         doc.setFontSize(options.size || BODY);
 
+        const textOptions = { charSpace: 0 };
+        if (options.align) textOptions.align = options.align;
+
         if (options.align === 'center') {
-            doc.text(text, PAGE_WIDTH / 2, y, { align: 'center' });
+            doc.text(text, PAGE_WIDTH / 2, y, textOptions);
         } else if (options.align === 'right') {
-            doc.text(text, x, y, { align: 'right' });
+            doc.text(text, x, y, textOptions);
         } else {
-            doc.text(text, x, y);
+            doc.text(text, x, y, textOptions);
         }
     }
 
@@ -182,11 +185,11 @@ export function generateResumePdf(data, fmt = {}) {
         doc.setFontSize(size);
 
         // Left text
-        doc.text(String(leftText), MARGIN_SIDE, cursorY);
+        doc.text(String(leftText), MARGIN_SIDE, cursorY, { charSpace: 0 });
 
         // Right text
         if (rightText) {
-            doc.text(String(rightText), PAGE_WIDTH - MARGIN_SIDE, cursorY, { align: 'right' });
+            doc.text(String(rightText), PAGE_WIDTH - MARGIN_SIDE, cursorY, { align: 'right', charSpace: 0 });
         }
 
         cursorY += LEADING;
@@ -207,10 +210,10 @@ export function generateResumePdf(data, fmt = {}) {
         checkPageBreak(lines.length * LEADING + 3);
 
         // Draw bullet
-        doc.text(settings.bulletChar, MARGIN_SIDE + 5, cursorY);
+        doc.text(settings.bulletChar, MARGIN_SIDE + 5, cursorY, { charSpace: 0 });
 
         // Draw indent text
-        doc.text(lines, MARGIN_SIDE + bulletIndent, cursorY);
+        doc.text(lines, MARGIN_SIDE + bulletIndent, cursorY, { charSpace: 0 });
 
         cursorY += (lines.length * LEADING) + DENSITY.bulletGap;
     }
@@ -227,7 +230,7 @@ export function generateResumePdf(data, fmt = {}) {
             ? title.toUpperCase()
             : title;
 
-        doc.text(displayTitle, MARGIN_SIDE, cursorY);
+        doc.text(displayTitle, MARGIN_SIDE, cursorY, { charSpace: 0 });
         cursorY += 4;
 
         if (settings.headerStyle.endsWith('_line')) {
@@ -245,7 +248,7 @@ export function generateResumePdf(data, fmt = {}) {
         doc.setFontSize(BODY);
         const lines = doc.splitTextToSize(cleanText, CONTENT_WIDTH);
         checkPageBreak(lines.length * LEADING);
-        doc.text(lines, MARGIN_SIDE, cursorY);
+        doc.text(lines, MARGIN_SIDE, cursorY, { charSpace: 0 });
         cursorY += (lines.length * LEADING) + DENSITY.itemGap;
     }
 
@@ -287,11 +290,11 @@ export function generateResumePdf(data, fmt = {}) {
                     // Bullet
                     doc.setFont(settings.font, 'normal');
                     doc.setFontSize(BODY);
-                    doc.text(settings.bulletChar, MARGIN_SIDE + 5, cursorY);
+                    doc.text(settings.bulletChar, MARGIN_SIDE + 5, cursorY, { charSpace: 0 });
 
                     // Bold Category
                     doc.setFont(settings.font, 'bold');
-                    doc.text(catText, MARGIN_SIDE + bulletIndent, cursorY);
+                    doc.text(catText, MARGIN_SIDE + bulletIndent, cursorY, { charSpace: 0 });
 
                     const catWidth = doc.getTextWidth(catText);
 
@@ -302,11 +305,11 @@ export function generateResumePdf(data, fmt = {}) {
                     const lines = doc.splitTextToSize(valStr, maxWidth);
 
                     if (lines.length > 0) {
-                        doc.text(lines[0], MARGIN_SIDE + bulletIndent + catWidth, cursorY);
+                        doc.text(lines[0], MARGIN_SIDE + bulletIndent + catWidth, cursorY, { charSpace: 0 });
                         if (lines.length > 1) {
                             cursorY += LEADING;
                             const remainLines = doc.splitTextToSize(lines.slice(1).join(' '), CONTENT_WIDTH - bulletIndent);
-                            doc.text(remainLines, MARGIN_SIDE + bulletIndent, cursorY);
+                            doc.text(remainLines, MARGIN_SIDE + bulletIndent, cursorY, { charSpace: 0 });
                             cursorY += (remainLines.length * LEADING);
                         } else {
                             cursorY += LEADING;
@@ -345,13 +348,13 @@ export function generateResumePdf(data, fmt = {}) {
                     checkPageBreak(LEADING);
                     doc.setFont(settings.font, 'italic');
                     doc.setFontSize(BODY);
-                    doc.text(res.conference, MARGIN_SIDE, cursorY);
+                    doc.text(res.conference, MARGIN_SIDE, cursorY, { charSpace: 0 });
                     cursorY += LEADING;
                 }
                 if (res.link) {
                     checkPageBreak(LEADING);
                     doc.setFont(settings.font, 'normal');
-                    doc.text(`Link: ${res.link}`, MARGIN_SIDE, cursorY);
+                    doc.text(`Link: ${res.link}`, MARGIN_SIDE, cursorY, { charSpace: 0 });
                     cursorY += LEADING;
                 }
                 if (res.bullets) res.bullets.forEach(b => addBullet(b));

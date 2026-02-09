@@ -1,5 +1,5 @@
-export function extractJobDescription() {
-    const debug = (msg) => console.log(`[JD Extractor] ${msg}`);
+export function extractJobDescription(debugEnabled = false) {
+    const debug = (msg) => { if (debugEnabled) console.log(`[JD Extractor] ${msg}`); };
     debug("Starting extraction...");
 
     // Helper: Clean text

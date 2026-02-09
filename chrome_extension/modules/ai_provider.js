@@ -31,6 +31,12 @@ export async function callAI(prompt, provider, apiKey, options = {}) {
                 showStatus('Free tier server unavailable. Using your own API key instead.', 'warning');
                 debugLog('Fallback to BYOK due to server error');
                 // Fall through to BYOK logic below
+            } else if (error.message === 'SERVER_ERROR' && !hasActualByokKey) {
+                showStatus(
+                    '⚠️ Our servers are temporarily unavailable. To continue without interruption, add your own free API key in Settings → Your Own Keys.',
+                    'warning'
+                );
+                throw new Error('SERVER_UNAVAILABLE');
             } else if (error.message === 'LIMIT_REACHED') {
                 showStatus("You've used all 15 free actions today! 🔄 Resets at midnight UTC.", 'warning');
                 throw error;

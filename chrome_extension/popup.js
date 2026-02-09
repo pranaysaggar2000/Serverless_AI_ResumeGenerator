@@ -1,5 +1,5 @@
-import { state, updateState } from './modules/state.js';
-import { checkCurrentProviderKey, getApiKeyForProvider, updateStrategyDescription, generateFilename, setButtonLoading, generateDiffSummary, showConfirmDialog } from './modules/utils.js';
+import { state, updateState, DEBUG } from './modules/state.js';
+import { checkCurrentProviderKey, getApiKeyForProvider, updateStrategyDescription, generateFilename, setButtonLoading, generateDiffSummary, showConfirmDialog, debugLog } from './modules/utils.js';
 import {
     showStatus,
     toggleProviderUI,
@@ -30,6 +30,10 @@ import { showProgress, hideProgress } from './modules/progress.js';
 import { saveVersion, setupHistoryUI } from './modules/history.js';
 import { setupFormatUI, loadFormatSettings, debouncedSaveFormat } from './modules/format.js';
 import { setupReorderUI } from './modules/reorder.js';
+
+// Expose these to window so they can be called from inline HTML (like onclick in showStatus)
+window.showSettings = showSettings;
+window.showStatus = showStatus;
 
 let isScanning = false;
 let tabDetectionTimer = null;
@@ -300,7 +304,7 @@ async function init() {
         // Refresh usage if logged in
         if (state.isLoggedIn && state.authMode === 'free') {
             const { fetchUsageStatus } = await import('./modules/auth.js');
-            fetchUsageStatus().catch(e => console.log("Silent usage refresh fail:", e));
+            fetchUsageStatus().catch(e => debugLog("Silent usage refresh fail:", e));
         }
 
         renderQuickStatus();
@@ -416,7 +420,7 @@ async function loadState() {
             finalAuthMode = 'free'; // Default to free tier (user will need to login)
         }
     }
-    console.log('🔐 Auth Mode Initialized:', {
+    debugLog('🔐 Auth Mode Initialized:', {
         authMode: finalAuthMode,
         isLoggedIn: state.isLoggedIn,
         hasStoredMode: !!data.auth_mode,
@@ -475,7 +479,7 @@ async function loadState() {
                 updateState({ latestPdfBlob: blob });
                 // Drag and drop removed
             }
-        }).catch(e => console.log("Pre-cache PDF failed (non-critical):", e));
+        }).catch(e => debugLog("Pre-cache PDF failed (non-critical):", e));
     }
     updateJdStatus();
 
@@ -579,7 +583,11 @@ function setupEventListeners() {
             showStatus('✅ LinkedIn profile imported!', 'success', 'uploadStatus');
             setTimeout(showMainUI, 1500);
         } catch (e) {
-            showStatus(`Error: ${e.message}`, 'error', 'uploadStatus');
+            if (e.message === 'SERVER_UNAVAILABLE') {
+                showStatus('Server unavailable. <a onclick="showSettings()">Add your own API key</a> for uninterrupted access.', 'warning', 'uploadStatus');
+            } else {
+                showStatus(`Error: ${e.message}`, 'error', 'uploadStatus');
+            }
         } finally {
             setButtonLoading(document.getElementById('uploadLinkedinPdfBtn'), false, 'Upload LinkedIn PDF');
         }
@@ -651,7 +659,11 @@ function setupEventListeners() {
             showStatus('✅ LinkedIn profile imported! Some fields may be incomplete — review in Profile editor.', 'success', 'linkedinUrlStatus');
             setTimeout(showMainUI, 2000);
         } catch (e) {
-            showStatus(`LinkedIn import failed: ${e.message}`, 'error', 'linkedinUrlStatus');
+            if (e.message === 'SERVER_UNAVAILABLE') {
+                showStatus('Server unavailable. <a onclick="showSettings()">Add your own API key</a> for uninterrupted access.', 'warning', 'linkedinUrlStatus');
+            } else {
+                showStatus(`LinkedIn import failed: ${e.message}`, 'error', 'linkedinUrlStatus');
+            }
         } finally {
             setButtonLoading(btn, false, '🔍 Fetch');
         }
@@ -769,7 +781,7 @@ function setupEventListeners() {
 
                 const result = await detectJobDescription();
 
-                console.log('Detection result:', result);
+                debugLog('Detection result:', result);
 
                 // If detectJobDescription actually found something new
                 if (result && result.currentJdText && result.currentJdText.length > 50) {
@@ -793,6 +805,8 @@ function setupEventListeners() {
                     showStatus("🔄 Page reloaded. Click 'Fetch from Page' again to extract the job description.", "info");
                 } else if (e.message === 'MANUAL_PASTE_REQUESTED') {
                     showStatus("📝 Paste your job description in the text area below", "info");
+                } else if (e.message === 'SERVER_UNAVAILABLE') {
+                    showStatus('Server unavailable. <a onclick="showSettings()">Add your own API key</a> for uninterrupted access.', 'warning');
                 } else {
                     showStatus("Scan failed: " + e.message, "error");
                 }
@@ -1235,7 +1249,7 @@ function setupEventListeners() {
     // Generate Base Resume (No AI)
     if (generateBaseBtn) {
         generateBaseBtn.addEventListener('click', async () => {
-            console.log("Generate Base Resume clicked");
+            debugLog("Generate Base Resume clicked");
             if (!state.baseResume) {
                 showStatus("No base resume profile loaded.", "error");
                 return;
@@ -1272,7 +1286,7 @@ function setupEventListeners() {
 
     // Generate Button
     generateBtn.addEventListener('click', async () => {
-        console.log("Generate (AI) clicked");
+        debugLog("Generate (AI) clicked");
         // Drag and drop removed
 
         if (!checkCurrentProviderKey()) {
@@ -1305,12 +1319,12 @@ function setupEventListeners() {
             showProgress('analyzing', `Using ${state.currentProvider === 'groq' ? 'Groq' : 'Gemini'}...`);
             showProgress('tailoring', 'This may take 10-15 seconds...');
 
-            console.log("Calling tailorResume...");
+            debugLog("Calling tailorResume...");
             const data = await tailorResume(state.baseResume, state.currentJdText, activeKey, state.currentProvider, state.tailoringStrategy);
             if (data.error) throw new Error(data.error);
 
             showProgress('processing');
-            console.log("Tailoring success", data);
+            debugLog("Tailoring success", data);
 
             const newResume = data.tailored_resume;
             const analysis = data.jd_analysis;
@@ -1373,7 +1387,11 @@ function setupEventListeners() {
         } catch (e) {
             console.error("Tailoring Error:", e);
             showProgress('error', e.message);
-            showStatus(`Error: ${e.message}`, "error");
+            if (e.message === 'SERVER_UNAVAILABLE') {
+                showStatus('Server unavailable. <a onclick="showSettings()">Add your own API key</a> for uninterrupted access.', 'warning');
+            } else {
+                showStatus(`Error: ${e.message}`, "error");
+            }
             setTimeout(hideProgress, 3000);
         } finally {
             setButtonLoading(generateBtn, false, "🔥 Forge My Resume");
@@ -1387,7 +1405,7 @@ function setupEventListeners() {
 
     if (previewBtn) {
         previewBtn.addEventListener('click', async () => {
-            console.log("Preview clicked");
+            debugLog("Preview clicked");
             if (!state.tailoredResume) {
                 showStatus("Nothing to preview yet. Forge a resume first! 🔥", "error");
                 return;
@@ -1415,7 +1433,7 @@ function setupEventListeners() {
 
     if (askBtn) {
         askBtn.addEventListener('click', async () => {
-            console.log("Ask clicked");
+            debugLog("Ask clicked");
             const question = questionInput.value.trim();
             if (!question) {
                 showStatus("Please enter a question.", "error");
@@ -1445,7 +1463,12 @@ function setupEventListeners() {
                 if (state.authMode === 'free') updateUsageDisplay();
                 answerOutput.textContent = res.answer || "No answer generated.";
             } catch (e) {
-                answerOutput.textContent = `Error: ${e.message}`;
+                if (e.message === 'SERVER_UNAVAILABLE') {
+                    showStatus('Server unavailable. <a onclick="showSettings()">Add your own API key</a> for uninterrupted access.', 'warning');
+                    answerOutput.textContent = "Server unavailable. Please add your own API key in settings.";
+                } else {
+                    answerOutput.textContent = `Error: ${e.message}`;
+                }
             } finally {
                 setButtonLoading(askBtn, false, "Ask AI");
             }
@@ -1470,13 +1493,13 @@ function setupEventListeners() {
         // Ctrl+S or Cmd+S to Save
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
             e.preventDefault();
-            console.log("Shortcut: Save");
+            debugLog("Shortcut: Save");
             const saveBtn = document.getElementById('saveManualBtn');
             if (saveBtn) saveBtn.click();
         }
         // Escape to Cancel
         if (e.key === 'Escape') {
-            console.log("Shortcut: Cancel");
+            debugLog("Shortcut: Cancel");
             const cancelBtn = document.getElementById('cancelEditBtn');
             if (cancelBtn) cancelBtn.click();
         }
@@ -1485,7 +1508,7 @@ function setupEventListeners() {
     // Edit Tailored Resume
     if (editBtn) {
         editBtn.addEventListener('click', () => {
-            console.log("Edit clicked");
+            debugLog("Edit clicked");
             if (!state.tailoredResume) return;
             resetEditorState(); // Clear any stale editor state
             document.getElementById('editorUI').style.display = 'block';
@@ -1519,7 +1542,7 @@ function setupEventListeners() {
     // Save Manual Changes (Tailored)
     if (saveManualBtn) {
         saveManualBtn.addEventListener('click', async () => {
-            console.log("Save Manual clicked");
+            debugLog("Save Manual clicked");
             // Drag and drop removed
             setButtonLoading(saveManualBtn, true);
             try {
@@ -1546,7 +1569,7 @@ function setupEventListeners() {
     // Save & Regenerate (Tailored)
     if (saveRegenBtn) {
         saveRegenBtn.addEventListener('click', async () => {
-            console.log("Save & Regenerate clicked");
+            debugLog("Save & Regenerate clicked");
             if (state.authMode === 'free' && state.freeUsage.remaining <= 0) {
                 showStatus("Daily limit reached! Switch to your own API key or try again tomorrow.", "error");
                 return;
@@ -1606,7 +1629,11 @@ function setupEventListeners() {
 
             } catch (e) {
                 console.error("Regeneration Error:", e);
-                showStatus("Error regenerating: " + e.message, "error");
+                if (e.message === 'SERVER_UNAVAILABLE') {
+                    showStatus('Server unavailable. <a onclick="showSettings()">Add your own API key</a> for uninterrupted access.', 'warning');
+                } else {
+                    showStatus("Error regenerating: " + e.message, "error");
+                }
             } finally {
                 setButtonLoading(saveRegenBtn, false, "Save & Regenerate");
             }
@@ -1714,7 +1741,11 @@ function setupEventListeners() {
                 setTimeout(() => showStatus("", ""), 3000);
 
             } catch (e) {
-                showStatus("Analysis Failed: " + e.message, "error");
+                if (e.message === 'SERVER_UNAVAILABLE') {
+                    showStatus('Server unavailable. <a onclick="showSettings()">Add your own API key</a> for uninterrupted access.', 'warning');
+                } else {
+                    showStatus("Analysis Failed: " + e.message, "error");
+                }
                 // Hide the skeleton UI on error/timeout
                 hideAtsAnalysisUI();
             } finally {
@@ -1784,7 +1815,7 @@ async function detectJobDescription() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
     // Debug: Log which tab we're scanning
-    console.log('🔍 Scanning tab:', tab?.url || 'No tab found');
+    debugLog('🔍 Scanning tab:', tab?.url || 'No tab found');
 
     if (!tab || !tab.id) return null;
 
@@ -1810,7 +1841,7 @@ async function detectJobDescription() {
                 throw new Error('PERMISSION_DENIED');
             }
 
-            console.log('✅ Permission granted for:', origin);
+            debugLog('✅ Permission granted for:', origin);
         } catch (permError) {
             console.warn('Permission request failed:', permError);
             // If permission request fails, try without it (might still work with activeTab)
@@ -1822,7 +1853,8 @@ async function detectJobDescription() {
             results = await Promise.race([
                 chrome.scripting.executeScript({
                     target: { tabId: tab.id },
-                    func: extractJobDescription
+                    func: extractJobDescription,
+                    args: [DEBUG]
                 }),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
             ]);
@@ -1907,7 +1939,7 @@ async function detectJobDescription() {
             return null;
         }
 
-        console.log("Client-side extraction insufficient. Trying AI fallback...");
+        debugLog("Client-side extraction insufficient. Trying AI fallback...");
 
         const rawResults = await chrome.scripting.executeScript({
             target: { tabId: tab.id },
@@ -1921,7 +1953,7 @@ async function detectJobDescription() {
         const aiResult = await extractJDWithAI(rawText, activeKey, state.currentProvider);
 
         if (aiResult.error) {
-            console.log("AI JD extraction failed:", aiResult.error);
+            debugLog("AI JD extraction failed:", aiResult.error);
             if (bestText.length > 50) {
                 const updates = {
                     currentJdText: bestText,
@@ -1965,7 +1997,8 @@ async function detectJobDescription() {
         return updates;
 
     } catch (e) {
-        console.log("JD scan failed:", e.message);
+        debugLog("JD scan failed:", e.message);
+        if (e.message === 'SERVER_UNAVAILABLE') throw e;
         return null;
     } finally {
         isScanning = false;

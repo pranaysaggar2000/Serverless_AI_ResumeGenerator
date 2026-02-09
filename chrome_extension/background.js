@@ -1,4 +1,5 @@
 // ForgeCV Background Service Worker
+import { DEBUG } from './modules/state.js';
 
 /**
  * Configure side panel behavior:
@@ -12,10 +13,10 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
  */
 chrome.runtime.onInstalled.addListener((details) => {
     if (details.reason === 'install') {
-        console.log('✓ ForgeCV installed');
+        if (DEBUG) console.log('✓ ForgeCV installed');
         // Initialize default settings if needed
     } else if (details.reason === 'update') {
-        console.log('✓ ForgeCV updated to', chrome.runtime.getManifest().version);
+        if (DEBUG) console.log('✓ ForgeCV updated to', chrome.runtime.getManifest().version);
     }
 });
 
@@ -25,7 +26,7 @@ chrome.runtime.onInstalled.addListener((details) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'FORGECV_AUTH_SUCCESS') {
         // Forward to any open popup/sidepanel or perform backend sync
-        console.log('✓ Auth success message received in background');
+        if (DEBUG) console.log('✓ Auth success message received in background');
     }
 
     // Always return false if not sending an async response

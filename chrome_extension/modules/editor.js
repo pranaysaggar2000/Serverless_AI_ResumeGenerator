@@ -1,10 +1,63 @@
 import { state, updateState } from './state.js';
 import { showStatus, showMainUI, refreshProfileName } from './ui.js';
 import { showConfirmDialog, debugLog } from './utils.js';
+import * as Prompts from './ai_prompts.js';
+import { renderLiveAtsBadge } from './ats_live.js';
 
 let currentEditingResume = null;
 let currentEditingResumeSource = null; // Track which state object we cloned from
 let inputTimeout = null;
+
+function getExcludedItemsForSection(section) {
+    if (!state.excludedItems || !state.excludedItems[section]) return [];
+    if (!state.baseResume || !state.baseResume[section]) return [];
+
+    const baseItems = state.baseResume[section];
+    const tailoredItems = state.tailoredResume?.[section] || [];
+
+    // Find items in baseResume that are NOT in tailoredResume (by content matching)
+    // This is more robust than numeric indices which can shift during regeneration
+    return baseItems
+        .map((item, idx) => ({ index: idx, item }))
+        .filter(({ item }) => {
+            // Check if this base item exists in the current tailored resume
+            const identifier = (item.company || item.name || item.organization || item.title || '').toLowerCase();
+            const role = (item.role || item.tech || item.conference || '').toLowerCase();
+
+            return !tailoredItems.some(t => {
+                const tId = (t.company || t.name || t.organization || t.title || '').toLowerCase();
+                const tRole = (t.role || t.tech || t.conference || '').toLowerCase();
+                return tId === identifier && tRole === role;
+            });
+        });
+}
+
+function getMustIncludeItems() {
+    return state.mustIncludeItems || {};
+}
+
+function checkKeywordLoss(text) {
+    if (!state.currentJdAnalysis || !text) return;
+
+    const allKeywords = [
+        ...(state.currentJdAnalysis.mandatory_keywords || []),
+        ...(state.currentJdAnalysis.preferred_keywords || [])
+    ].map(k => k.toLowerCase());
+
+    const lowerText = text.toLowerCase();
+    const lostKeywords = allKeywords.filter(k => {
+        const escaped = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+        return regex.test(lowerText);
+    });
+
+    if (lostKeywords.length > 0) {
+        showStatus(
+            `⚠️ Removing this may reduce ATS score — contains keywords: ${lostKeywords.slice(0, 3).join(', ')}${lostKeywords.length > 3 ? '...' : ''}`,
+            'warning'
+        );
+    }
+}
 
 function escapeRegex(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -391,9 +444,98 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
                 listDiv.innerHTML = '';
                 showStatus("Moved to Projects. Switch to Projects tab to view.", "success");
             };
-            container.appendChild(moveBtn);
+        }
+
+        // --- Excluded Items Section ---
+        const excludedSections = ['experience', 'projects', 'leadership', 'research', 'certifications', 'awards', 'volunteering'];
+        if (excludedSections.includes(section)) {
+            const excludedForSection = getExcludedItemsForSection(section);
+
+            if (excludedForSection.length > 0) {
+                const excludedDiv = document.createElement('div');
+                excludedDiv.className = 'excluded-items-section';
+                excludedDiv.style.cssText = 'margin-top:16px; padding:12px; background:#fef3c7; border:1px dashed #f59e0b; border-radius:8px;';
+
+                const excludedHeader = document.createElement('div');
+                excludedHeader.style.cssText = 'font-size:12px; font-weight:bold; color:#92400e; margin-bottom:10px; display:flex; align-items:center; gap:6px;';
+                excludedHeader.innerHTML = `⚠️ Not Included (removed by AI to fit ${state.pageMode === '1page' ? '1 page' : 'page limit'})`;
+                excludedDiv.appendChild(excludedHeader);
+
+                const mustInclude = getMustIncludeItems();
+                const currentMustIncludeForSection = mustInclude[section] || [];
+
+                excludedForSection.forEach(({ index, item }) => {
+                    const isMarkedForInclusion = currentMustIncludeForSection.includes(index);
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'excluded-item';
+                    itemDiv.style.cssText = `padding:10px; margin-bottom:8px; background:${isMarkedForInclusion ? '#d1fae5' : '#fff'}; border:1px solid ${isMarkedForInclusion ? '#10b981' : '#e5e7eb'}; border-radius:6px; opacity:${isMarkedForInclusion ? '1' : '0.7'}; transition:all 0.2s;`;
+
+                    // Determine display title
+                    let title = item.company || item.name || item.organization || item.title || 'Item';
+                    let subtitle = item.role || item.tech || item.conference || item.issuer || '';
+                    let bulletPreview = (item.bullets && item.bullets.length > 0) ? item.bullets[0].substring(0, 80) + '...' : '';
+
+                    itemDiv.innerHTML = `
+                        <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; font-size:12px;">
+                            <input type="checkbox" class="include-toggle" data-section="${section}" data-index="${index}" 
+                                ${isMarkedForInclusion ? 'checked' : ''} 
+                                style="margin-top:2px; accent-color:#10b981; width:16px; height:16px;">
+                            <div>
+                                <div style="font-weight:bold; color:#1f2937;">${escapeHtml(title)}${subtitle ? ' — ' + escapeHtml(subtitle) : ''}</div>
+                                ${bulletPreview ? `<div style="font-size:10px; color:#6b7280; margin-top:2px;">${escapeHtml(bulletPreview)}</div>` : ''}
+                                <div style="font-size:10px; color:${isMarkedForInclusion ? '#059669' : '#9ca3af'}; margin-top:4px;">
+                                    ${isMarkedForInclusion ? '✅ Will be included on next Forge' : '☐ Check to include on next Forge'}
+                                </div>
+                            </div>
+                        </label>
+                    `;
+                    excludedDiv.appendChild(itemDiv);
+                });
+
+                // Event delegation for checkboxes
+                excludedDiv.addEventListener('change', async (e) => {
+                    if (!e.target.classList.contains('include-toggle')) return;
+
+                    const sec = e.target.dataset.section;
+                    const idx = parseInt(e.target.dataset.index);
+                    const checked = e.target.checked;
+
+                    // Update mustIncludeItems in state
+                    const current = { ...(state.mustIncludeItems || {}) };
+                    if (!current[sec]) current[sec] = [];
+
+                    if (checked) {
+                        if (!current[sec].includes(idx)) current[sec].push(idx);
+                    } else {
+                        current[sec] = current[sec].filter(i => i !== idx);
+                    }
+
+                    updateState({ mustIncludeItems: current });
+                    await chrome.storage.local.set({ must_include_items: current });
+
+                    // Show page overflow warning in 1-page mode
+                    const totalMustInclude = Object.values(current).reduce((s, a) => s + a.length, 0);
+                    if (state.pageMode === '1page' && totalMustInclude > 0) {
+                        showStatus(`⚠️ Including ${totalMustInclude} extra item(s) may exceed 1 page. AI will try to fit, or you may need to manually trim after forging.`, 'warning');
+                    }
+
+                    // Re-render this excluded section to update visual state
+                    renderProfileEditor(section, null, containerId);
+                });
+
+                // Warning note
+                const noteDiv = document.createElement('div');
+                noteDiv.style.cssText = 'font-size:10px; color:#92400e; margin-top:8px; font-style:italic;';
+                noteDiv.textContent = '💡 Check items to include them in your next "Save & Regenerate". The AI will re-tailor the full resume with these items included.';
+                excludedDiv.appendChild(noteDiv);
+
+                container.appendChild(excludedDiv);
+            }
         }
     }
+
+    // Render live ATS keyword badge
+    setTimeout(() => renderLiveAtsBadge(containerId, currentEditingResume), 150);
 }
 
 function formatDefaultSectionTitle(section, singular = false) {
@@ -553,7 +695,19 @@ function renderItemBlock(container, item, section) {
     `;
 
     // Event Listeners
-    div.querySelector('.remove-item-btn').onclick = () => { div.remove(); updateArrowVisibility(container); };
+    div.querySelector('.remove-item-btn').onclick = () => {
+        // Keyword Loss Check
+        let itemText = "";
+        div.querySelectorAll('input, textarea').forEach(el => itemText += " " + el.value);
+        checkKeywordLoss(itemText);
+
+        div.remove();
+        updateArrowVisibility(container);
+
+        // Refresh live score
+        const formContainer = container.closest('[data-editor-mode]') || container;
+        setTimeout(() => renderLiveAtsBadge(formContainer.id, currentEditingResume), 100);
+    };
 
     const upBtn = div.querySelector('.move-up-btn');
     const downBtn = div.querySelector('.move-down-btn');
@@ -580,7 +734,17 @@ function renderItemBlock(container, item, section) {
             newTa.addEventListener('input', () => handleInput(newTa));
         };
         bContainer.addEventListener('click', (e) => {
-            if (e.target.classList.contains('remove-bullet-btn')) e.target.closest('.bullet-item').remove();
+            if (e.target.classList.contains('remove-bullet-btn')) {
+                const bulletItem = e.target.closest('.bullet-item');
+                const bulletText = bulletItem.querySelector('textarea').value;
+                checkKeywordLoss(bulletText);
+
+                bulletItem.remove();
+
+                // Refresh live score
+                const formContainer = container.closest('[data-editor-mode]') || container;
+                setTimeout(() => renderLiveAtsBadge(formContainer.id, currentEditingResume), 100);
+            }
         });
 
         // Initial binding for existing bullets
@@ -677,7 +841,17 @@ function renderSkillBlock(container, category, skills) {
         <textarea class="skill-values-input" style="height: 60px;">${skills}</textarea>
     `;
 
-    div.querySelector('.remove-category-btn').onclick = () => { div.remove(); updateArrowVisibility(container); };
+    div.querySelector('.remove-category-btn').onclick = () => {
+        const skillsText = div.querySelector('textarea').value;
+        checkKeywordLoss(skillsText);
+
+        div.remove();
+        updateArrowVisibility(container);
+
+        // Refresh live score
+        const formContainer = container.closest('[data-editor-mode]') || container;
+        setTimeout(() => renderLiveAtsBadge(formContainer.id, currentEditingResume), 100);
+    };
 
     // Auto expand skills
     const ta = div.querySelector('textarea');
@@ -850,6 +1024,9 @@ export async function saveProfileChanges(section, containerId = 'profileFormCont
 
     const statusTarget = containerId === 'profileFormContainer' ? 'profileStatus' : 'status';
     showStatus('✅ Profile saved!', 'success', statusTarget);
+
+    // Update live ATS badge after saving changes  
+    setTimeout(() => renderLiveAtsBadge(containerId, currentEditingResume), 100);
 
     return currentEditingResume[section]; // Return data for immediate use if needed
 }

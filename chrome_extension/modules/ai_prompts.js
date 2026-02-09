@@ -72,7 +72,7 @@ CRITICAL: Return ONLY valid JSON. No markdown blocks, no explanation text.
 `;
 }
 
-export function buildTailorPrompt(baseResume, jdAnalysis, tailoringStrategy, bulletCounts) {
+export function buildTailorPrompt(baseResume, jdAnalysis, tailoringStrategy, bulletCounts, pageMode = '1page', mustIncludeItems = null) {
     let strategyNote = "";
     if (tailoringStrategy === "profile_focus") {
         strategyNote = `
@@ -138,6 +138,42 @@ KEYWORD PLACEMENT RULES:
 `;
     }
 
+    // Page constraint instructions
+    let pageConstraint = '';
+    if (pageMode === '1page') {
+        pageConstraint = `
+=== PAGE CONSTRAINT: SINGLE PAGE (CRITICAL) ===
+The output resume MUST fit on ONE page. To achieve this:
+
+1. SUMMARY: Keep to 2-3 lines maximum. Be punchy and keyword-dense.
+2. BULLETS: Maximum 3 bullets per experience/project item. Make each bullet concise (under 150 chars).
+3. SKILLS: Combine related categories. Keep to 2-3 categories max.
+4. SECTION PRUNING: You MAY remove entire items from "projects", "leadership", "volunteering", "awards", "certifications", or "research" sections if they are NOT relevant to this JD.
+   - NEVER remove items from "experience" or "education" — only reduce their bullet count.
+   - For experience: Keep all roles but reduce to 2-3 most impactful bullets each.
+   - Prioritize removing items that have ZERO keyword overlap with the JD.
+5. You MUST return an "excluded_items" field listing what you removed (see output format below).
+${mustIncludeItems ? `
+6. MANDATORY INCLUSIONS — The user has explicitly requested these items be KEPT even in 1-page mode. Do NOT exclude them:
+${Object.entries(mustIncludeItems).filter(([k, v]) => v && v.length > 0).map(([section, indices]) =>
+            `   - ${section}: items at indices [${indices.join(', ')}] from the base resume MUST be included`
+        ).join('\n')}
+   For these must-include items, tailor their bullets to be concise and JD-relevant but do NOT remove them.
+` : ''}
+`;
+    } else {
+        pageConstraint = `
+=== PAGE CONSTRAINT: TWO PAGES ALLOWED ===
+The resume can span up to TWO pages. You have more space:
+1. SUMMARY: Can be 3-4 lines with richer detail.
+2. BULLETS: Up to 4-5 bullets per experience item. Be thorough.
+3. SKILLS: Can have more categories with comprehensive lists.
+4. SECTIONS: Include ALL projects, leadership, certifications, etc. from the base resume. Do not remove any items.
+5. Still tailor everything to the JD — more space doesn't mean filler content.
+6. Set "excluded_items" to empty objects: {"projects":[],"experience":[],"leadership":[],"research":[],"certifications":[],"awards":[],"volunteering":[]}
+`;
+    }
+
     let bulletInstructions = "";
     if (bulletCounts) {
         bulletInstructions = `
@@ -188,6 +224,8 @@ ${JSON.stringify(baseResume, null, 2)}
 
 ${strategyNote}
 
+${pageConstraint}
+
 ${keywordChecklist}
 
 ${bulletInstructions}
@@ -236,8 +274,18 @@ Return ONLY valid JSON:
     "awards": [{ "name": "...", "organization": "...", "dates": "..." }],
     "volunteering": [{ "organization": "...", "role": "...", "dates": "...", "location": "...", "bullets": [] }],
     "languages": "...",
-    "section_order": [${(baseResume.section_order || ["summary", "skills", "experience", "projects", "education"]).map(s => `"${s}"`).join(', ')}]
+    "section_order": [${(baseResume.section_order || ["summary", "skills", "experience", "projects", "education"]).map(s => `"${s}"`).join(', ')}],
+    "excluded_items": {
+        "projects": [],
+        "experience": [],
+        "leadership": [],
+        "research": [],
+        "certifications": [],
+        "awards": [],
+        "volunteering": []
+    }
 }
+// The "excluded_items" field MUST contain arrays of INTEGER INDICES (0-based) referencing items from the BASE RESUME input that you decided to remove. If you kept everything, use empty arrays. This is critical for the user to know what was removed.
 
 No markdown code blocks. No text before or after. Verify all brackets match.
 `;

@@ -172,7 +172,7 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
         // Python `tailor_resume` took optional `bullet_counts`. The endpoint `tailor_resume` didn't seem to pass them from UI initial call?
         // UI `generateBtn` handler calls `tailorResume`. It doesn't pass bullet counts.
 
-        const tailorPrompt = Prompts.buildTailorPrompt(baseResume, jdAnalysis, tailoringStrategy, null);
+        const tailorPrompt = Prompts.buildTailorPrompt(baseResume, jdAnalysis, tailoringStrategy, null, state.pageMode || '1page', state.mustIncludeItems);
         const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true, taskType: 'tailor', actionId });
         let tailoredData = extractJSON(tailorResponse);
 
@@ -182,10 +182,32 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
         tailoredData = Prompts.restore_immutable_fields(baseResume, tailoredData);
         tailoredData = Prompts.clean_tailored_resume(tailoredData);
 
-        // Return object matching backend structure
+        // Step 4: Extract excluded items from AI response
+        let excludedItems = tailoredData.excluded_items || {
+            projects: [], experience: [], leadership: [],
+            research: [], certifications: [], awards: [], volunteering: []
+        };
+
+        // Validate: ensure all values are arrays of integers
+        for (const key of Object.keys(excludedItems)) {
+            if (!Array.isArray(excludedItems[key])) {
+                excludedItems[key] = [];
+            }
+            excludedItems[key] = excludedItems[key].filter(i => typeof i === 'number' && Number.isInteger(i));
+        }
+
+        // Remove excluded_items from the resume data itself (it's metadata, not resume content)
+        delete tailoredData.excluded_items;
+
+        // Store excluded items in state
+        updateState({ excludedItems });
+        await chrome.storage.local.set({ excluded_items: excludedItems });
+
+        // Return object matching backend structure — now includes excludedItems
         return {
             tailored_resume: tailoredData,
-            jd_analysis: jdAnalysis
+            jd_analysis: jdAnalysis,
+            excluded_items: excludedItems
         };
 
     } catch (e) {
@@ -205,7 +227,7 @@ export async function generatePdf(resumeData) {
     }
 }
 
-export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis, apiKey, provider, tailoringStrategy) {
+export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis, apiKey, provider, tailoringStrategy, pageMode = '1page', mustIncludeItems = null) {
     // Uses the current tailored resume (with manual edits) as the base for re-tailoring.
     // Applies bullet count limits and post-processing.
     try {
@@ -219,19 +241,30 @@ export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis,
         }
 
         const actionId = `regen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const tailorPrompt = Prompts.buildTailorPrompt(base, jdAnalysis, tailoringStrategy, bulletCounts);
+        const tailorPrompt = Prompts.buildTailorPrompt(base, jdAnalysis, tailoringStrategy, bulletCounts, pageMode, mustIncludeItems);
         const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true, taskType: 'tailor', actionId });
         let newTailoredData = extractJSON(tailorResponse);
 
         if (!newTailoredData) throw new Error("Failed to regenerate resume JSON");
 
+        // Extract excluded items before cleanup
+        let excludedItems = newTailoredData.excluded_items || {};
+        delete newTailoredData.excluded_items;
+
+        // Validate excluded items
+        for (const key of Object.keys(excludedItems)) {
+            if (!Array.isArray(excludedItems[key])) excludedItems[key] = [];
+            excludedItems[key] = excludedItems[key].filter(i => typeof i === 'number');
+        }
+
         // Post-process
-        // restore_immutable_fields might be tricky if we don't have the *original* original. 
-        // But `base` here is the current state. 
-        // If we restore from `base`, we keep manual edits! This is desired.
         newTailoredData = Prompts.restore_immutable_fields(base, newTailoredData);
         newTailoredData = Prompts.clean_tailored_resume(newTailoredData);
         newTailoredData = Prompts.enforce_bullet_limits(newTailoredData, bulletCounts);
+
+        // Update excluded items state
+        updateState({ excludedItems: excludedItems });
+        await chrome.storage.local.set({ excluded_items: excludedItems });
 
         return newTailoredData;
 

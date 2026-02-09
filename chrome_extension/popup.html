@@ -420,6 +420,19 @@
     </div>
 
     <div style="display:flex; flex-direction:column; gap:8px;">
+      <!-- Page mode toggle row -->
+      <div
+        style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
+        <span style="font-size:12px; font-weight:600; color:var(--text-main);">📄 Pages:</span>
+        <div id="pageModeToggle" style="display:flex; background:#e2e8f0; border-radius:6px; overflow:hidden; flex:1;">
+          <button id="pageMode1" class="page-mode-btn active" data-mode="1page"
+            style="flex:1; padding:6px 12px; font-size:11px; font-weight:600; border:none; cursor:pointer; transition:all 0.2s;">1
+            Page</button>
+          <button id="pageMode2" class="page-mode-btn" data-mode="2page"
+            style="flex:1; padding:6px 12px; font-size:11px; font-weight:600; border:none; cursor:pointer; transition:all 0.2s;">2
+            Pages</button>
+        </div>
+      </div>
       <button id="generateBtn" class="primary-btn" style="padding:14px; font-size: 14px;"
         title="AI reads the job description and tailors your resume for maximum ATS match">
         🔥 Forge My Resume

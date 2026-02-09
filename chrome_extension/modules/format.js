@@ -83,6 +83,18 @@ export function setupFormatUI() {
             await loadFormatSettings();
             formatUI.style.display = 'block';
             document.getElementById('actions').style.display = 'none';
+
+            // Show page mode info in format panel
+            let pageModeNote = document.getElementById('formatPageModeNote');
+            if (!pageModeNote) {
+                pageModeNote = document.createElement('div');
+                pageModeNote.id = 'formatPageModeNote';
+                pageModeNote.style.cssText = 'font-size:10px; color: #6b7280; margin-bottom:10px; padding:6px 8px; background:#f0f4ff; border-radius:6px;';
+                formatUI.insertBefore(pageModeNote, formatUI.firstChild.nextSibling); // Insert after close button or header
+            }
+            pageModeNote.textContent = state.pageMode === '1page'
+                ? '📄 1-Page mode active — PDF will target single page. Switch to 2-Page in main view for more content.'
+                : '📄 2-Page mode — resume may span two pages.';
         });
     }
 

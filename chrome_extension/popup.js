@@ -371,7 +371,10 @@ async function loadState() {
         'jd_extraction_method',
         'detected_company_description',
         'last_parsed_jd_text',
-        'auth_mode'
+        'auth_mode',
+        'page_mode',
+        'excluded_items',
+        'must_include_items'
     ]);
 
     // Backward compatibility: use last_analysis as fallback for jd_analysis
@@ -428,7 +431,24 @@ async function loadState() {
     });
     updateState({ authMode: finalAuthMode });
 
+    // Restore page mode
+    const pageMode = data.page_mode || '1page';
+    updateState({ pageMode });
+    // Update toggle UI
+    setTimeout(() => {
+        document.querySelectorAll('.page-mode-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.mode === pageMode);
+        });
+    }, 100);
+
     updateActiveProfileLabel(state.activeProfile);
+
+    // Restore excluded items
+    const storedExcluded = data.excluded_items || null;
+    updateState({ excludedItems: storedExcluded });
+
+    // Restore must include items
+    updateState({ mustIncludeItems: data.must_include_items || null });
 
     setupSettings();
     updateJdStatus();
@@ -737,7 +757,6 @@ function setupEventListeners() {
     });
 
     // Auth Section Delegation (for Logout)
-    const authSection = document.getElementById('authSection');
     if (authSection) {
         authSection.addEventListener('click', async (e) => {
             if (e.target.id === 'logoutBtn') {
@@ -748,6 +767,29 @@ function setupEventListeners() {
             }
         });
     }
+
+    // Page Mode Toggle
+    document.querySelectorAll('.page-mode-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            document.querySelectorAll('.page-mode-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            const mode = e.target.dataset.mode;
+            updateState({ pageMode: mode });
+            await chrome.storage.local.set({ page_mode: mode });
+
+            // When switching to 2-page, clear excluded items since they'll all be included
+            if (mode === '2page') {
+                updateState({ excludedItems: null, mustIncludeItems: null });
+                await chrome.storage.local.remove(['excluded_items', 'must_include_items']);
+            }
+
+            // Warn if a tailored resume already exists
+            if (state.tailoredResume) {
+                const modeLabel = mode === '1page' ? '1-page' : '2-page';
+                showStatus(`📄 Switched to ${modeLabel} mode. Click "Forge My Resume" again to regenerate with the new page setting.`, 'info');
+            }
+        });
+    });
 
     const manualJdBtn = document.getElementById('manualJdBtn');
     const manualJdInput = document.getElementById('manualJdInput');
@@ -1320,14 +1362,19 @@ function setupEventListeners() {
             showProgress('tailoring', 'This may take 10-15 seconds...');
 
             debugLog("Calling tailorResume...");
-            const data = await tailorResume(state.baseResume, state.currentJdText, activeKey, state.currentProvider, state.tailoringStrategy);
-            if (data.error) throw new Error(data.error);
+            const result = await tailorResume(state.baseResume, state.currentJdText, activeKey, state.currentProvider, state.tailoringStrategy);
+            if (result.error) throw new Error(result.error);
 
             showProgress('processing');
-            debugLog("Tailoring success", data);
+            debugLog("Tailoring success", result);
 
-            const newResume = data.tailored_resume;
-            const analysis = data.jd_analysis;
+            const { tailored_resume, jd_analysis, excluded_items } = result;
+            const newResume = tailored_resume;
+            const analysis = jd_analysis;
+
+            // Store excluded items
+            updateState({ excludedItems: excluded_items || null, mustIncludeItems: null });
+            await chrome.storage.local.remove('must_include_items');
 
             const keywords = analysis ? [
                 ...(analysis.mandatory_keywords || []),
@@ -1341,6 +1388,14 @@ function setupEventListeners() {
                 tailored_resume: newResume,
                 jd_analysis: analysis
             });
+
+            // Show notification if items were excluded
+            if (excluded_items) {
+                const totalExcluded = Object.values(excluded_items).reduce((sum, arr) => sum + arr.length, 0);
+                if (totalExcluded > 0) {
+                    showStatus(`✅ Resume forged! ${totalExcluded} item(s) excluded to fit 1 page. Check Fine-Tune to review.`, "success");
+                }
+            }
 
             showProgress('complete');
             setTimeout(() => {
@@ -1553,6 +1608,8 @@ function setupEventListeners() {
                 // Generate PDF logic immediately (cache only)
                 await generateAndCachePDF(state.tailoredResume);
 
+                import('./modules/ats_live.js').then(m => m.renderLiveAtsBadge('formContainer'));
+
                 document.getElementById('editorUI').style.display = 'none';
                 document.getElementById('actions').style.display = 'block';
             } catch (e) {
@@ -1606,16 +1663,21 @@ function setupEventListeners() {
                         jdAnalysis,
                         activeKey,
                         state.currentProvider,
-                        state.tailoringStrategy
+                        state.tailoringStrategy,
+                        state.pageMode || '1page',
+                        state.mustIncludeItems
                     );
 
                     if (regenData.error) throw new Error(regenData.error);
 
                     const finalResume = regenData;
 
-                    updateState({ tailoredResume: finalResume });
+                    updateState({ tailoredResume: finalResume, mustIncludeItems: null });
                     if (state.authMode === 'free') updateUsageDisplay();
                     await chrome.storage.local.set({ tailored_resume: finalResume });
+                    await chrome.storage.local.remove('must_include_items');
+
+                    showStatus("Resume updated & re-tailored!", "success");
 
                     // Generate PDF (cache only for regeneration)
                     await generateAndCachePDF(finalResume);

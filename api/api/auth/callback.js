@@ -1,16 +1,17 @@
 const { supabaseAdmin } = require('../../lib/supabase');
+const { withCors } = require('../../lib/cors');
 
 /**
  * OAuth callback handler
  * GET /api/auth/callback
  */
-module.exports = async (req, res) => {
-    try {
-        // Extract code from query parameters
-        const { code, error: oauthError } = req.query;
+module.exports = withCors(async (req, res) => {
+  try {
+    // Extract code from query parameters
+    const { code, error: oauthError } = req.query;
 
-        if (oauthError) {
-            return res.status(400).send(`
+    if (oauthError) {
+      return res.status(400).send(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -46,10 +47,10 @@ module.exports = async (req, res) => {
         </body>
         </html>
       `);
-        }
+    }
 
-        if (!code) {
-            return res.status(400).send(`
+    if (!code) {
+      return res.status(400).send(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -85,14 +86,14 @@ module.exports = async (req, res) => {
         </body>
         </html>
       `);
-        }
+    }
 
-        // Exchange code for session
-        const { data, error } = await supabaseAdmin.auth.exchangeCodeForSession(code);
+    // Exchange code for session
+    const { data, error } = await supabaseAdmin.auth.exchangeCodeForSession(code);
 
-        if (error || !data.session) {
-            console.error('Session exchange error:', error);
-            return res.status(500).send(`
+    if (error || !data.session) {
+      console.error('Session exchange error:', error);
+      return res.status(500).send(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -128,12 +129,12 @@ module.exports = async (req, res) => {
         </body>
         </html>
       `);
-        }
+    }
 
-        // Success! Return HTML that posts tokens back to extension
-        const { access_token, refresh_token } = data.session;
+    // Success! Return HTML that posts tokens back to extension
+    const { access_token, refresh_token } = data.session;
 
-        return res.status(200).send(`
+    return res.status(200).send(`
       <!DOCTYPE html>
       <html>
       <head>
@@ -208,9 +209,9 @@ module.exports = async (req, res) => {
       </html>
     `);
 
-    } catch (error) {
-        console.error('Callback error:', error);
-        return res.status(500).send(`
+  } catch (error) {
+    console.error('Callback error:', error);
+    return res.status(500).send(`
       <!DOCTYPE html>
       <html>
       <head>
@@ -246,5 +247,5 @@ module.exports = async (req, res) => {
       </body>
       </html>
     `);
-    }
-};
+  }
+});

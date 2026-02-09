@@ -75,7 +75,8 @@ export async function loginWithGoogle() {
                 if (changeInfo.status === 'complete' && updatedTab.url) {
                     // Fallback: Direct URL-based token extraction
                     const url = updatedTab.url;
-                    if (url.includes('/api/auth/callback')) {
+                    // Check if URL belongs to our API and has a hash (Implicit flow tokens)
+                    if (url.startsWith(API_BASE_URL) && url.includes('#')) {
                         // Extract tokens from hash (#access_token=...&refresh_token=...)
                         const hash = new URL(url).hash;
                         if (hash) {

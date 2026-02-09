@@ -681,8 +681,17 @@ function setupEventListeners() {
             showStatus('Opening Google Login...', 'info', 'settingsStatus');
             await loginWithGoogle();
             showStatus('Login successful!', 'success', 'settingsStatus');
+
+            // Auto-switch to free mode and move to main UI
+            updateModeUI('free');
             renderAuthSection();
             updateUsageDisplay();
+
+            // If we have a base resume, go to main UI. If not, they probably need to upload one still
+            // but usually login follows the onboarding path.
+            setTimeout(() => {
+                if (state.baseResume) showMainUI();
+            }, 1000);
         } catch (e) {
             showStatus('Login failed: ' + e.message, 'error', 'settingsStatus');
         }
@@ -968,17 +977,20 @@ function setupEventListeners() {
         const openrouterKey = document.getElementById('openrouterApiKey').value.trim();
         const provider = document.getElementById('providerSelect').value;
 
-        if (provider === 'gemini' && !geminiKey) {
-            showStatus("Please enter a Gemini API key.", "error", "settingsStatus");
-            return;
-        }
-        if (provider === 'groq' && !groqKey) {
-            showStatus("Please enter a Groq API key.", "error", "settingsStatus");
-            return;
-        }
-        if (provider === 'openrouter' && !openrouterKey) {
-            showStatus("Please enter an OpenRouter API key.", "error", "settingsStatus");
-            return;
+        // Only validate keys if NOT in free mode
+        if (state.authMode !== 'free') {
+            if (provider === 'gemini' && !geminiKey) {
+                showStatus("Please enter a Gemini API key.", "error", "settingsStatus");
+                return;
+            }
+            if (provider === 'groq' && !groqKey) {
+                showStatus("Please enter a Groq API key.", "error", "settingsStatus");
+                return;
+            }
+            if (provider === 'openrouter' && !openrouterKey) {
+                showStatus("Please enter an OpenRouter API key.", "error", "settingsStatus");
+                return;
+            }
         }
 
         await chrome.storage.local.set({

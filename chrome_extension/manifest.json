@@ -19,7 +19,9 @@
         "https://generativelanguage.googleapis.com/*",
         "https://api.groq.com/*",
         "https://openrouter.ai/*",
-        "https://www.linkedin.com/*"
+        "https://www.linkedin.com/*",
+        "https://YOUR-API-DOMAIN.vercel.app/*",
+        "https://xxxxx.supabase.co/*"
     ],
     "action": {
         "default_title": "ForgeCV",

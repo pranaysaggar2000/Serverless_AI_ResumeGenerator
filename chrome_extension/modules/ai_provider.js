@@ -1,8 +1,14 @@
 import { state } from './state.js';
 
 export async function callAI(prompt, provider, apiKey, options = {}) {
-    // Check if we should use free tier (server) instead of direct call
-    if (state.authMode === 'free' && state.isLoggedIn) {
+    // 1. Handle Free Tier (Server-side)
+    if (state.authMode === 'free') {
+        if (!state.isLoggedIn) {
+            const { showStatus } = await import('./ui.js');
+            showStatus('Please sign in with Google to use the free tier.', 'error');
+            throw new Error('NOT_LOGGED_IN');
+        }
+
         try {
             // Use server-proxied call
             const { callServerAI } = await import('./auth.js');
@@ -11,26 +17,29 @@ export async function callAI(prompt, provider, apiKey, options = {}) {
             const { showStatus } = await import('./ui.js');
             const { checkCurrentProviderKey } = await import('./utils.js');
 
+            // Fallback to BYOK ONLY if they actually have a valid-looking key configured
             if (error.message === 'SERVER_ERROR' && checkCurrentProviderKey()) {
                 showStatus('Free tier server unavailable. Using your own API key instead.', 'warning');
                 console.log('Fallback to BYOK due to server error');
-                // Fall through to BYOK logic at the bottom
+                // Fall through to BYOK logic below
             } else if (error.message === 'LIMIT_REACHED') {
-                showStatus("You've used all 15 free actions today! 🔄 Resets at midnight UTC. Or switch to your own key for unlimited use.", 'warning');
+                showStatus("You've used all 15 free actions today! 🔄 Resets at midnight UTC.", 'warning');
                 throw error;
             } else if (error.message === 'AUTH_EXPIRED') {
-                showStatus('Please sign in again to continue using free tier.', 'error');
-                throw error;
-            } else if (error.message === 'SERVER_ERROR') {
-                showStatus('Our servers are taking a quick break. Try again in a moment or add your own API key in Settings!', 'error');
+                showStatus('Session expired. Please sign in again.', 'error');
                 throw error;
             } else {
+                // If it's a server error but they have no key, or any other error
                 throw error;
             }
         }
     }
 
-    // Original BYOK logic unchanged
+    // 2. Handle BYOK (Direct API calls)
+    if (!apiKey) {
+        throw new Error(`Please configure your ${provider.toUpperCase()} API key in settings.`);
+    }
+
     if (provider === 'gemini') {
         return callGemini(prompt, apiKey, options);
     } else if (provider === 'groq') {

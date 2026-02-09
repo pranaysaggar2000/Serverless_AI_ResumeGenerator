@@ -40,6 +40,7 @@
         <select id="providerSelect">
           <option value="gemini">Google Gemini (Recommended)</option>
           <option value="groq">Groq (Llama 3)</option>
+          <option value="openrouter">OpenRouter (Multi-Model)</option>
         </select>
       </div>
 
@@ -88,6 +89,30 @@
             <div class="ask-ai-prompt" onclick="navigator.clipboard.writeText(this.innerText); alert('Copied!')">
               "Explain how to get a free Groq API Key like I'm a time traveler from 1995 who just discovered the
               internet. Be super specific about clicking 'Create API Key'."
+            </div>
+            <div style="text-align:right; font-size:9px; color:var(--primary); margin-top:2px;">(Click to copy)</div>
+          </div>
+        </details>
+      </div>
+
+      <div id="openrouterKeyData" class="key-section hidden">
+        <label for="openrouterApiKey">OpenRouter API Key</label>
+        <input type="password" id="openrouterApiKey" placeholder="Enter OpenRouter API Key">
+        <details class="help-details">
+          <summary>How to get a Free OpenRouter Key</summary>
+          <div style="margin-bottom:8px; font-weight:600; color:var(--success);">✨ One-time setup. Free tier available.
+          </div>
+          <ol>
+            <li>Go to <a href="https://openrouter.ai/keys" target="_blank">OpenRouter Keys</a>.</li>
+            <li>Sign up or log in with your Google account.</li>
+            <li>Click <strong>"Create Key"</strong>.</li>
+            <li>Name it "Resume" and copy the key starting with <code>sk-or-...</code>.</li>
+          </ol>
+          <div class="ask-ai-box">
+            <div class="ask-ai-label">🙋 Still stuck? Copy & Paste this into ChatGPT/Claude:</div>
+            <div class="ask-ai-prompt" onclick="navigator.clipboard.writeText(this.innerText); alert('Copied!')">
+              "Explain how to get a free OpenRouter API Key step by step. I need clear instructions on signing up and
+              creating an API key."
             </div>
             <div style="text-align:right; font-size:9px; color:var(--primary); margin-top:2px;">(Click to copy)</div>
           </div>

@@ -3,6 +3,8 @@ export async function callAI(prompt, provider, apiKey, options = {}) {
         return callGemini(prompt, apiKey, options);
     } else if (provider === 'groq') {
         return callGroq(prompt, apiKey, options);
+    } else if (provider === 'openrouter') {
+        return callOpenRouter(prompt, apiKey, options);
     }
     throw new Error(`Unknown provider: ${provider}`);
 }
@@ -156,4 +158,167 @@ async function callGroq(prompt, apiKey, options) {
         clearTimeout(timeout);
     }
     throw new Error("All Groq models failed.");
+}
+
+// OpenRouter Model Chains - Optimized based on health check results
+const OPENROUTER_CHAINS = {
+    // For JD Parsing (simpler task, speed matters)
+    jdParse: [
+        "meta-llama/llama-3.3-70b-instruct:free",   // Fastest in tests (849ms)
+        "stepfun/step-3.5-flash:free",              // Very fast (1.6s)
+        "z-ai/glm-4.5-air:free",                    // Fast (3.45s)
+        "openai/gpt-oss-120b:free",                 // Reliable but slower (11s)
+        "openrouter/free"                           // Auto-router last resort
+    ],
+
+    // For Resume Tailoring (quality matters most)
+    tailor: [
+        "arcee-ai/trinity-large-preview:free",      // Fastest + high quality (711ms)
+        "meta-llama/llama-3.3-70b-instruct:free",   // Very fast (790ms)
+        "stepfun/step-3.5-flash:free",              // Fast (1.22s)
+        "openai/gpt-oss-120b:free",                 // Best quality, slower (9s)
+        "openrouter/free"                           // Auto-router last resort
+    ],
+
+    // For ATS Scoring (moderate complexity)
+    score: [
+        "meta-llama/llama-3.3-70b-instruct:free",   // Fastest (739ms)
+        "openai/gpt-oss-20b:free",                  // Very fast (979ms)
+        "stepfun/step-3.5-flash:free",              // Fast (1.03s)
+        "z-ai/glm-4.5-air:free",                    // Good (3.06s)
+        "openrouter/free"                           // Auto-router last resort (4.96s)
+    ],
+
+    // Default chain for general tasks
+    default: [
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "stepfun/step-3.5-flash:free",
+        "openai/gpt-oss-120b:free",
+        "openrouter/free"
+    ]
+};
+
+async function callOpenRouter(prompt, apiKey, options) {
+    // Determine which chain to use based on task type
+    let modelChain;
+
+    if (options.taskType === 'jdParse') {
+        modelChain = OPENROUTER_CHAINS.jdParse;
+    } else if (options.taskType === 'tailor') {
+        modelChain = OPENROUTER_CHAINS.tailor;
+    } else if (options.taskType === 'score') {
+        modelChain = OPENROUTER_CHAINS.score;
+    } else {
+        modelChain = OPENROUTER_CHAINS.default;
+    }
+
+    // Use longer timeout for scoring tasks (more complex analysis)
+    const totalTimeoutMs = options.taskType === 'score' ? 90000 : 60000;
+    const perModelTimeoutMs = 20000; // 20 seconds per model attempt
+
+    const totalController = new AbortController();
+    const totalTimeout = setTimeout(() => totalController.abort(), totalTimeoutMs);
+
+    try {
+        for (const modelId of modelChain) {
+            try {
+                // Create a per-model timeout controller
+                const modelController = new AbortController();
+                const modelTimeout = setTimeout(() => modelController.abort(), perModelTimeoutMs);
+
+                try {
+                    const payload = {
+                        model: modelId,
+                        messages: [
+                            { role: "user", content: prompt }
+                        ]
+                    };
+
+                    // OpenRouter doesn't support response_format for most free models
+                    // So we skip the expectJson option
+
+                    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                        method: 'POST',
+                        headers: {
+                            "Authorization": `Bearer ${apiKey}`,
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": "https://forgecv.extension",  // Optional: for OpenRouter analytics
+                            "X-Title": "ForgeCV Resume Generator"         // Optional: app identification
+                        },
+                        body: JSON.stringify(payload),
+                        signal: modelController.signal
+                    });
+
+                    clearTimeout(modelTimeout); // Clear per-model timeout on success
+
+                    if (response.status === 401 || response.status === 403) {
+                        throw new Error("OPENROUTER_AUTH_ERROR");
+                    }
+
+                    if (response.status === 429) {
+                        console.warn(`OpenRouter Rate Limit (${modelId}), switching to next model...`);
+                        continue;
+                    }
+
+                    if (response.status === 402) {
+                        // Payment required - negative balance
+                        throw new Error("OPENROUTER_PAYMENT_ERROR");
+                    }
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.warn(`OpenRouter Error ${response.status} for ${modelId}: ${errorText}`);
+                        continue;
+                    }
+
+                    const data = await response.json();
+                    const content = data.choices[0].message.content;
+
+                    // Log successful model for debugging
+                    console.log(`✓ OpenRouter: Used ${modelId} for ${options.taskType || 'default'} task`);
+
+                    clearTimeout(totalTimeout); // Clear total timeout on success
+                    return content;
+
+                } catch (modelError) {
+                    clearTimeout(modelTimeout);
+
+                    // If this specific model timed out, try next model
+                    if (modelError.name === 'AbortError') {
+                        console.warn(`Model ${modelId} timed out after ${perModelTimeoutMs / 1000}s, trying next...`);
+                        continue;
+                    }
+                    throw modelError; // Re-throw other errors
+                }
+
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    // This is the total timeout, not per-model
+                    throw e;
+                }
+                if (e.message === "OPENROUTER_AUTH_ERROR" || e.message === "OPENROUTER_PAYMENT_ERROR") {
+                    throw e; // Propagate critical errors
+                }
+                console.warn(`OpenRouter model failed: ${modelId}`, e);
+                continue;
+            }
+        }
+    } catch (e) {
+        clearTimeout(totalTimeout);
+        if (e.name === 'AbortError') {
+            const timeoutSec = totalTimeoutMs / 1000;
+            throw new Error(`Request timed out after ${timeoutSec} seconds. The models may be overloaded. Please try again.`);
+        }
+        if (e.message === "OPENROUTER_AUTH_ERROR") {
+            throw new Error("OpenRouter API Key is invalid or expired. Please check your settings.");
+        }
+        if (e.message === "OPENROUTER_PAYMENT_ERROR") {
+            throw new Error("OpenRouter account has insufficient credits. Please add credits at https://openrouter.ai/credits");
+        }
+        throw e;
+    } finally {
+        clearTimeout(totalTimeout);
+    }
+
+    throw new Error(`All OpenRouter models failed for ${options.taskType || 'default'} task. The service may be experiencing high demand.`);
 }

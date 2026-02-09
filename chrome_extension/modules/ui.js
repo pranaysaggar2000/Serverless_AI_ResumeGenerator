@@ -52,12 +52,22 @@ export function showStatus(message, type = 'info', elementId = 'status') {
 }
 
 export function toggleProviderUI(provider) {
+    const geminiEl = getEl('geminiKeyData');
+    const groqEl = getEl('groqKeyData');
+    const openrouterEl = getEl('openrouterKeyData');
+
     if (provider === 'gemini') {
-        getEl('geminiKeyData').style.display = 'block';
-        getEl('groqKeyData').style.display = 'none';
+        if (geminiEl) geminiEl.style.display = 'block';
+        if (groqEl) groqEl.style.display = 'none';
+        if (openrouterEl) openrouterEl.style.display = 'none';
     } else if (provider === 'groq') {
-        getEl('geminiKeyData').style.display = 'none';
-        getEl('groqKeyData').style.display = 'block';
+        if (geminiEl) geminiEl.style.display = 'none';
+        if (groqEl) groqEl.style.display = 'block';
+        if (openrouterEl) openrouterEl.style.display = 'none';
+    } else if (provider === 'openrouter') {
+        if (geminiEl) geminiEl.style.display = 'none';
+        if (groqEl) groqEl.style.display = 'none';
+        if (openrouterEl) openrouterEl.style.display = 'block';
     }
 }
 

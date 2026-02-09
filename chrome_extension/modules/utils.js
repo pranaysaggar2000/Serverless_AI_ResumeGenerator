@@ -3,7 +3,15 @@ import { state } from './state.js';
 export function checkCurrentProviderKey() {
     if (state.currentProvider === 'gemini') return !!state.currentApiKey;
     if (state.currentProvider === 'groq') return !!state.currentGroqKey;
+    if (state.currentProvider === 'openrouter') return !!state.currentOpenRouterKey;
     return false;
+}
+
+export function getApiKeyForProvider() {
+    if (state.currentProvider === 'gemini') return state.currentApiKey;
+    if (state.currentProvider === 'groq') return state.currentGroqKey;
+    if (state.currentProvider === 'openrouter') return state.currentOpenRouterKey;
+    return '';
 }
 
 export function updateStrategyDescription(value, element) {

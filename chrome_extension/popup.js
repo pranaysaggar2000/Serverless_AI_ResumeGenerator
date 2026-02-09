@@ -1,5 +1,5 @@
 import { state, updateState } from './modules/state.js';
-import { checkCurrentProviderKey, updateStrategyDescription, generateFilename, setButtonLoading, generateDiffSummary } from './modules/utils.js';
+import { checkCurrentProviderKey, getApiKeyForProvider, updateStrategyDescription, generateFilename, setButtonLoading, generateDiffSummary } from './modules/utils.js';
 import {
     showStatus,
     toggleProviderUI,
@@ -290,7 +290,8 @@ async function init() {
         // Drag and drop removed
         setupProfileManagement();
         setupFormatUI();
-        detectJobDescription().catch(e => console.log("Silent detect fail:", e));
+        // Auto-detection disabled - user must click 'Fetch from Page' button
+        // detectJobDescription().catch(e => console.log("Silent detect fail:", e));
     } catch (e) {
         console.error("Critical Init Error:", e);
         const errDiv = document.getElementById('error');
@@ -324,6 +325,7 @@ async function loadState() {
     const data = await chrome.storage.local.get([
         'gemini_api_key',
         'groq_api_key',
+        'openrouter_api_key',
         'provider',
         'base_resume',
         'tailored_resume',
@@ -347,12 +349,14 @@ async function loadState() {
     updateState({
         currentApiKey: data.gemini_api_key || "",
         currentGroqKey: data.groq_api_key || "",
+        currentOpenRouterKey: data.openrouter_api_key || "",
         currentProvider: data.provider || "gemini",
         baseResume: data.base_resume || null,
         tailoredResume: data.tailored_resume || null,
         tailoringStrategy: data.tailoring_strategy || "balanced",
         lastAnalysis: data.ats_analysis || null,
         currentJdAnalysis: jdAnalysis,
+        lastParsedJdText: data.last_parsed_jd_text || "",  // Load cached JD text
         jdKeywords: jdAnalysis ? [
             ...(jdAnalysis.mandatory_keywords || []),
             ...(jdAnalysis.preferred_keywords || []),
@@ -426,11 +430,13 @@ async function loadState() {
 function setupSettings() {
     const apiKeyInput = document.getElementById('apiKey');
     const groqApiKeyInput = document.getElementById('groqApiKey');
+    const openrouterApiKeyInput = document.getElementById('openrouterApiKey');
     const providerSelect = document.getElementById('providerSelect');
 
     // Pre-fill
     if (apiKeyInput) apiKeyInput.value = state.currentApiKey;
     if (groqApiKeyInput) groqApiKeyInput.value = state.currentGroqKey;
+    if (openrouterApiKeyInput) openrouterApiKeyInput.value = state.currentOpenRouterKey || "";
     if (providerSelect) {
         providerSelect.value = state.currentProvider;
         toggleProviderUI(state.currentProvider);
@@ -480,8 +486,7 @@ function setupEventListeners() {
             const textData = await extractText(file);
             if (textData.error) throw new Error(textData.error);
 
-            const extractionKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
-            const profileData = await extractBaseProfile(textData.text, extractionKey, state.currentProvider);
+            const profileData = await extractBaseProfile(textData.text, getApiKeyForProvider(), state.currentProvider);
             if (profileData.error) throw new Error(profileData.error);
 
             await saveNewProfile(profileData);
@@ -553,8 +558,7 @@ function setupEventListeners() {
 
             // Use AI to parse the LinkedIn page text into structured profile
             showStatus('AI is parsing your profile...', 'info', 'linkedinUrlStatus');
-            const extractionKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
-            const profileData = await extractBaseProfile(pageText, extractionKey, state.currentProvider);
+            const profileData = await extractBaseProfile(pageText, getApiKeyForProvider(), state.currentProvider);
             if (profileData.error) throw new Error(profileData.error);
 
             await saveNewProfile(profileData);
@@ -610,25 +614,34 @@ function setupEventListeners() {
 
                 const result = await detectJobDescription();
 
+                console.log('Detection result:', result);
+
                 // If detectJobDescription actually found something new
-                if (result && result.text && result.text.length > 50) {
-                    const method = state.jdExtractionMethod;
+                if (result && result.currentJdText && result.currentJdText.length > 50) {
+                    const method = result.jdExtractionMethod || state.jdExtractionMethod;
                     if (method === 'ai') {
                         showStatus("🤖 JD extracted using AI — review for accuracy", "success");
                     } else {
-                        showStatus("✅ Job description fetched successfully!", "success");
+                        showStatus("Job description fetched successfully!", "success");
                     }
-                } else if (!state.currentJdText || state.currentJdText.length < 50) {
-                    showStatus("❌ Could not detect a job description on this page. Try pasting it manually.", "error");
+                } else if (result === null) {
+                    // Null result after reload timeout or failure
+                    showStatus("⚠️ Could not extract job description after reload. Try pasting manually.", "error");
                 } else {
-                    // We have a JD, but the scan didn't find a *new/better* one for this page?
-                    // Or it found nothing but we have old state.
-                    showStatus("⚠️ No job details found on this tab. Try pasting it manually.", "info");
+                    showStatus("❌ Could not detect a job description on this page. Try pasting it manually.", "error");
                 }
                 setTimeout(() => showStatus('', ''), 4000);
 
             } catch (e) {
-                showStatus("Scan failed: " + e.message, "error");
+                if (e.message === 'PERMISSION_DENIED') {
+                    showStatus("❌ Permission denied. Please allow the extension to access this page.", "error");
+                } else if (e.message === 'PAGE_RELOADED') {
+                    showStatus("🔄 Page reloaded. Click 'Fetch from Page' again to extract the job description.", "info");
+                } else if (e.message === 'MANUAL_PASTE_REQUESTED') {
+                    showStatus("📝 Paste your job description in the text area below", "info");
+                } else {
+                    showStatus("Scan failed: " + e.message, "error");
+                }
             } finally {
                 fetchJdBtn.disabled = false;
                 fetchJdBtn.textContent = '🔍 Fetch from Page';
@@ -745,19 +758,21 @@ function setupEventListeners() {
     // Tab change listeners for JD card context
     chrome.tabs.onActivated.addListener(() => {
         updateActiveTabLabel();
-        clearTimeout(tabDetectionTimer);
-        tabDetectionTimer = setTimeout(() => {
-            detectJobDescription().catch(() => { });
-        }, 500);
+        // Auto-detection disabled - user must click 'Fetch from Page' button
+        // clearTimeout(tabDetectionTimer);
+        // tabDetectionTimer = setTimeout(() => {
+        //     detectJobDescription().catch(() => { });
+        // }, 500);
     });
 
     chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         if (changeInfo.status === 'complete') {
             updateActiveTabLabel();
-            clearTimeout(tabDetectionTimer);
-            tabDetectionTimer = setTimeout(() => {
-                detectJobDescription().catch(() => { });
-            }, 500);
+            // Auto-detection disabled - user must click 'Fetch from Page' button
+            // clearTimeout(tabDetectionTimer);
+            // tabDetectionTimer = setTimeout(() => {
+            //     detectJobDescription().catch(() => { });
+            // }, 500);
         }
     });
 
@@ -834,6 +849,7 @@ function setupEventListeners() {
     saveSettingsBtn.addEventListener('click', async () => {
         const geminiKey = apiKeyInput.value.trim();
         const groqKey = document.getElementById('groqApiKey').value.trim();
+        const openrouterKey = document.getElementById('openrouterApiKey').value.trim();
         const provider = document.getElementById('providerSelect').value;
 
         if (provider === 'gemini' && !geminiKey) {
@@ -844,16 +860,22 @@ function setupEventListeners() {
             showStatus("Please enter a Groq API key.", "error", "settingsStatus");
             return;
         }
+        if (provider === 'openrouter' && !openrouterKey) {
+            showStatus("Please enter an OpenRouter API key.", "error", "settingsStatus");
+            return;
+        }
 
         await chrome.storage.local.set({
             gemini_api_key: geminiKey,
             groq_api_key: groqKey,
+            openrouter_api_key: openrouterKey,
             provider: provider
         });
 
         updateState({
             currentApiKey: geminiKey,
             currentGroqKey: groqKey,
+            currentOpenRouterKey: openrouterKey,
             currentProvider: provider
         });
 
@@ -894,9 +916,7 @@ function setupEventListeners() {
             if (textData.error) throw new Error(textData.error);
 
             // Use correct key for extraction
-            const extractionKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
-
-            const profileData = await extractBaseProfile(textData.text, extractionKey, state.currentProvider);
+            const profileData = await extractBaseProfile(textData.text, getApiKeyForProvider(), state.currentProvider);
             if (profileData.error) throw new Error(profileData.error);
 
             await saveNewProfile(profileData);
@@ -928,8 +948,7 @@ function setupEventListeners() {
         showStatus("Processing...", "info", statusId);
 
         try {
-            const extractionKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
-            const profileData = await extractBaseProfile(text, extractionKey, state.currentProvider);
+            const profileData = await extractBaseProfile(text, getApiKeyForProvider(), state.currentProvider);
             if (profileData.error) throw new Error(profileData.error);
 
             await saveNewProfile(profileData);
@@ -967,8 +986,7 @@ function setupEventListeners() {
         try {
             const textData = await extractText(file);
             if (textData.error) throw new Error(textData.error);
-            const extractionKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
-            const profileData = await extractBaseProfile(textData.text, extractionKey, state.currentProvider);
+            const profileData = await extractBaseProfile(textData.text, getApiKeyForProvider(), state.currentProvider);
             if (profileData.error) throw new Error(profileData.error);
 
             await saveNewProfile(profileData);
@@ -991,8 +1009,7 @@ function setupEventListeners() {
         try {
             const textData = await extractText(file);
             if (textData.error) throw new Error(textData.error);
-            const extractionKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
-            const profileData = await extractBaseProfile(textData.text, extractionKey, state.currentProvider);
+            const profileData = await extractBaseProfile(textData.text, getApiKeyForProvider(), state.currentProvider);
             if (profileData.error) throw new Error(profileData.error);
 
             await saveNewProfile(profileData);
@@ -1046,8 +1063,7 @@ function setupEventListeners() {
             if (pageText.length < 100) throw new Error('Could not extract data. Try PDF upload instead.');
 
             showStatus('Parsing profile with AI...', 'info', 'profileStatus');
-            const extractionKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
-            const profileData = await extractBaseProfile(pageText, extractionKey, state.currentProvider);
+            const profileData = await extractBaseProfile(pageText, getApiKeyForProvider(), state.currentProvider);
             if (profileData.error) throw new Error(profileData.error);
 
             await saveNewProfile(profileData);
@@ -1123,7 +1139,7 @@ function setupEventListeners() {
 
         showProgress('detecting');
 
-        const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
+        const activeKey = getApiKeyForProvider();
 
         try {
             showProgress('analyzing', `Using ${state.currentProvider === 'groq' ? 'Groq' : 'Gemini'}...`);
@@ -1255,7 +1271,7 @@ function setupEventListeners() {
             answerOutput.textContent = "Generating answer...";
 
             try {
-                const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
+                const activeKey = getApiKeyForProvider();
                 const resumeToUse = state.tailoredResume || state.baseResume;
 
                 const res = await askQuestion(question, resumeToUse, state.currentJdText || "", activeKey, state.currentProvider);
@@ -1376,7 +1392,7 @@ function setupEventListeners() {
                 const bulletCounts = collectBulletCounts(activeSection, 'formContainer');
 
                 // 3. Call API
-                const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
+                const activeKey = getApiKeyForProvider();
 
                 // We need the JD analysis to be present for regeneration context
                 let jdAnalysis = state.currentJdAnalysis;
@@ -1493,7 +1509,7 @@ function setupEventListeners() {
             setButtonLoading(analyzeBtn, true);
             showStatus(statusMessage, "info");
 
-            const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
+            const activeKey = getApiKeyForProvider();
 
             try {
                 // Skeleton UI for analysis
@@ -1523,6 +1539,8 @@ function setupEventListeners() {
 
             } catch (e) {
                 showStatus("Analysis Failed: " + e.message, "error");
+                // Hide the skeleton UI on error/timeout
+                hideAtsAnalysisUI();
             } finally {
                 setButtonLoading(analyzeBtn, false, "📊 ATS Score");
             }
@@ -1589,6 +1607,10 @@ async function generateAndDownloadPDF(resumeData) {
 async function detectJobDescription() {
     if (isScanning) return null;
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    // Debug: Log which tab we're scanning
+    console.log('🔍 Scanning tab:', tab?.url || 'No tab found');
+
     if (!tab || !tab.id) return null;
 
     const url = tab.url || '';
@@ -1601,14 +1623,58 @@ async function detectJobDescription() {
     let finalResult = null;
 
     try {
-        // Step 1: Try client-side extraction (fast, no API cost)
-        const results = await Promise.race([
-            chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                func: extractJobDescription
-            }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
-        ]);
+        // Step 1: Request permission for the current tab's origin
+        // This uses optional_host_permissions to request access to any job board site
+        try {
+            const origin = new URL(tab.url).origin + '/*';
+            const granted = await chrome.permissions.request({
+                origins: [origin]
+            });
+
+            if (!granted) {
+                throw new Error('PERMISSION_DENIED');
+            }
+
+            console.log('✅ Permission granted for:', origin);
+        } catch (permError) {
+            console.warn('Permission request failed:', permError);
+            // If permission request fails, try without it (might still work with activeTab)
+        }
+
+        // Step 2: Try client-side extraction (fast, no API cost)
+        let results;
+        try {
+            results = await Promise.race([
+                chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    func: extractJobDescription
+                }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+            ]);
+        } catch (scriptError) {
+            // Content script injection failed - likely because tab was already loaded
+            // when popup opened, or we don't have permission for this page
+            console.warn('Content script injection failed:', scriptError);
+
+            // Offer to reload the page to enable detection
+            const userWantsReload = confirm(
+                '⚠️ Cannot scan this page (it was loaded before the extension opened).\n\n' +
+                '✅ Click OK to reload the page.\n' +
+                '   After reload, click "Fetch from Page" again.\n\n' +
+                '❌ Click Cancel to paste the job description manually instead.'
+            );
+
+            if (userWantsReload) {
+                // Reload the page
+                await chrome.tabs.reload(tab.id);
+
+                // Show message to user
+                throw new Error('PAGE_RELOADED');
+            } else {
+                // User chose to paste manually
+                throw new Error('MANUAL_PASTE_REQUESTED');
+            }
+        }
 
         let bestText = '';
         let bestTitle = '';
@@ -1676,7 +1742,7 @@ async function detectJobDescription() {
         const rawText = rawResults?.[0]?.result || '';
         if (rawText.length < 100) return null;
 
-        const activeKey = state.currentProvider === 'groq' ? state.currentGroqKey : state.currentApiKey;
+        const activeKey = getApiKeyForProvider();
         const aiResult = await extractJDWithAI(rawText, activeKey, state.currentProvider);
 
         if (aiResult.error) {

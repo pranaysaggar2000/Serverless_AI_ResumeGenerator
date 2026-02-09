@@ -6,10 +6,12 @@ const stateShape = {
     tailoredResume: null,
     currentApiKey: "",
     currentGroqKey: "",
+    currentOpenRouterKey: "",
     currentProvider: "gemini", // Default
     hasAnalyzed: false,
     tailoringStrategy: "balanced",
     currentJdAnalysis: null,
+    lastParsedJdText: "",  // Track which JD text was last parsed (for caching)
     lastAnalysis: null, // Stored analysis to display
     currentEditingData: null,
     detectedJobTitle: null,
@@ -58,6 +60,23 @@ export const state = new Proxy(_state, {
 
 // Helper to update state
 export function updateState(updates) {
+    // Check if JD text is being updated and differs from both current AND cached version
+    if ('currentJdText' in updates) {
+        const newJdText = updates.currentJdText;
+        const currentJdText = _state.currentJdText;
+        const cachedJdText = _state.lastParsedJdText;
+
+        // Only invalidate if:
+        // 1. The new JD text is different from the current JD text (actual change)
+        // 2. AND it's different from the cached version
+        // This prevents invalidation when just loading from storage or when setting the same value
+        if (newJdText !== currentJdText && newJdText !== cachedJdText) {
+            console.log('🔄 JD text changed - invalidating cached JD analysis');
+            updates.currentJdAnalysis = null;
+            updates.lastParsedJdText = "";
+        }
+    }
+
     for (const key in updates) {
         if (!(key in stateShape)) {
             console.warn(`[ForgeCV State] updateState called with unknown key: "${key}"`);

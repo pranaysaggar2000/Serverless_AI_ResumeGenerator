@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state, updateState } from './state.js';
 import { callAI, extractJSON } from './ai_provider.js';
 import * as Prompts from './ai_prompts.js';
 import { generateResumePdf } from './pdf_builder.js';
@@ -98,7 +98,7 @@ export async function extractBaseProfile(text, apiKey, provider) {
 }
 
 export async function tailorResume(baseResume, jdText, apiKey, provider, tailoringStrategy) {
-    // NEW: Direct AI Call
+    // NEW: Direct AI Call with JD Analysis Caching
 
     // 1. Analyze JD first (we need jdAnalysis for the tailor prompt)
     // The python backend combined these steps or expected input. 
@@ -108,14 +108,46 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
     // So we must replicate that pipeline.
 
     try {
-        // Step 1: Parse JD
-        const jdPrompt = Prompts.buildParseJobDescriptionPrompt(jdText);
-        const jdResponse = await callAI(jdPrompt, provider, apiKey, { expectJson: true });
-        const jdAnalysis = extractJSON(jdResponse) || {
-            // Fallback if parsing fails but generation might still work with raw text?
-            // Python fell back to default structure.
-            company_name: "Unknown_Company", job_title: "Role", mandatory_keywords: []
-        };
+        let jdAnalysis;
+
+        // Step 1: Check if we have cached JD analysis for this exact JD text
+        const cachedJdAnalysis = state.currentJdAnalysis;
+        const cachedJdText = state.lastParsedJdText;
+
+        console.log('🔍 JD Cache Check:', {
+            hasCachedAnalysis: !!cachedJdAnalysis,
+            cachedJdTextLength: cachedJdText?.length || 0,
+            currentJdTextLength: jdText?.length || 0,
+            textsMatch: cachedJdText === jdText,
+            cachedJdPreview: cachedJdText?.substring(0, 100),
+            currentJdPreview: jdText?.substring(0, 100)
+        });
+
+        if (cachedJdAnalysis && cachedJdText === jdText) {
+            // Reuse cached JD analysis - saves 1 API call!
+            console.log('✅ Reusing cached JD analysis (saving 1 API call)');
+            jdAnalysis = cachedJdAnalysis;
+        } else {
+            // Parse JD (only if JD changed or no cache)
+            console.log('🔍 Parsing JD (first time or JD changed)');
+            const jdPrompt = Prompts.buildParseJobDescriptionPrompt(jdText);
+            const jdResponse = await callAI(jdPrompt, provider, apiKey, { expectJson: true, taskType: 'jdParse' });
+            jdAnalysis = extractJSON(jdResponse) || {
+                // Fallback if parsing fails
+                company_name: "Unknown_Company", job_title: "Role", mandatory_keywords: []
+            };
+
+            // Cache the JD analysis and the JD text it was parsed from
+            console.log('💾 Caching JD analysis for future use');
+            updateState({
+                currentJdAnalysis: jdAnalysis,
+                lastParsedJdText: jdText
+            });
+            await chrome.storage.local.set({
+                jd_analysis: jdAnalysis,
+                last_parsed_jd_text: jdText
+            });
+        }
 
         // Add company description from state if not found in JD parsing
         if (!jdAnalysis.company_description && state.detectedCompanyDescription) {
@@ -129,7 +161,7 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
         // UI `generateBtn` handler calls `tailorResume`. It doesn't pass bullet counts.
 
         const tailorPrompt = Prompts.buildTailorPrompt(baseResume, jdAnalysis, tailoringStrategy, null);
-        const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true });
+        const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true, taskType: 'tailor' });
         let tailoredData = extractJSON(tailorResponse);
 
         if (!tailoredData) throw new Error("Failed to generate tailored resume JSON");
@@ -175,7 +207,7 @@ export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis,
         }
 
         const tailorPrompt = Prompts.buildTailorPrompt(base, jdAnalysis, tailoringStrategy, bulletCounts);
-        const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true });
+        const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true, taskType: 'tailor' });
         let newTailoredData = extractJSON(tailorResponse);
 
         if (!newTailoredData) throw new Error("Failed to regenerate resume JSON");
@@ -212,7 +244,7 @@ export async function askQuestion(question, resumeData, jdText, apiKey, provider
 export async function analyzeResume(resumeData, jdText, apiKey, provider) {
     try {
         const prompt = Prompts.buildAnalysisPrompt(resumeData, jdText);
-        const responseText = await callAI(prompt, provider, apiKey, { expectJson: true, useProModel: true });
+        const responseText = await callAI(prompt, provider, apiKey, { expectJson: true, useProModel: true, taskType: 'score' });
         const data = extractJSON(responseText);
         if (!data) throw new Error("Failed to parse analysis JSON");
         return data;
@@ -225,7 +257,7 @@ export async function analyzeResume(resumeData, jdText, apiKey, provider) {
 export async function extractJDWithAI(rawPageText, apiKey, provider) {
     try {
         const prompt = Prompts.buildExtractJDFromPagePrompt(rawPageText);
-        const responseText = await callAI(prompt, provider, apiKey, { expectJson: true });
+        const responseText = await callAI(prompt, provider, apiKey, { expectJson: true, taskType: 'jdParse' });
         const data = extractJSON(responseText);
 
         if (!data || data.error) {

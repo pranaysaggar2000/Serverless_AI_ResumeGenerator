@@ -124,37 +124,7 @@ function renderHighlightedPreview(text, container) {
     container.innerHTML = html;
 }
 
-function updateKeywordCoverage(containerId) {
-    const list = document.getElementById('missingKeywordsList');
-    const countSpan = document.getElementById('coveredCount');
-    const totalSpan = document.getElementById('totalKeywords');
 
-    if (!list || !state.jdKeywords || state.jdKeywords.length === 0) return;
-
-    const container = document.getElementById(containerId);
-    if (!container) return;
-
-    // Collect all text from inputs/textareas in the editor
-    let content = "";
-    container.querySelectorAll('input, textarea').forEach(el => content += " " + el.value);
-    content = content.toLowerCase();
-
-    const covered = state.jdKeywords.filter(k => {
-        const regex = new RegExp(`\\b${escapeRegex(k)}\\b`, 'i');
-        return regex.test(content);
-    });
-
-    const missing = state.jdKeywords.filter(k => !covered.includes(k));
-
-    if (countSpan) countSpan.textContent = covered.length;
-    if (totalSpan) totalSpan.textContent = state.jdKeywords.length;
-
-    // Show top 5 missing
-    if (list) {
-        list.textContent = missing.length > 0 ? " Missing: " + missing.slice(0, 5).join(', ') + (missing.length > 5 ? '...' : '') : " All keywords covered in this section!";
-        list.style.color = missing.length > 0 ? '#ef4444' : '#10b981';
-    }
-}
 
 
 // Helper to find data across possible key variations
@@ -239,23 +209,7 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
 
     container.innerHTML = ''; // Clear existing
 
-    // 0. Keyword Coverage
-    if (state.jdKeywords && state.jdKeywords.length > 0) {
-        const statsDiv = document.createElement('div');
-        statsDiv.id = 'keywordCoverage';
-        statsDiv.style.cssText = "font-size: 11px; margin-bottom: 15px; padding: 8px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px; color: #374151;";
-        statsDiv.innerHTML = `
-            <div style="font-weight:600; margin-bottom:4px;">🎯 JD Keyword Match</div>
-            <div>
-                Covered: <span id="coveredCount" style="font-weight:bold;">0</span>/<span id="totalKeywords">${state.jdKeywords.length}</span>
-            </div>
-            <div id="missingKeywordsList" style="font-size: 10px; margin-top:4px;"></div>
-        `;
-        container.appendChild(statsDiv);
 
-        // Initial Update
-        setTimeout(() => updateKeywordCoverage(containerId), 100);
-    }
 
     // 1. Custom Section Title Input (except for Contact)
     if (section !== 'contact') {
@@ -542,7 +496,7 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
                 // Warning note
                 const noteDiv = document.createElement('div');
                 noteDiv.style.cssText = 'font-size:10px; color:#92400e; margin-top:8px; font-style:italic;';
-                noteDiv.textContent = '💡 Check items to include them in your next "Save & Regenerate". The AI will re-tailor the full resume with these items included.';
+                noteDiv.innerHTML = '💡 <b>Save Changes</b> = adds items as-is (original bullets, no AI tailoring).<br><b>Save & Regenerate</b> = AI re-tailors the full resume including these items with JD-optimized bullets.';
                 excludedDiv.appendChild(noteDiv);
 
                 container.appendChild(excludedDiv);
@@ -551,7 +505,10 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
     }
 
     // Render live ATS keyword badge
-    setTimeout(() => renderLiveAtsBadge(containerId, currentEditingResume), 150);
+    // Only show live ATS badge in tailored resume editor
+    if (containerId === 'formContainer') {
+        setTimeout(() => renderLiveAtsBadge(containerId, currentEditingResume), 150);
+    }
 }
 
 function formatDefaultSectionTitle(section, singular = false) {
@@ -819,10 +776,6 @@ function handleInput(field) {
         if (inputTimeout) clearTimeout(inputTimeout);
         inputTimeout = setTimeout(() => {
             if (preview) renderHighlightedPreview(field.value, preview);
-
-            // Update global coverage for this container
-            const formContainer = field.closest('[data-editor-mode]');
-            if (formContainer && formContainer.id) updateKeywordCoverage(formContainer.id);
         }, 200);
     }
 }
@@ -1042,7 +995,9 @@ export async function saveProfileChanges(section, containerId = 'profileFormCont
     showStatus('✅ Profile saved!', 'success', statusTarget);
 
     // Update live ATS badge after saving changes  
-    setTimeout(() => renderLiveAtsBadge(containerId, currentEditingResume), 100);
+    if (containerId === 'formContainer') {
+        setTimeout(() => renderLiveAtsBadge(containerId, currentEditingResume), 100);
+    }
 
     return currentEditingResume[section]; // Return data for immediate use if needed
 }

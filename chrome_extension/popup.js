@@ -1353,6 +1353,9 @@ function setupEventListeners() {
         const buttonsToDisable = [generateBaseBtn, editBtn, downloadBtn, previewBtn, analyzeBtn];
         buttonsToDisable.forEach(b => { if (b) b.disabled = true; });
 
+        // Clear stale state from previous forge
+        updateState({ mustIncludeItems: null });
+
         showProgress('detecting');
 
         const activeKey = getApiKeyForProvider();
@@ -1604,10 +1607,70 @@ function setupEventListeners() {
                 // parse current DOM to update object
                 await saveProfileChanges(activeSection, 'formContainer');
 
+                // === NEW: Merge must-include items directly into tailored resume ===
+                if (state.mustIncludeItems && state.baseResume) {
+                    let resumeModified = false;
+                    const tailored = state.tailoredResume;
+
+                    for (const [section, itemIds] of Object.entries(state.mustIncludeItems)) {
+                        if (!itemIds || itemIds.length === 0) continue;
+                        if (!state.baseResume[section]) continue;
+                        if (!tailored[section]) tailored[section] = [];
+
+                        for (const itemId of itemIds) {
+                            // Find the item in baseResume by identifier
+                            const baseItem = state.baseResume[section].find(item => {
+                                const id = (item.company || item.name || item.organization || item.title || '').toLowerCase().trim();
+                                const targetId = String(itemId).toLowerCase().trim();
+                                return id === targetId || id.includes(targetId) || targetId.includes(id);
+                            });
+
+                            if (!baseItem) continue;
+
+                            // Check if already present in tailored resume
+                            const alreadyPresent = tailored[section].some(t => {
+                                const tId = (t.company || t.name || t.organization || t.title || '').toLowerCase().trim();
+                                const baseId = (baseItem.company || baseItem.name || baseItem.organization || baseItem.title || '').toLowerCase().trim();
+                                return tId === baseId || tId.includes(baseId) || baseId.includes(tId);
+                            });
+
+                            if (!alreadyPresent) {
+                                // Deep clone and add to tailored resume
+                                tailored[section].push(JSON.parse(JSON.stringify(baseItem)));
+                                resumeModified = true;
+                            }
+                        }
+                    }
+
+                    if (resumeModified) {
+                        // Update state and storage
+                        updateState({ tailoredResume: tailored });
+                        await chrome.storage.local.set({ tailored_resume: tailored });
+
+                        // Remove the included items from excluded list
+                        const updatedExcluded = { ...(state.excludedItems || {}) };
+                        for (const [section, itemIds] of Object.entries(state.mustIncludeItems)) {
+                            if (updatedExcluded[section]) {
+                                updatedExcluded[section] = updatedExcluded[section].filter(exId => {
+                                    const exLower = String(exId).toLowerCase().trim();
+                                    return !itemIds.some(incId => {
+                                        const incLower = String(incId).toLowerCase().trim();
+                                        return exLower === incLower || exLower.includes(incLower) || incLower.includes(exLower);
+                                    });
+                                });
+                            }
+                        }
+                        updateState({ excludedItems: updatedExcluded, mustIncludeItems: null });
+                        await chrome.storage.local.set({ excluded_items: updatedExcluded });
+                        await chrome.storage.local.remove('must_include_items');
+
+                        showStatus(`✅ Saved! Included items added directly (no AI tailoring applied to them). Run "Save & Regenerate" to tailor their bullets.`, 'success');
+                    }
+                }
+                // === END NEW ===
+
                 // Generate PDF logic immediately (cache only)
                 await generateAndCachePDF(state.tailoredResume);
-
-                import('./modules/ats_live.js').then(m => m.renderLiveAtsBadge('formContainer'));
 
                 showMainUI();
             } catch (e) {

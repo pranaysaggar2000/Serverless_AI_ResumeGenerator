@@ -220,7 +220,7 @@ Set "excluded_items" to empty: {"projects":[],"experience":[],"leadership":[],"r
     if (bulletCounts) {
         bulletInstructions = `
 BULLET COUNT LIMITS (MANDATORY):
-${JSON.stringify(bulletCounts, null, 2)}
+${JSON.stringify(bulletCounts)}
 If a count is 0, REMOVE that item entirely. Select the most JD-relevant bullets when cutting.
 `;
     }
@@ -262,7 +262,7 @@ Tech specifics: ${(jdAnalysis.tech_stack_nuances || []).join(', ')}
 Industry terms: ${(jdAnalysis.industry_terms || []).join(', ')}
 
 === CANDIDATE RESUME ===
-${JSON.stringify(baseResume, null, 2)}
+${JSON.stringify(baseResume)}
 
 ${strategyNote}
 

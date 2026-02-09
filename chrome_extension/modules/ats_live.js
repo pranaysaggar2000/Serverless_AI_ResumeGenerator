@@ -96,6 +96,9 @@ function flattenForSearch(data) {
  * Render a compact live ATS badge in the editor
  */
 export function renderLiveAtsBadge(containerId = 'formContainer', resumeData = null) {
+    // Only show in tailored resume editor context
+    if (containerId === 'profileFormContainer') return;
+
     const resume = resumeData || state.tailoredResume;
     if (!resume) return;
 
@@ -108,30 +111,32 @@ export function renderLiveAtsBadge(containerId = 'formContainer', resumeData = n
         badge = document.createElement('div');
         badge.id = 'liveAtsBadge';
         badge.style.cssText = 'position:sticky; top:0; z-index:10; padding:8px 12px; border-radius:8px; font-size:11px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; transition:all 0.3s;';
-        badge.title = 'Click for details — This is a quick keyword-match estimate, not the full AI ATS analysis';
+        badge.title = 'Keyword presence check — shows if JD keywords exist in your resume. Run "ATS Score" for contextual quality analysis.';
 
         const container = document.getElementById(containerId);
         if (container) container.insertBefore(badge, container.firstChild);
     }
 
-    // Color based on score
+    // Color based on missing mandatory keywords
     let bgColor, textColor, emoji;
-    if (result.score >= 80) { bgColor = '#d1fae5'; textColor = '#065f46'; emoji = '🟢'; }
-    else if (result.score >= 60) { bgColor = '#fef3c7'; textColor = '#92400e'; emoji = '🟡'; }
+    const missingMandatory = result.mandatory.missing.length;
+
+    if (missingMandatory === 0) { bgColor = '#d1fae5'; textColor = '#065f46'; emoji = '✅'; }
+    else if (missingMandatory <= 2) { bgColor = '#fef3c7'; textColor = '#92400e'; emoji = '⚠️'; }
     else { bgColor = '#fee2e2'; textColor = '#991b1b'; emoji = '🔴'; }
 
     badge.style.background = bgColor;
     badge.style.color = textColor;
     badge.style.border = `1px solid ${textColor}22`;
 
-    const missingMandatory = result.mandatory.missing.length;
-
     badge.innerHTML = `
         <div>
-            <span style="font-weight:bold;">${emoji} ATS Match: ~${result.score}%</span>
-            <span style="opacity:0.8; margin-left:6px;">(${result.mandatory.matched.length}/${result.mandatory.total.length} required)</span>
+            <span style="font-weight:bold;">${emoji} Keywords: ${result.mandatory.matched.length}/${result.mandatory.total.length} required found</span>
+            <span style="opacity:0.7; margin-left:4px; font-weight:normal;">· ${result.preferred.matched.length}/${result.preferred.total.length} preferred</span>
         </div>
-        ${missingMandatory > 0 ? `<div style="font-size:10px;">⚠️ ${missingMandatory} required keyword${missingMandatory > 1 ? 's' : ''} missing</div>` : '<div style="font-size:10px;">✅ All required keywords present</div>'}
+        ${missingMandatory > 0
+            ? `<div style="font-size:10px;">⚠️ Missing: ${result.mandatory.missing.slice(0, 4).join(', ')}${result.mandatory.missing.length > 4 ? '...' : ''}</div>`
+            : '<div style="font-size:10px;">✅ All required keywords present · Run ATS Score for full analysis</div>'}
     `;
 
     // Click to expand missing keywords
@@ -145,14 +150,16 @@ export function renderLiveAtsBadge(containerId = 'formContainer', resumeData = n
         details.id = 'liveAtsDetails';
         details.style.cssText = 'padding:10px; margin-bottom:10px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; font-size:10px;';
 
-        let html = '<div style="font-weight:bold; margin-bottom:6px;">📊 Quick Keyword Scan (live estimate)</div>';
+        let html = '<div style="font-weight:bold; margin-bottom:6px;">🔍 Keyword Presence Check</div>';
+        html += '<div style="color:#6b7280; font-size:9px; margin-bottom:6px;">Checks if keywords EXIST in your resume. Does NOT evaluate placement quality — a keyword only in Skills scores lower on real ATS than one used in a bullet point with context.</div>';
+
         if (result.mandatory.missing.length > 0) {
             html += `<div style="color:#dc2626; margin-bottom:4px;"><strong>Missing Required:</strong> ${result.mandatory.missing.join(', ')}</div>`;
         }
         if (result.preferred.missing.length > 0) {
             html += `<div style="color:#d97706; margin-bottom:4px;"><strong>Missing Preferred:</strong> ${result.preferred.missing.slice(0, 8).join(', ')}${result.preferred.missing.length > 8 ? '...' : ''}</div>`;
         }
-        html += `<div style="color:#6b7280; margin-top:6px; font-style:italic;">This is a keyword scan, not the full AI ATS score. Run "📊 ATS Score" for detailed analysis.</div>`;
+        html += `<div style="color:#6b7280; margin-top:6px; font-style:italic;">💡 Tip: Don't just add keywords to Skills — use them in bullet points with context for higher ATS scores.</div>`;
 
         badge.after(details);
     };

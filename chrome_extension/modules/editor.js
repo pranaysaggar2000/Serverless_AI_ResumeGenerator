@@ -9,18 +9,22 @@ let currentEditingResumeSource = null; // Track which state object we cloned fro
 let inputTimeout = null;
 
 function getExcludedItemsForSection(section) {
-    if (!state.excludedItems || !state.excludedItems[section]) return [];
-    if (!state.baseResume || !state.baseResume[section]) return [];
+    const excludedIndices = getSectionData(state.excludedItems, section);
+    if (!excludedIndices || !Array.isArray(excludedIndices)) return [];
 
-    const baseItems = state.baseResume[section];
-    const tailoredItems = state.tailoredResume?.[section] || [];
+    const baseItems = getSectionData(state.baseResume, section);
+    const tailoredItems = getSectionData(state.tailoredResume, section) || [];
+
+    if (!baseItems) return [];
 
     // Find items in baseResume that are NOT in tailoredResume (by content matching)
-    // This is more robust than numeric indices which can shift during regeneration
     return baseItems
         .map((item, idx) => ({ index: idx, item }))
-        .filter(({ item }) => {
-            // Check if this base item exists in the current tailored resume
+        .filter(({ item, index }) => {
+            // Only consider items the AI explicitly flagged as excluded
+            if (!excludedIndices.includes(index)) return false;
+
+            // Verify they aren't actually present in the tailored resume (robustness check)
             const identifier = (item.company || item.name || item.organization || item.title || '').toLowerCase();
             const role = (item.role || item.tech || item.conference || '').toLowerCase();
 

@@ -72,7 +72,7 @@ CRITICAL: Return ONLY valid JSON. No markdown blocks, no explanation text.
 `;
 }
 
-export function buildTailorPrompt(baseResume, jdAnalysis, tailoringStrategy, bulletCounts, pageMode = '1page', mustIncludeItems = null) {
+export function buildTailorPrompt(baseResume, jdAnalysis, tailoringStrategy, bulletCounts, pageMode = '1page', mustIncludeItems = null, formatSettings = null) {
     let strategyNote = "";
     if (tailoringStrategy === "profile_focus") {
         strategyNote = `
@@ -140,37 +140,79 @@ KEYWORD PLACEMENT RULES:
 
     // Page constraint instructions
     let pageConstraint = '';
+
+    // Calculate layout-aware hints from format settings
+    const fmt = formatSettings || { bodySize: 10, density: 'normal', margins: 'normal', nameSize: 21, headerSize: 12, font: 'times', pageSize: 'letter' };
+
+    const pageHeightPt = fmt.pageSize === 'a4' ? 841 : 792;
+    const marginTopBottom = fmt.margins === 'narrow' ? 30 : fmt.margins === 'wide' ? 50 : 40;
+    const usableHeight = pageHeightPt - (marginTopBottom * 2);
+    const lineHeight = fmt.density === 'compact' ? 1.15 : fmt.density === 'spacious' ? 1.3 : 1.2;
+    const bodyLinePt = fmt.bodySize * lineHeight;
+    const contentLines = Math.floor(usableHeight / bodyLinePt) - 8; // subtract header/name overhead
+    const charsPerLine = Math.round(95 * (10 / fmt.bodySize));
+    const idealBulletChars = Math.min(Math.round(charsPerLine * 0.85), 200);
+    const minBulletChars = Math.round(charsPerLine * 0.55);
+
     if (pageMode === '1page') {
         pageConstraint = `
 === PAGE CONSTRAINT: SINGLE PAGE (CRITICAL) ===
-The output resume MUST fit on ONE page. To achieve this:
+The output resume MUST fit on exactly ONE page and should fill 85-95% of it.
 
-1. SUMMARY: Keep to 2-3 lines maximum. Be punchy and keyword-dense.
-2. BULLETS: Maximum 3 bullets per experience/project item. Make each bullet concise (under 150 chars).
-3. SKILLS: Combine related categories. Keep to 2-3 categories max.
-4. SECTION PRUNING: You MAY remove entire items from "projects", "leadership", "volunteering", "awards", "certifications", or "research" sections if they are NOT relevant to this JD.
-   - NEVER remove items from "experience" or "education" — only reduce their bullet count.
-   - For experience: Keep all roles but reduce to 2-3 most impactful bullets each.
-   - Prioritize removing items that have ZERO keyword overlap with the JD.
-5. You MUST return an "excluded_items" field listing what you removed (see output format below).
+USER'S PDF SETTINGS (use to calibrate bullet length, NOT bullet count):
+- Font: ${fmt.bodySize}pt ${fmt.font}, ${fmt.density} spacing, ${fmt.margins} margins, ${fmt.pageSize} paper
+- One line of body text fits ~${charsPerLine} characters
+- Page has ~${contentLines} usable lines of body text
+
+BULLET LENGTH RULES:
+- Target ${idealBulletChars} characters per bullet (this fills ~85% of one line — professional look)
+- Minimum ${minBulletChars} characters per bullet — never write stub bullets like "Used Python for ML"
+- Each bullet MUST use the XYZ formula: Accomplished [X] as measured by [Y], by doing [Z]
+
+BULLET COUNT RULES (hard limits — follow these exactly):
+- Experience: 3-4 bullets per role (max 5 only if it's the most recent/relevant role)
+- Projects: 2-3 bullets per project
+- Leadership/Volunteering: 1-2 bullets each
+- Education: 0-1 bullets (GPA only, or relevant coursework if space permits)
+- Research: 1-2 bullets per paper
+
+SECTION PRUNING FOR 1-PAGE FIT:
+- You MAY remove entire items from "projects", "leadership", "volunteering", "awards", "certifications", or "research" if they have ZERO keyword overlap with the JD
+- NEVER remove items from "experience" or "education" — only reduce bullet count
+- SUMMARY: Keep to 2-3 lines. Be keyword-dense but natural.
+- SKILLS: 3-4 categories max. Combine related categories.
+- You MUST return an "excluded_items" field listing what you removed
+
+FILL THE PAGE: With ${fmt.bodySize}pt font and ${fmt.density} spacing, a single page holds more content than you think. Write substantive bullets, don't pad with filler. If you have room, use 4 bullets instead of 3 — but NEVER exceed 5.
+
 ${mustIncludeItems ? `
-6. MANDATORY INCLUSIONS — The user has explicitly requested these items be KEPT even in 1-page mode. Do NOT exclude them:
+MANDATORY INCLUSIONS — The user explicitly requested these items be KEPT:
 ${Object.entries(mustIncludeItems).filter(([k, v]) => v && v.length > 0).map(([section, indices]) =>
-            `   - ${section}: items at indices [${indices.join(', ')}] from the base resume MUST be included`
+            `   - ${section}: items at indices [${indices.join(', ')}] MUST be included`
         ).join('\n')}
-   For these must-include items, tailor their bullets to be concise and JD-relevant but do NOT remove them.
+   Tailor their bullets to be concise and JD-relevant but do NOT remove them.
 ` : ''}
 `;
     } else {
         pageConstraint = `
 === PAGE CONSTRAINT: TWO PAGES ALLOWED ===
-The resume can span up to TWO pages. You have more space:
-1. SUMMARY: Can be 3-4 lines with richer detail.
-2. BULLETS: Up to 4-5 bullets per experience item. Be thorough.
-3. SKILLS: Can have more categories with comprehensive lists.
-4. SECTIONS: Include ALL projects, leadership, certifications, etc. from the base resume. Do not remove any items.
-5. Still tailor everything to the JD — more space doesn't mean filler content.
-6. Set "excluded_items" to empty objects: {"projects":[],"experience":[],"leadership":[],"research":[],"certifications":[],"awards":[],"volunteering":[]}
+USER'S PDF SETTINGS:
+- Font: ${fmt.bodySize}pt ${fmt.font}, ${fmt.density} spacing, ${fmt.margins} margins
+- One line fits ~${charsPerLine} characters
+
+The resume can span up to TWO pages.
+
+BULLET LENGTH: Target ${idealBulletChars} characters per bullet. Minimum ${minBulletChars} characters — no stub bullets.
+
+BULLET COUNT RULES:
+- Experience: 4-5 bullets per role
+- Projects: 3-4 bullets per project  
+- Leadership/Volunteering: 2-3 bullets each
+- Research: 2-3 bullets per paper
+- Education: 0-2 bullets
+
+Include ALL sections from the base resume. Do not remove any items.
+Set "excluded_items" to empty: {"projects":[],"experience":[],"leadership":[],"research":[],"certifications":[],"awards":[],"volunteering":[]}
 `;
     }
 

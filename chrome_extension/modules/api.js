@@ -172,7 +172,7 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
         // Python `tailor_resume` took optional `bullet_counts`. The endpoint `tailor_resume` didn't seem to pass them from UI initial call?
         // UI `generateBtn` handler calls `tailorResume`. It doesn't pass bullet counts.
 
-        const tailorPrompt = Prompts.buildTailorPrompt(baseResume, jdAnalysis, tailoringStrategy, null, state.pageMode || '1page', state.mustIncludeItems);
+        const tailorPrompt = Prompts.buildTailorPrompt(baseResume, jdAnalysis, tailoringStrategy, null, state.pageMode || '1page', state.mustIncludeItems, state.formatSettings);
         const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true, taskType: 'tailor', actionId });
         let tailoredData = extractJSON(tailorResponse);
 
@@ -241,7 +241,7 @@ export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis,
         }
 
         const actionId = `regen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const tailorPrompt = Prompts.buildTailorPrompt(base, jdAnalysis, tailoringStrategy, bulletCounts, pageMode, mustIncludeItems);
+        const tailorPrompt = Prompts.buildTailorPrompt(base, jdAnalysis, tailoringStrategy, bulletCounts, pageMode, mustIncludeItems, state.formatSettings);
         const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true, taskType: 'tailor', actionId });
         let newTailoredData = extractJSON(tailorResponse);
 

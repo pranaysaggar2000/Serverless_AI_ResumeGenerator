@@ -1432,12 +1432,11 @@ function setupEventListeners() {
                 }
             }, 1000);
 
-            // Don't show ATS analysis UI after forging - only when user clicks ATS Score button
             // Hide the ATS analysis UI if it was previously shown
             hideAtsAnalysisUI();
 
-            // After tailoring success, pre-generate the PDF and download
-            await generateAndDownloadPDF(newResume);
+            // REMOVED automatic download - user will click download button manually
+            // await generateAndDownloadPDF(newResume);
 
         } catch (e) {
             console.error("Tailoring Error:", e);

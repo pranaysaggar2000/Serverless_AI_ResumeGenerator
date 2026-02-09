@@ -815,3 +815,83 @@ header .controls {
     background: rgba(99, 102, 241, 0.1);
     color: var(--primary);
 }
+
+/* Auth / Google Login UI */
+.google-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 240px;
+    margin: 8px auto;
+    background: white;
+    color: #3c4043;
+    border: 1px solid #dadce0;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    gap: 10px;
+}
+
+.google-btn:hover {
+    background-color: #f8f9fa;
+    border-color: #d2d2d2;
+    box-shadow: 0 1px 2px rgba(60, 64, 67, 0.15);
+}
+
+.google-btn img {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    margin-bottom: 12px;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+}
+
+.user-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-email {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.logout-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--error);
+    font-size: 11px;
+    cursor: pointer;
+    text-decoration: underline;
+    justify-content: flex-start;
+}
+
+.logout-link:hover {
+    color: #b91c1c;
+}

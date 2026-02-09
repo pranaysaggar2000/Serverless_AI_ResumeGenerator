@@ -1,5 +1,6 @@
 import { state, updateState } from './state.js';
 import { API_BASE_URL } from './state.js';
+import { debugLog } from './utils.js';
 
 /**
  * Decode JWT payload (base64 decode)
@@ -23,7 +24,7 @@ function decodeJWT(token) {
  */
 export async function loginWithGoogle() {
     try {
-        console.log('🔐 Initiating Google OAuth...');
+        debugLog('🔐 Initiating Google OAuth...');
 
         // Get OAuth URL from backend
         const response = await fetch(`${API_BASE_URL}/api/auth/google`);
@@ -32,7 +33,7 @@ export async function loginWithGoogle() {
         }
 
         const { url } = await response.json();
-        console.log('✓ Got OAuth URL, opening in new tab...');
+        debugLog('✓ Got OAuth URL, opening in new tab...');
 
         // Open OAuth URL in new tab
         const tab = await chrome.tabs.create({ url });
@@ -57,7 +58,7 @@ export async function loginWithGoogle() {
                     chrome.tabs.onUpdated.removeListener(listener);
                     chrome.runtime.onMessage.removeListener(messageListener);
 
-                    console.log('✓ Auth tokens received via message');
+                    debugLog('✓ Auth tokens received via message');
 
                     // Close the auth tab
                     chrome.tabs.remove(tab.id).catch(() => { });
@@ -90,7 +91,7 @@ export async function loginWithGoogle() {
                                 chrome.tabs.onUpdated.removeListener(listener);
                                 chrome.runtime.onMessage.removeListener(messageListener);
 
-                                console.log('✓ Auth tokens extracted from URL hash');
+                                debugLog('✓ Auth tokens extracted from URL hash');
                                 chrome.tabs.remove(tabId).catch(() => { });
 
                                 handleAuthTokens(accessToken, refreshToken)
@@ -117,7 +118,7 @@ export async function loginWithGoogle() {
  */
 export async function handleAuthTokens(accessToken, refreshToken) {
     try {
-        console.log('🔑 Processing auth tokens...');
+        debugLog('🔑 Processing auth tokens...');
 
         const payload = decodeJWT(accessToken);
         if (!payload) throw new Error('Invalid access token');
@@ -135,12 +136,13 @@ export async function handleAuthTokens(accessToken, refreshToken) {
             user_info: user
         });
 
+        const stored = await chrome.storage.local.get('auth_mode');
         updateState({
             user,
             accessToken,
             refreshToken,
             isLoggedIn: true,
-            authMode: 'free'
+            authMode: stored.auth_mode || 'free'
         });
 
         await fetchUsageStatus();
@@ -157,7 +159,7 @@ export async function handleAuthTokens(accessToken, refreshToken) {
  */
 export async function logout() {
     try {
-        console.log('👋 Logging out...');
+        debugLog('👋 Logging out...');
         await chrome.storage.local.remove(['access_token', 'refresh_token', 'user_info']);
 
         updateState({
@@ -181,7 +183,7 @@ export async function logout() {
  */
 export async function refreshSession() {
     try {
-        console.log('🔄 Refreshing session...');
+        debugLog('🔄 Refreshing session...');
         if (!state.refreshToken) throw new Error('No refresh token available');
 
         // Note: For real Supabase, you'd use their endpoint.
@@ -338,8 +340,7 @@ export async function loadAuthState() {
                 accessToken: data.access_token,
                 refreshToken: data.refresh_token,
                 user: data.user_info,
-                isLoggedIn: true,
-                authMode: 'free'
+                isLoggedIn: true
             });
             try {
                 await fetchUsageStatus();

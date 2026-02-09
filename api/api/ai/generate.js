@@ -25,6 +25,23 @@ module.exports = withCors(async (req, res) => {
             return res.status(400).json({ error: 'Missing required field: prompt' });
         }
 
+        if (typeof prompt !== 'string') {
+            return res.status(400).json({ error: 'Prompt must be a string' });
+        }
+
+        const MAX_PROMPT_LENGTH = 50000; // ~12,500 tokens roughly
+        if (prompt.length > MAX_PROMPT_LENGTH) {
+            return res.status(400).json({
+                error: `Prompt too long (${prompt.length} chars). Maximum is ${MAX_PROMPT_LENGTH} characters.`
+            });
+        }
+
+        // Validate taskType
+        const VALID_TASK_TYPES = ['jdParse', 'tailor', 'score', 'default'];
+        if (taskType && !VALID_TASK_TYPES.includes(taskType)) {
+            return res.status(400).json({ error: `Invalid taskType: ${taskType}` });
+        }
+
         // Check rate limit and increment usage
         const usageResult = await checkAndIncrementUsage(user.id, taskType || 'default', actionId);
 

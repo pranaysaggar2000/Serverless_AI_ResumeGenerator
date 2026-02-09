@@ -2,15 +2,29 @@ const { supabaseAdmin } = require('../../lib/supabase');
 const { withCors } = require('../../lib/cors');
 
 /**
+ * Escapes HTML characters to prevent XSS
+ */
+function escapeHtml(unsafe) {
+  if (!unsafe) return "";
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+/**
  * OAuth callback handler
  * GET /api/auth/callback
  */
 module.exports = withCors(async (req, res) => {
   res.setHeader('Content-Type', 'text/html');
+
   try {
-    // Extract code from query parameters
     const { code, error: oauthError } = req.query;
 
+    // 1. Handle OAuth Error
     if (oauthError) {
       return res.status(400).send(`
         <!DOCTYPE html>
@@ -42,7 +56,7 @@ module.exports = withCors(async (req, res) => {
         <body>
           <div class="container">
             <h1>❌ Login Failed</h1>
-            <p>Authentication error: ${oauthError}</p>
+            <p>Authentication error: ${escapeHtml(oauthError)}</p>
             <p>You can close this tab.</p>
           </div>
         </body>
@@ -50,12 +64,14 @@ module.exports = withCors(async (req, res) => {
       `);
     }
 
+    // 2. Handle Token Landing Page (Success state after redirect)
+    // If no code and no error, we assume it's the landing page where the extension picks up tokens from the hash
     if (!code) {
-      return res.status(400).send(`
+      return res.status(200).send(`
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Invalid Request - ForgeCV</title>
+          <title>Login Successful - ForgeCV</title>
           <style>
             body {
               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -69,27 +85,49 @@ module.exports = withCors(async (req, res) => {
             }
             .container {
               text-align: center;
-              padding: 2rem;
+              padding: 2.5rem;
               background: rgba(255, 255, 255, 0.1);
-              border-radius: 12px;
-              backdrop-filter: blur(10px);
+              border-radius: 16px;
+              backdrop-filter: blur(12px);
+              box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+              max-width: 400px;
             }
-            h1 { margin: 0 0 1rem 0; }
+            h1 { margin: 0 0 0.5rem 0; font-size: 1.8rem; }
             p { margin: 0.5rem 0; opacity: 0.9; }
+            .spinner {
+              border: 3px solid rgba(255, 255, 255, 0.2);
+              border-top: 3px solid #fff;
+              border-radius: 50%;
+              width: 32px;
+              height: 32px;
+              animation: spin 0.8s linear infinite;
+              margin: 1.5rem auto;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
           </style>
         </head>
         <body>
           <div class="container">
-            <h1>⚠️ Invalid Request</h1>
-            <p>Missing authorization code.</p>
-            <p>You can close this tab.</p>
+            <h1>✅ Login Successful!</h1>
+            <div class="spinner"></div>
+            <p>Returning to ForgeCV...</p>
+            <p style="font-size: 0.85rem; margin-top: 2rem; opacity: 0.7;">This tab will close automatically.</p>
           </div>
+          <script>
+            // Auth success - extension reads tokens from hash in URL automatically
+            setTimeout(() => {
+              window.close();
+            }, 3000);
+          </script>
         </body>
         </html>
       `);
     }
 
-    // Exchange code for session
+    // 3. Handle Code Exchange
     const { data, error } = await supabaseAdmin.auth.exchangeCodeForSession(code);
 
     if (error || !data.session) {
@@ -107,7 +145,7 @@ module.exports = withCors(async (req, res) => {
               justify-content: center;
               height: 100vh;
               margin: 0;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              background: linear-gradient(135deg, #e53e3e 0%, #9b2c2c 100%);
               color: white;
             }
             .container {
@@ -117,8 +155,6 @@ module.exports = withCors(async (req, res) => {
               border-radius: 12px;
               backdrop-filter: blur(10px);
             }
-            h1 { margin: 0 0 1rem 0; }
-            p { margin: 0.5rem 0; opacity: 0.9; }
           </style>
         </head>
         <body>
@@ -132,83 +168,15 @@ module.exports = withCors(async (req, res) => {
       `);
     }
 
-    // Success! Return HTML that posts tokens back to extension
+    // 4. Success - Redirect to self with tokens in hash
     const { access_token, refresh_token } = data.session;
 
-    return res.status(200).send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Login Successful - ForgeCV</title>
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-          }
-          .container {
-            text-align: center;
-            padding: 2rem;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-          }
-          h1 { margin: 0 0 1rem 0; }
-          p { margin: 0.5rem 0; opacity: 0.9; }
-          .spinner {
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-top: 3px solid white;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 1rem auto;
-          }
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>✅ Login Successful!</h1>
-          <div class="spinner"></div>
-          <p>Redirecting back to ForgeCV...</p>
-          <p style="font-size: 0.9rem; margin-top: 1.5rem;">You can close this tab if it doesn't close automatically.</p>
-        </div>
-        <script>
-          // Send tokens to extension via postMessage
-          if (window.opener) {
-            window.opener.postMessage({
-              type: 'FORGECV_AUTH_SUCCESS',
-              accessToken: '${access_token}',
-              refreshToken: '${refresh_token}'
-            }, '*');
-          }
+    // Construct the redirect URL with tokens in the hash (fragment)
+    // The extension's auth.js listener will pick these up from the URL
+    const redirectUrl = `/api/auth/callback#access_token=${access_token}&refresh_token=${refresh_token}`;
 
-          // Also try Chrome extension messaging if available
-          if (typeof chrome !== 'undefined' && chrome.runtime) {
-            chrome.runtime.sendMessage({
-              type: 'FORGECV_AUTH_SUCCESS',
-              accessToken: '${access_token}',
-              refreshToken: '${refresh_token}'
-            });
-          }
-
-          // Auto-close after 2 seconds
-          setTimeout(() => {
-            window.close();
-          }, 2000);
-        </script>
-      </body>
-      </html>
-    `);
+    res.setHeader('Location', redirectUrl);
+    return res.status(302).end();
 
   } catch (error) {
     console.error('Callback error:', error);
@@ -225,7 +193,7 @@ module.exports = withCors(async (req, res) => {
             justify-content: center;
             height: 100vh;
             margin: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #e53e3e 0%, #9b2c2c 100%);
             color: white;
           }
           .container {
@@ -235,8 +203,6 @@ module.exports = withCors(async (req, res) => {
             border-radius: 12px;
             backdrop-filter: blur(10px);
           }
-          h1 { margin: 0 0 1rem 0; }
-          p { margin: 0.5rem 0; opacity: 0.9; }
         </style>
       </head>
       <body>

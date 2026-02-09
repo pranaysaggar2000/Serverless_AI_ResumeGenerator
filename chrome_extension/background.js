@@ -1,36 +1,33 @@
-// background.js
+// ForgeCV Background Service Worker
 
-// Allow clicking the icon to open the side panel
-chrome.action.onClicked.addListener((tab) => {
-    // Open the side panel in the current window
-    chrome.sidePanel.open({ windowId: tab.windowId });
-});
+/**
+ * Configure side panel behavior:
+ * Opens the side panel instead of a popup when the extension icon is clicked.
+ */
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
+    .catch(err => console.error('Side panel setup failed:', err));
 
-// Update badge for Job Descriptions
-const JOB_SITES = ['linkedin.com/jobs', 'indeed.com', 'greenhouse.io', 'lever.co', 'myworkdayjobs.com', 'glassdoor.com', 'ashby.hq'];
-
-function updateBadge(tabId, url) {
-    if (!url) return;
-    const isJobPage = JOB_SITES.some(site => url.includes(site));
-    if (isJobPage) {
-        chrome.action.setBadgeText({ text: 'JD', tabId });
-        chrome.action.setBadgeBackgroundColor({ color: '#10b981', tabId });
-    } else {
-        chrome.action.setBadgeText({ text: '', tabId });
-    }
-}
-
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'complete' && tab.active) {
-        updateBadge(tabId, tab.url);
+/**
+ * Handle extension install/update events
+ */
+chrome.runtime.onInstalled.addListener((details) => {
+    if (details.reason === 'install') {
+        console.log('✓ ForgeCV installed');
+        // Initialize default settings if needed
+    } else if (details.reason === 'update') {
+        console.log('✓ ForgeCV updated to', chrome.runtime.getManifest().version);
     }
 });
 
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-    try {
-        const tab = await chrome.tabs.get(activeInfo.tabId);
-        updateBadge(activeInfo.tabId, tab.url);
-    } catch (e) {
-        // Tab might be closed or inaccessible
+/**
+ * Runtime message listener (future-proofing and inter-context communication)
+ */
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'FORGECV_AUTH_SUCCESS') {
+        // Forward to any open popup/sidepanel or perform backend sync
+        console.log('✓ Auth success message received in background');
     }
+
+    // Always return false if not sending an async response
+    return false;
 });

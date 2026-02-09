@@ -1,5 +1,6 @@
 import { state, updateState } from './state.js';
 import { callAI, extractJSON } from './ai_provider.js';
+import { debugLog } from './utils.js';
 import * as Prompts from './ai_prompts.js';
 import { generateResumePdf } from './pdf_builder.js';
 export async function extractText(file) {
@@ -46,7 +47,7 @@ export async function extractBaseProfile(text, apiKey, provider) {
 
     // NEW: Direct AI Call
     try {
-        console.log('📄 extractBaseProfile called with:', {
+        debugLog('📄 extractBaseProfile called with:', {
             provider,
             hasApiKey: !!apiKey,
             apiKeyLength: apiKey?.length || 0,
@@ -125,7 +126,7 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
         const cachedJdAnalysis = state.currentJdAnalysis;
         const cachedJdText = state.lastParsedJdText;
 
-        console.log('🔍 JD Cache Check:', {
+        debugLog('🔍 JD Cache Check:', {
             hasCachedAnalysis: !!cachedJdAnalysis,
             cachedJdTextLength: cachedJdText?.length || 0,
             currentJdTextLength: jdText?.length || 0,
@@ -136,11 +137,11 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
 
         if (cachedJdAnalysis && cachedJdText === jdText) {
             // Reuse cached JD analysis - saves 1 API call!
-            console.log('✅ Reusing cached JD analysis (saving 1 API call)');
+            debugLog('✅ Reusing cached JD analysis (saving 1 API call)');
             jdAnalysis = cachedJdAnalysis;
         } else {
             // Parse JD (only if JD changed or no cache)
-            console.log('🔍 Parsing JD (first time or JD changed)');
+            debugLog('🔍 Parsing JD (first time or JD changed)');
             const jdPrompt = Prompts.buildParseJobDescriptionPrompt(jdText);
             const jdResponse = await callAI(jdPrompt, provider, apiKey, { expectJson: true, taskType: 'jdParse', actionId });
             jdAnalysis = extractJSON(jdResponse) || {
@@ -149,7 +150,7 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
             };
 
             // Cache the JD analysis and the JD text it was parsed from
-            console.log('💾 Caching JD analysis for future use');
+            debugLog('💾 Caching JD analysis for future use');
             updateState({
                 currentJdAnalysis: jdAnalysis,
                 lastParsedJdText: jdText

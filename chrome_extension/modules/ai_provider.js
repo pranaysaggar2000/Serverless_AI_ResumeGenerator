@@ -1,7 +1,8 @@
 import { state } from './state.js';
+import { debugLog } from './utils.js';
 
 export async function callAI(prompt, provider, apiKey, options = {}) {
-    console.log('🤖 callAI invoked:', {
+    debugLog('🤖 callAI invoked:', {
         provider,
         hasApiKey: !!apiKey,
         authMode: state.authMode,
@@ -11,7 +12,7 @@ export async function callAI(prompt, provider, apiKey, options = {}) {
 
     // 1. Handle Free Tier (Server-side)
     if (state.authMode === 'free') {
-        console.log('✅ Using FREE tier (server-side AI)');
+        debugLog('✅ Using FREE tier (server-side AI)');
         if (!state.isLoggedIn) {
             const { showStatus } = await import('./ui.js');
             showStatus('Please sign in with Google to use the free tier.', 'error');
@@ -24,12 +25,11 @@ export async function callAI(prompt, provider, apiKey, options = {}) {
             return await callServerAI(prompt, options.taskType || 'default', options.expectJson || false, options.actionId);
         } catch (error) {
             const { showStatus } = await import('./ui.js');
-            const { checkCurrentProviderKey } = await import('./utils.js');
-
             // Fallback to BYOK ONLY if they actually have a valid-looking key configured
-            if (error.message === 'SERVER_ERROR' && checkCurrentProviderKey()) {
+            const hasActualByokKey = !!(state.currentApiKey || state.currentGroqKey || state.currentOpenRouterKey);
+            if (error.message === 'SERVER_ERROR' && hasActualByokKey) {
                 showStatus('Free tier server unavailable. Using your own API key instead.', 'warning');
-                console.log('Fallback to BYOK due to server error');
+                debugLog('Fallback to BYOK due to server error');
                 // Fall through to BYOK logic below
             } else if (error.message === 'LIMIT_REACHED') {
                 showStatus("You've used all 15 free actions today! 🔄 Resets at midnight UTC.", 'warning');
@@ -45,7 +45,7 @@ export async function callAI(prompt, provider, apiKey, options = {}) {
     }
 
     // 2. Handle BYOK (Direct API calls)
-    console.log('🔑 Using BYOK mode (Bring Your Own Key)');
+    debugLog('🔑 Using BYOK mode (Bring Your Own Key)');
     if (!apiKey) {
         throw new Error(`Please configure your ${provider.toUpperCase()} API key in settings.`);
     }
@@ -326,7 +326,7 @@ async function callOpenRouter(prompt, apiKey, options) {
                     const content = data.choices[0].message.content;
 
                     // Log successful model for debugging
-                    console.log(`✓ OpenRouter: Used ${modelId} for ${options.taskType || 'default'} task`);
+                    debugLog(`✓ OpenRouter: Used ${modelId} for ${options.taskType || 'default'} task`);
 
                     clearTimeout(totalTimeout); // Clear total timeout on success
                     return content;

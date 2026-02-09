@@ -26,9 +26,9 @@ module.exports = withCors(async (req, res) => {
         const todayISO = today.toISOString();
 
         // Count today's actions for this user
-        const { data: usageData, error: countError } = await supabaseAdmin
+        const { count, error: countError } = await supabaseAdmin
             .from('usage')
-            .select('id', { count: 'exact', head: false })
+            .select('*', { count: 'exact', head: true })
             .eq('user_id', user.id)
             .gte('created_at', todayISO);
 
@@ -37,7 +37,7 @@ module.exports = withCors(async (req, res) => {
             return res.status(500).json({ error: 'Failed to fetch usage data' });
         }
 
-        const used = usageData?.length || 0;
+        const used = count || 0;
         const remaining = Math.max(0, DAILY_ACTION_LIMIT - used);
 
         // Calculate next reset time (next UTC midnight)

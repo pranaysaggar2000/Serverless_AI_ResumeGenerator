@@ -1,6 +1,6 @@
 import { state, updateState } from './state.js';
 import { showStatus, showMainUI, refreshProfileName } from './ui.js';
-import { showConfirmDialog } from './utils.js';
+import { showConfirmDialog, debugLog } from './utils.js';
 
 let currentEditingResume = null;
 let currentEditingResumeSource = null; // Track which state object we cloned from
@@ -165,13 +165,13 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
         return;
     }
 
-    console.log(`renderProfileEditor: Rendering '${section}'`);
-    console.log("Current Editing Resume keys:", Object.keys(currentEditingResume));
+    debugLog(`renderProfileEditor: Rendering '${section}'`);
+    debugLog("Current Editing Resume keys:", Object.keys(currentEditingResume));
 
     let html = '';
     const data = currentEditingResume;
     let sectionData = getSectionData(data, section);
-    console.log("Found Section Data:", sectionData);
+    debugLog("Found Section Data:", sectionData);
 
     container.innerHTML = ''; // Clear existing
 
@@ -736,7 +736,7 @@ export async function saveProfileChanges(section, containerId = 'profileFormCont
 
     // Safety check: prevent profile edits from leaking into tailored resume if currentEditingResume was mis-assigned
     if (containerId === 'profileFormContainer' && currentEditingResumeSource === state.tailoredResume) {
-        console.log("saveProfileChanges: Rectifying source mismatch. Cloning from baseResume.");
+        debugLog("saveProfileChanges: Rectifying source mismatch. Cloning from baseResume.");
         currentEditingResume = JSON.parse(JSON.stringify(state.baseResume));
         currentEditingResumeSource = state.baseResume;
     }

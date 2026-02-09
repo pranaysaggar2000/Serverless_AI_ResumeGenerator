@@ -130,16 +130,19 @@ function renderProfileList(profiles, activeProfile) {
         div.style.border = isActive ? '1px solid #c7d2fe' : '1px solid #e5e7eb';
 
         const displayName = profiles[name]?.name || name;
+        const isDefault = name === 'default';
 
         div.innerHTML = `
             <div style="display:flex; align-items:center; gap:6px;">
                 <span style="width:8px; height:8px; border-radius:50%; background:${isActive ? '#6366f1' : '#d1d5db'};"></span>
-                <span style="font-weight:${isActive ? '600' : '400'};">${name}</span>
-                <span style="color:#9ca3af; font-size:10px;">(${displayName})</span>
+                <span style="font-weight:${isActive ? '600' : '400'}; line-height: 1.2;">
+                    ${name}
+                    ${isDefault ? '<span style="color:#6366f1; font-weight: normal; margin-left: 2px;">(Initial)</span>' : ''}
+                </span>
             </div>
-            <div style="display:flex; gap:4px;">
+            <div style="display:flex; gap:4px; align-items:center;">
                 ${!isActive ? `<button class="profile-switch-btn" data-name="${name}" style="font-size:10px; padding:2px 8px; cursor:pointer; border:1px solid #d1d5db; border-radius:4px; background:white;">Switch</button>` : '<span style="font-size:10px; color:#6366f1; font-weight:600;">Active</span>'}
-                ${profileNames.length > 1 ? `<button class="profile-delete-btn" data-name="${name}" style="font-size:10px; padding:2px 6px; cursor:pointer; border:none; background:none; color:#ef4444;">✕</button>` : ''}
+                ${!isDefault ? `<button class="profile-delete-btn" data-name="${name}" style="font-size:10px; width:20px; height:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:none; background:none; color:#ef4444; border-radius: 4px; hover: {background: #fee2e2}">✕</button>` : '<div style="width:20px;"></div>'}
             </div>
         `;
         list.appendChild(div);
@@ -149,16 +152,14 @@ function renderProfileList(profiles, activeProfile) {
     list.querySelectorAll('.profile-switch-btn').forEach(btn => {
         btn.onclick = async () => {
             const name = btn.dataset.name;
-            // Batch read all needed data in one call
             const data = await chrome.storage.local.get(['profiles', 'active_profile']);
             const profiles = data.profiles || {};
             const currentName = data.active_profile || 'default';
 
             if (profiles[name]) {
-                // Save current profile first
-                profiles[currentName] = state.baseResume;
+                // Save current profile state before switching
+                profiles[currentName] = JSON.parse(JSON.stringify(state.baseResume));
 
-                // Switch
                 const newResume = profiles[name];
                 updateState({ baseResume: newResume, activeProfile: name });
                 await chrome.storage.local.set({
@@ -174,7 +175,7 @@ function renderProfileList(profiles, activeProfile) {
                 showStatus(`Switched to profile: ${name}`, 'success', 'profileStatus');
 
                 // Re-render the editor if open
-                const section = document.getElementById('profileSectionSelect').value;
+                const section = document.getElementById('profileSectionSelect')?.value || 'Experience';
                 renderProfileEditor(section, newResume);
             }
         };
@@ -183,7 +184,9 @@ function renderProfileList(profiles, activeProfile) {
     list.querySelectorAll('.profile-delete-btn').forEach(btn => {
         btn.onclick = async () => {
             const name = btn.dataset.name;
-            const confirmed = await showConfirmDialog(`Delete profile "${name}"?`);
+            if (name === 'default') return; // Protective check
+
+            const confirmed = await showConfirmDialog(`Delete profile "${name}"? This cannot be undone.`);
             if (!confirmed) return;
 
             const data = await chrome.storage.local.get(['profiles', 'active_profile']);
@@ -191,26 +194,25 @@ function renderProfileList(profiles, activeProfile) {
             const activeProfile = data.active_profile || 'default';
 
             delete profiles[name];
-            await chrome.storage.local.set({ profiles });
 
-            // If deleted the active profile, switch to first remaining
+            // If deleted the active profile, switch back to 'default'
             if (name === activeProfile) {
-                const remaining = Object.keys(profiles);
-                if (remaining.length > 0) {
-                    const newName = remaining[0];
-                    const newResume = profiles[newName];
-                    updateState({ baseResume: newResume, activeProfile: newName });
-                    await chrome.storage.local.set({
-                        active_profile: newName,
-                        base_resume: newResume,
-                        user_profile_name: newResume.name || 'User'
-                    });
-                    if (profileNameDisplay) profileNameDisplay.textContent = newResume.name || 'User';
-                    updateActiveProfileLabel(newName);
-                }
+                const defaultResume = profiles['default'];
+                updateState({ baseResume: defaultResume, activeProfile: 'default' });
+                await chrome.storage.local.set({
+                    profiles,
+                    active_profile: 'default',
+                    base_resume: defaultResume,
+                    user_profile_name: defaultResume.name || 'User'
+                });
+                if (profileNameDisplay) profileNameDisplay.textContent = defaultResume.name || 'User';
+                updateActiveProfileLabel('default');
+                renderProfileList(profiles, 'default');
+            } else {
+                await chrome.storage.local.set({ profiles });
+                renderProfileList(profiles, activeProfile);
             }
 
-            renderProfileList(profiles, state.activeProfile);
             showStatus(`Profile "${name}" deleted`, 'info', 'profileStatus');
         };
     });

@@ -1,5 +1,6 @@
 // Production Vercel deployment URL
 export const API_BASE_URL = "https://serverless-ai-resume-generator-api.vercel.app";
+export const DEBUG = false; // Set to true for development
 
 const stateShape = {
     currentJdText: "",
@@ -79,7 +80,7 @@ export function updateState(updates) {
         // 2. AND it's different from the cached version
         // This prevents invalidation when just loading from storage or when setting the same value
         if (newJdText !== currentJdText && newJdText !== cachedJdText) {
-            console.log('🔄 JD text changed - invalidating cached JD analysis');
+            if (DEBUG) console.log('🔄 JD text changed - invalidating cached JD analysis');
             updates.currentJdAnalysis = null;
             updates.lastParsedJdText = "";
         }

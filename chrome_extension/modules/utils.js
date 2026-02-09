@@ -1,4 +1,8 @@
-import { state } from './state.js';
+import { state, DEBUG } from './state.js';
+
+export function debugLog(...args) {
+    if (DEBUG) console.log(...args);
+}
 
 export function checkCurrentProviderKey() {
     // If using free tier and logged in, no key needed

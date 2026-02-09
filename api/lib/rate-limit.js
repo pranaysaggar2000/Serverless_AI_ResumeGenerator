@@ -16,7 +16,21 @@ async function checkAndIncrementUsage(userId, actionType, actionId = null) {
     const todayISO = today.toISOString();
 
     try {
-        // 1. If actionId is provided, check if it already exists for this user today
+        // 1. Initial count of today's actions for this user
+        const { count: currentCount, error: countError } = await supabaseAdmin
+            .from('usage')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .gte('created_at', todayISO);
+
+        if (countError) {
+            console.error('Error counting usage:', countError);
+            throw new Error('Failed to check usage limit');
+        }
+
+        const currentUsageCount = currentCount || 0;
+
+        // 2. If actionId is provided, check if it already exists for this user today (Deduplication)
         if (actionId) {
             const { data: existingAction, error: checkError } = await supabaseAdmin
                 .from('usage')
@@ -31,38 +45,17 @@ async function checkAndIncrementUsage(userId, actionType, actionId = null) {
             }
 
             if (existingAction) {
-                const { data: usageData } = await supabaseAdmin
-                    .from('usage')
-                    .select('id', { count: 'exact', head: false })
-                    .eq('user_id', userId)
-                    .gte('created_at', todayISO);
-
-                const currentCount = usageData?.length || 0;
-
+                // This call is part of a compound action (e.g. JD Parse + Tailor) that was already counted
                 return {
                     allowed: true,
-                    remaining: DAILY_ACTION_LIMIT - currentCount,
+                    remaining: DAILY_ACTION_LIMIT - currentUsageCount,
                     limit: DAILY_ACTION_LIMIT
                 };
             }
         }
 
-        // 2. Count today's actions for this user
-        const { data: usageData, error: countError } = await supabaseAdmin
-            .from('usage')
-            .select('id', { count: 'exact', head: false })
-            .eq('user_id', userId)
-            .gte('created_at', todayISO);
-
-        if (countError) {
-            console.error('Error counting usage:', countError);
-            throw new Error('Failed to check usage limit');
-        }
-
-        const currentCount = usageData?.length || 0;
-
-        // Check if limit exceeded
-        if (currentCount >= DAILY_ACTION_LIMIT) {
+        // 3. Check if limit reached for NEW actions
+        if (currentUsageCount >= DAILY_ACTION_LIMIT) {
             return {
                 allowed: false,
                 remaining: 0,
@@ -70,13 +63,13 @@ async function checkAndIncrementUsage(userId, actionType, actionId = null) {
             };
         }
 
-        // 3. Insert new usage record
+        // 4. Insert new unique usage record
         const { error: insertError } = await supabaseAdmin
             .from('usage')
             .insert({
                 user_id: userId,
                 action_type: actionType,
-                action_id: actionId, // Include actionId if provided
+                action_id: actionId,
                 created_at: new Date().toISOString()
             });
 
@@ -87,7 +80,7 @@ async function checkAndIncrementUsage(userId, actionType, actionId = null) {
 
         return {
             allowed: true,
-            remaining: DAILY_ACTION_LIMIT - currentCount - 1,
+            remaining: DAILY_ACTION_LIMIT - currentUsageCount - 1,
             limit: DAILY_ACTION_LIMIT
         };
 

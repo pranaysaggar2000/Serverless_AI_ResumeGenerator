@@ -1,7 +1,7 @@
 import { state, updateState } from './state.js';
 import { showStatus } from './ui.js';
 import { renderProfileEditor } from './editor.js';
-import { showConfirmDialog } from './utils.js';
+import { showConfirmDialog, debugLog } from './utils.js';
 
 export async function saveVersion(resumeData, jdTitle) {
     try {
@@ -15,11 +15,11 @@ export async function saveVersion(resumeData, jdTitle) {
             resume: resumeData
         });
 
-        // Keep last 5
-        if (versions.length > 5) versions.length = 5;
+        // Keep last 15
+        if (versions.length > 15) versions.length = 15;
 
         await chrome.storage.local.set({ resume_versions: versions });
-        console.log("Version saved:", jdTitle);
+        debugLog("Version saved:", jdTitle);
 
         // AUTO-REFRESH: If history panel is currently visible, re-render the list
         const historyUI = document.getElementById('historyUI');
@@ -47,6 +47,26 @@ export async function renderHistoryList() {
             list.innerHTML = '<div style="padding:10px;text-align:center;color:#999;">No history found.</div>';
             return;
         }
+
+        // Add "Clear All" button at the top
+        const clearBtnDiv = document.createElement('div');
+        clearBtnDiv.style.cssText = "padding: 0 0 12px 0; border-bottom: 2px solid #f3f4f6; margin-bottom: 8px; display: flex; justify-content: flex-end;";
+        clearBtnDiv.innerHTML = `
+            <button id="clearAllHistoryBtn" style="font-size: 11px; padding: 4px 10px; color: #ef4444; border: 1px solid #fee2e2; background: #fff; border-radius: 4px; cursor: pointer; transition: all 0.2s;">
+                🗑️ Clear All History
+            </button>
+        `;
+        list.appendChild(clearBtnDiv);
+
+        const clearBtn = clearBtnDiv.querySelector('#clearAllHistoryBtn');
+        clearBtn.onclick = async () => {
+            const confirmed = await showConfirmDialog("Clear your entire version history? This cannot be undone.");
+            if (confirmed) {
+                await chrome.storage.local.remove('resume_versions');
+                showStatus("History cleared", "info");
+                renderHistoryList();
+            }
+        };
 
         versions.forEach(v => {
             const date = new Date(v.timestamp);
@@ -121,7 +141,7 @@ export function setupHistoryUI() {
 
     if (historyBtn) {
         historyBtn.addEventListener('click', () => {
-            console.log("History Button Clicked");
+            debugLog("History Button Clicked");
             if (historyUI) {
                 historyUI.style.display = 'block';
                 renderHistoryList();

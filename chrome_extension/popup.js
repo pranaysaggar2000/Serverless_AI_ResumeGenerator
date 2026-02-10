@@ -1001,7 +1001,8 @@ function setupEventListeners() {
         showProfileUI();
         const profiles = await loadProfiles();
         renderProfileList(profiles, state.activeProfile);
-        renderProfileEditor('summary', state.baseResume, 'profileFormContainer'); // First open — pass resume
+        const section = document.getElementById('profileSectionSelect')?.value || 'summary';
+        renderProfileEditor(section, state.baseResume, 'profileFormContainer');
     });
 
     // Profile Section Change

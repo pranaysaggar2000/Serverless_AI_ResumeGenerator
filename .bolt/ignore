@@ -1,0 +1,27 @@
+# Non-frontend files/directories
+.github/
+.venv/
+__pycache__/
+api/
+website/
+Screenshots/
+Social_Media_Assets/
+main.py
+requirements.txt
+resume_builder.py
+create_fake_pdf.py
+generate_social_images.py
+test_all_openrouter_models.py
+test_openrouter.py
+.env
+client_secret_*.json
+info.txt
+Jordan_Alexander_Resume.pdf
+.git/
+.vercelignore
+LICENSE
+PRIVACY_POLICY.md
+WALKTHROUGH.md
+README.md
+chrome uploads/
+EOF

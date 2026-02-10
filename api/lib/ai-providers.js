@@ -7,7 +7,7 @@ const https = require('https');
 // ============================================
 const CEREBRAS_CHAINS = {
     jdParse: ['llama-3.3-70b', 'gpt-oss-120b'],
-    tailor: ['qwen-3-235b-a22b-instruct-2507', 'gpt-oss-120b'],
+    tailor: ['zai-glm-4.7', 'gpt-oss-120b'],
     score: ['llama-3.3-70b', 'gpt-oss-120b'],
     default: ['llama-3.3-70b', 'gpt-oss-120b']
 };

@@ -7,12 +7,6 @@
 </head>
 
 <body>
-  <div style="text-align: center; padding: 2px 0; font-size: 9px; color: var(--text-muted); letter-spacing: 0.3px;">
-    Built by <a href="https://www.linkedin.com/in/pranay-saggar" target="_blank"
-      style="color: var(--primary); text-decoration: none; font-weight: 600;">Pranay Saggar</a>
-    · <a href="https://pranaysaggar.vercel.app/" target="_blank"
-      style="color: var(--text-muted); text-decoration: none;">Portfolio</a>
-  </div>
   <header>
     <div class="logo">
       <span>📄</span> ForgeCV
@@ -308,53 +302,38 @@
   <!-- Main UI -->
   <div id="mainUI" class="hidden">
     <div id="usageLimitBanner" class="hidden"></div>
-    <div class="profile-pill">
-      <span>Using:</span> <strong id="profileName">Loading...</strong>
-      <span id="atsScoreBadge" class="ats-badge" style="display:none;"></span>
-      <span id="activeProfileLabel" style="font-size:10px; opacity:0.7; margin-left:4px;"></span>
+    <div class="profile-bar">
+      <div class="profile-bar-left">
+        <span class="profile-avatar-mini">👤</span>
+        <span id="profileName" class="profile-name-text">User</span>
+        <span id="activeProfileLabel" class="profile-label-badge"></span>
+        <span id="atsScoreBadge" class="ats-badge" style="display:none;"></span>
+      </div>
+      <div class="profile-bar-right">
+        <span id="activeTabUrl" class="active-tab-label"></span>
+      </div>
     </div>
 
-    <!-- JD Source Card -->
-    <div id="jdStatusCard" class="card" style="padding: 12px 14px; margin-bottom: 12px;">
-      <!-- Active Tab Display -->
-      <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-        <span id="jdStatusDot"
-          style="width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; flex-shrink: 0;"></span>
-        <div style="flex: 1; min-width: 0;">
-          <div id="jdStatusText"
-            style="font-size: 11px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-            No job description loaded</div>
-          <div id="jdSourceUrl"
-            style="font-size: 9px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;">
+    <!-- JD Detection Card — compact -->
+    <div class="jd-card">
+      <div class="jd-card-main">
+        <div class="jd-status-indicator">
+          <div id="jdStatusDot" class="jd-dot"></div>
+          <div class="jd-status-text">
+            <span id="jdStatusText" class="jd-title">No job description detected</span>
+            <span id="jdSourceUrl" class="jd-source"></span>
           </div>
+        </div>
+        <div class="jd-actions">
+          <button id="fetchJdBtn" class="jd-fetch-btn" title="Scan current page for job description">Fetch</button>
+          <button id="manualJdBtn" class="jd-manual-btn" title="Paste job description manually">✎</button>
         </div>
       </div>
 
-      <!-- Active Tab Label -->
-      <div id="activeTabLabel"
-        style="font-size: 9px; color: var(--text-muted); background: #f9fafb; padding: 4px 8px; border-radius: 4px; margin-bottom: 8px; display: flex; align-items: center; gap: 4px;">
-        <span>🌐</span>
-        <span id="activeTabUrl" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Loading current
-          tab...</span>
-      </div>
-
-      <!-- Two Action Buttons -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-        <button id="fetchJdBtn" class="secondary-btn" style="font-size: 11px; padding: 8px 6px; gap: 4px;"
-          title="Scans the current browser tab for a job description">
-          🔍 Fetch from Page
-        </button>
-        <button id="manualJdBtn" class="secondary-btn" style="font-size: 11px; padding: 8px 6px; gap: 4px;"
-          title="Paste a job description or upload a JD as PDF">
-          📝 Add JD Manually
-        </button>
-      </div>
-
       <!-- Manual JD Input (hidden by default) -->
-      <div id="manualJdInput"
-        style="display: none; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+      <div id="manualJdInput" style="display:none;" class="jd-manual-panel">
         <textarea id="manualJdText" placeholder="Paste the full job description text here..."
-          style="height: 120px; font-size: 12px;"></textarea>
+          class="jd-manual-textarea"></textarea>
         <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
           <span style="font-size: 10px; color: var(--text-muted);">or</span>
           <label style="font-size: 11px; color: var(--primary); cursor: pointer; font-weight: 500;" for="jdPdfFile">📎
@@ -370,22 +349,19 @@
         </div>
       </div>
 
-      <!-- Current JD Preview & Edit (expands) -->
-      <div id="jdPreviewContainer"
-        style="display: none; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
-        <div class="flex-between" style="margin-bottom: 6px;">
-          <span style="font-size: 10px; font-weight: 600; color: var(--text-muted);">CURRENT JD</span>
-          <button id="toggleJdPreviewBtn" class="secondary-btn"
-            style="width: auto; padding: 2px 6px; font-size: 9px; height: 18px;">Expand View</button>
+      <!-- JD Preview (hidden by default) -->
+      <div id="jdPreviewContainer" style="display: none;" class="jd-preview-panel">
+        <div class="flex-between" style="margin-bottom: 4px;">
+          <span
+            style="font-size: 9px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Current
+            JD</span>
+          <button id="toggleJdPreviewBtn" class="jd-expand-btn">Expand</button>
         </div>
-
         <div style="position: relative;">
-          <textarea id="jdPreviewText"
-            style="width: 100%; height: auto; min-height: 48px; max-height: 48px; font-size: 11px; padding: 6px; line-height: 1.4; border-radius: 4px; overflow-y: hidden; transition: max-height 0.2s ease-in-out; background: #fdfdfd; border: 1px solid #eee;"
-            placeholder="No JD content loaded..."></textarea>
-          <div id="jdEditSaveContainer" style="display: none; position: absolute; bottom: 4px; right: 4px; z-index: 5;">
+          <textarea id="jdPreviewText" class="jd-preview-textarea" placeholder="No JD content loaded..."></textarea>
+          <div id="jdEditSaveContainer" style="display: none; position: absolute; bottom: 4px; right: 4px;">
             <button id="saveJdEditBtn" class="primary-btn"
-              style="padding: 4px 8px; font-size: 9px; height: 22px; width: auto;">Save Changes</button>
+              style="padding: 3px 8px; font-size: 9px; height: 20px; width: auto;">Save</button>
           </div>
         </div>
       </div>
@@ -757,29 +733,30 @@
     </div>
 
     <!-- Question Helper -->
-    <div style="margin-top: 20px;">
-      <details class="card" style="padding:0; overflow:hidden;">
-        <summary
-          style="padding:12px; font-weight:600; cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center;">
-          💡 Application Question Helper <span style="font-size:10px;">▼</span>
+    <div style="margin-top: 16px;">
+      <details class="question-helper-details">
+        <summary class="question-helper-toggle">
+          <span>💡 Application Question Helper</span>
+          <span class="toggle-chevron">▾</span>
         </summary>
-        <div style="padding:16px; border-top:1px solid #f1f5f9;">
-          <textarea id="questionInput"
-            placeholder="Paste any application question here (e.g., &quot;Why are you interested in this role?&quot; or &quot;Describe a time you led a team&quot;)"
-            style="height:60px; margin-bottom:8px;"></textarea>
-          <div style="display:flex; justify-content:flex-end;">
-            <button id="askBtn" class="primary-btn" style="font-size:12px; padding:6px 12px;">Generate Answer</button>
+        <div class="question-helper-content">
+          <textarea id="questionInput" class="question-input"
+            placeholder="Paste any application question here (e.g., &quot;Why are you interested in this role?&quot;)"></textarea>
+          <div style="display:flex; justify-content:flex-end; margin-top:6px;">
+            <button id="askBtn" class="primary-btn" style="font-size:11px; padding:6px 14px;">✨ Generate Answer</button>
           </div>
-          <div id="answerOutput" class="hidden" style="margin-top:12px;"></div>
+          <div id="answerOutput" class="hidden answer-output"></div>
         </div>
       </details>
     </div>
   </div>
 
-  <footer style="text-align: center; padding: 12px 0 4px; margin-top: 20px; border-top: 1px solid var(--border-color);">
-    <div style="font-size: 9px; color: var(--text-muted);">
-      ForgeCV v1.0.1 · Your data stays on your device · API keys are stored locally
-    </div>
+  <footer class="app-footer">
+    <span>ForgeCV v1.0.1</span>
+    <span class="footer-dot">·</span>
+    <span>Data stays on your device</span>
+    <span class="footer-dot">·</span>
+    <a href="https://www.linkedin.com/in/pranay-saggar" target="_blank">By Pranay Saggar</a>
   </footer>
 
   <div id="toastContainer"

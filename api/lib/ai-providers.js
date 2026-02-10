@@ -6,10 +6,10 @@ const https = require('https');
 // https://cloud.cerebras.ai/
 // ============================================
 const CEREBRAS_CHAINS = {
-    jdParse: ['gpt-oss-120b', 'llama3.1-8b'],
-    tailor: ['gpt-oss-120b', 'qwen-3-235b-a22b-instruct-2507'],
-    score: ['gpt-oss-120b', 'llama3.1-8b'],
-    default: ['gpt-oss-120b', 'llama3.1-8b']
+    jdParse: ['llama-3.3-70b', 'gpt-oss-120b'],
+    tailor: ['qwen-3-235b-a22b-instruct-2507', 'gpt-oss-120b'],
+    score: ['llama-3.3-70b', 'gpt-oss-120b'],
+    default: ['llama-3.3-70b', 'gpt-oss-120b']
 };
 
 async function callCerebras(prompt, options = {}) {
@@ -58,9 +58,9 @@ async function callCerebras(prompt, options = {}) {
 // ============================================
 const MISTRAL_CHAINS = {
     jdParse: ['mistral-small-2506'],
-    tailor: ['mistral-small-2506'],
+    tailor: ['mistral-large-2512'],
     score: ['mistral-small-2506'],
-    default: ['mistral-small-2506']
+    default: ['mistral-large-2512']
 };
 
 async function callMistral(prompt, options = {}) {

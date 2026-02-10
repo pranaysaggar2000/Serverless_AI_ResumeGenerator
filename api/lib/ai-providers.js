@@ -212,6 +212,10 @@ async function callAIServer(prompt, options = {}) {
         { name: 'OpenRouter', fn: callOpenRouterServer, required_key: 'OPENROUTER_API_KEY' }
     ];
 
+    // Debug: Log which keys are available at runtime
+    const availableKeys = providers.filter(p => !!process.env[p.required_key]).map(p => p.name);
+    console.log(`[AI Configuration] Providers with keys: ${availableKeys.join(', ') || 'NONE'}`);
+
     const errors = [];
 
     for (const provider of providers) {

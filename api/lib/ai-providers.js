@@ -7,7 +7,7 @@ const https = require('https');
 // ============================================
 const CEREBRAS_CHAINS = {
     jdParse: ['llama-3.3-70b', 'gpt-oss-120b'],
-    tailor: ['zai-glm-4.7', 'gpt-oss-120b'],
+    tailor: ['zai-glm-4.7', 'llama-3.3-70b', 'gpt-oss-120b'],
     score: ['llama-3.3-70b', 'gpt-oss-120b'],
     default: ['llama-3.3-70b', 'gpt-oss-120b']
 };
@@ -30,10 +30,11 @@ async function callCerebras(prompt, options = {}) {
             });
 
             const startTime = Date.now();
+            const timeout = model.startsWith('zai-glm') ? 30000 : 10000;
             const result = await httpPost('api.cerebras.ai', '/v1/chat/completions', body, {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json'
-            }, 10000);
+            }, timeout);
             const duration = Date.now() - startTime;
 
             const data = JSON.parse(result);

@@ -24,7 +24,8 @@
         "https://api.groq.com/*",
         "https://openrouter.ai/*",
         "https://www.linkedin.com/*",
-        "https://serverless-ai-resume-generator-api.vercel.app/*"
+        "https://serverless-ai-resume-generator-api.vercel.app/*",
+        "https://*.supabase.co/*"
     ],
     "action": {
         "default_title": "ForgeCV",

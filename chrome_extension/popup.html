@@ -1,795 +1,914 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <link rel="stylesheet" href="popup.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ForgeCV - AI Resume Tailoring</title>
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Inter Font from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    :root {
+      --dark-bg: #0f172a;
+      --dark-surface: #1e293b;
+      --dark-surface-alt: #334155;
+      --dark-border: #475569;
+      --dark-text-primary: #f8fafc;
+      --dark-text-secondary: #cbd5e1;
+      --dark-text-muted: #94a3b8;
+      --accent-primary: #3b82f6;
+      --accent-primary-dark: #1e40af;
+      --accent-secondary: #06b6d4;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+    }
+
+    html {
+      color-scheme: dark;
+    }
+
+    body {
+      background: var(--dark-bg);
+      color: var(--dark-text-primary);
+      width: 500px;
+      max-width: 100vw;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    /* Glassmorphism Backgrounds */
+    .glass {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+    }
+
+    .glass-sm {
+      background: rgba(30, 41, 59, 0.5);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(148, 163, 184, 0.08);
+    }
+
+    /* Smooth Animations */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: -1000px 0;
+      }
+      100% {
+        background-position: 1000px 0;
+      }
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    @keyframes fadeOut {
+      from {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+    }
+
+    .animate-in {
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .animate-slide-down {
+      animation: slideDown 0.3s ease-out;
+    }
+
+    /* Skeleton Loader */
+    .skeleton {
+      background: linear-gradient(
+        90deg,
+        var(--dark-surface) 0%,
+        var(--dark-surface-alt) 50%,
+        var(--dark-surface) 100%
+      );
+      background-size: 1000px 100%;
+      animation: shimmer 2s infinite;
+    }
+
+    /* Spinner */
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(59, 130, 246, 0.2);
+      border-top-color: var(--accent-primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* Focus Rings */
+    input:focus,
+    textarea:focus,
+    select:focus,
+    button:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    input,
+    textarea,
+    select {
+      background: var(--dark-surface);
+      color: var(--dark-text-primary);
+      border-color: var(--dark-border);
+      transition: all 0.2s ease;
+    }
+
+    input:hover,
+    textarea:hover,
+    select:hover {
+      border-color: var(--dark-text-muted);
+    }
+
+    /* Buttons */
+    .btn-primary {
+      background: var(--accent-primary);
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      font-weight: 500;
+      font-size: 0.875rem;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-primary-dark);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: var(--dark-surface-alt);
+      color: var(--dark-text-primary);
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      font-weight: 500;
+      font-size: 0.875rem;
+      border: 1px solid var(--dark-border);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary:hover {
+      background: var(--dark-border);
+      border-color: var(--dark-text-secondary);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--dark-text-secondary);
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 0.375rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-ghost:hover {
+      background: var(--dark-surface);
+      color: var(--dark-text-primary);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--dark-surface);
+      border: 1px solid var(--dark-border);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    /* Status Messages */
+    .status-success {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #6ee7b7;
+      padding: 0.75rem 1rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+    }
+
+    .status-error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+      padding: 0.75rem 1rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+    }
+
+    .status-info {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #93c5fd;
+      padding: 0.75rem 1rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+    }
+
+    .status-warning {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: #fcd34d;
+      padding: 0.75rem 1rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+    }
+
+    /* Header */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      border-bottom: 1px solid var(--dark-border);
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(8px);
+      padding: 1rem;
+    }
+
+    header .flex {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-size: 1.25rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: linear-gradient(135deg, #3b82f6, #06b6d4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Main Container */
+    .container {
+      padding: 1rem;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    /* Utility classes */
+    .hidden {
+      display: none !important;
+    }
+
+    .flex-between {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .text-muted {
+      color: var(--dark-text-muted);
+    }
+
+    .text-secondary {
+      color: var(--dark-text-secondary);
+    }
+
+    /* Copy to Clipboard Animation */
+    .copy-success {
+      animation: pulse 0.5s ease-out;
+    }
+
+    /* Drag Over State */
+    .drag-over {
+      border-color: var(--accent-primary) !important;
+      background: rgba(59, 130, 246, 0.05) !important;
+    }
+
+    /* Upload Zone */
+    .upload-zone {
+      border: 2px dashed var(--dark-border);
+      border-radius: 0.5rem;
+      padding: 2rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .upload-zone:hover {
+      border-color: var(--accent-primary);
+      background: rgba(59, 130, 246, 0.03);
+    }
+
+    /* Profile Pill */
+    .profile-pill {
+      background: var(--dark-surface);
+      border: 1px solid var(--dark-border);
+      border-radius: 9999px;
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* ATS Badge */
+    .ats-badge {
+      background: linear-gradient(135deg, #10b981, #34d399);
+      color: white;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    /* Progress Bar */
+    .progress-bar {
+      height: 4px;
+      background: var(--dark-surface-alt);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+      transition: width 0.3s ease;
+    }
+  </style>
 </head>
 
-<body>
-  <div style="text-align: center; padding: 2px 0; font-size: 9px; color: var(--text-muted); letter-spacing: 0.3px;">
-    Built by <a href="https://www.linkedin.com/in/pranay-saggar" target="_blank"
-      style="color: var(--primary); text-decoration: none; font-weight: 600;">Pranay Saggar</a>
-    · <a href="https://pranaysaggar.vercel.app/" target="_blank"
-      style="color: var(--text-muted); text-decoration: none;">Portfolio</a>
-  </div>
-  <header>
-    <div class="logo">
-      <span>📄</span> ForgeCV
-    </div>
-    <div class="controls">
-      <button id="profileToggle" class="icon-btn" title="Manage Profile">👤</button>
-      <button id="settingsToggle" class="icon-btn" title="Settings">⚙️</button>
+<body class="bg-slate-950 text-slate-50">
+  <!-- Header -->
+  <header class="border-b border-slate-700 bg-slate-900/60 backdrop-blur sticky top-0 z-50">
+    <div class="flex justify-between items-center">
+      <div class="logo">
+        <span>🔥</span>
+        <span>ForgeCV</span>
+      </div>
+      <div class="flex gap-2">
+        <button id="profileToggle" class="btn-ghost p-2" title="Manage Profile">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+          </svg>
+        </button>
+        <button id="settingsToggle" class="btn-ghost p-2" title="Settings">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+        </button>
+      </div>
     </div>
   </header>
 
-  <div id="quickStatus" class="quick-status"></div>
-
-  <div id="status"></div>
+  <!-- Status Message -->
+  <div id="status" class="mx-4 mt-3"></div>
+  <div id="quickStatus" class="mx-4 mt-2"></div>
 
   <!-- Settings UI -->
-  <div id="settingsUI" class="hidden">
-    <div class="flex-between" style="margin-bottom: 16px; align-items: flex-start;">
-      <div>
-        <h3 style="margin:0; color:var(--text-main);">Settings</h3>
-        <p class="text-xs text-muted">Configure how you power your AI actions.</p>
+  <div id="settingsUI" class="hidden animate-in">
+    <div class="container">
+      <div class="flex-between mb-6">
+        <div>
+          <h2 class="text-xl font-bold mb-1">Settings</h2>
+          <p class="text-sm text-slate-400">Configure your AI provider</p>
+        </div>
+        <button id="backFromSettings" class="btn-ghost p-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
       </div>
-      <button id="backFromSettings" class="secondary-btn icon-btn"
-        style="width:auto; padding: 4px 8px; font-size:11px;">✕</button>
-    </div>
 
-    <!-- Auth Section (Injected by ui.js) -->
-    <div id="authSection" class="auth-section"></div>
+      <!-- Auth Section -->
+      <div id="authSection" class="mb-6"></div>
 
-    <div class="mode-toggle">
-      <button id="modeFreeBtn" class="mode-btn active" data-mode="free">⚡ Free Tier</button>
-      <button id="modeByokBtn" class="mode-btn" data-mode="byok">🔑 Your Own Keys</button>
-    </div>
+      <!-- Mode Toggle -->
+      <div class="flex gap-3 mb-6">
+        <button id="modeFreeBtn" class="btn-primary flex-1 active" data-mode="free">
+          <span>⚡</span> Free Tier
+        </button>
+        <button id="modeByokBtn" class="btn-secondary flex-1" data-mode="byok">
+          <span>🔑</span> Own Keys
+        </button>
+      </div>
 
-    <div class="settings-card">
-      <!-- Free Tier Info -->
-      <div id="freeModeInfo" class="mode-info">
+      <!-- Free Mode Info -->
+      <div id="freeModeInfo" class="card mb-6">
         <div id="freeUsageDisplay"></div>
-        <div id="freeLoginPrompt" class="hidden">
-          <p class="text-sm">Sign in to activate 15 free AI actions per day.</p>
-          <button id="googleLoginBtn" class="google-btn">
-            <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google">
+        <div id="freeLoginPrompt" class="hidden mt-4">
+          <p class="text-sm mb-4 text-slate-300">Sign in to activate 15 free AI actions per day.</p>
+          <button id="googleLoginBtn" class="btn-primary w-full">
+            <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google" class="w-4 h-4">
             Sign in with Google
           </button>
         </div>
       </div>
 
       <!-- BYOK Settings -->
-      <div id="byokSettings" class="mode-info hidden">
-        <div class="edit-field">
-          <label for="providerSelect">AI Provider</label>
-          <select id="providerSelect">
+      <div id="byokSettings" class="hidden space-y-4 mb-6">
+        <div>
+          <label class="block text-sm font-medium mb-2">AI Provider</label>
+          <select id="providerSelect" class="w-full p-2 rounded border border-slate-600 bg-slate-800">
             <option value="gemini">Google Gemini (Recommended)</option>
             <option value="groq">Groq (Llama 3)</option>
             <option value="openrouter">OpenRouter (Multi-Model)</option>
           </select>
         </div>
 
-        <div id="geminiKeyData" class="key-section">
-          <label for="apiKey">Gemini API Key</label>
-          <input type="password" id="apiKey" placeholder="Enter Gemini API Key">
-          <details class="help-details">
-            <summary>How to get a Free Gemini API Key</summary>
-            <div style="margin-bottom:8px; font-weight:600; color:var(--success);">✨ One-time setup. Using free tier.
-            </div>
-            <ol>
-              <li>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.</li>
-              <li>Click <strong>"Get API key"</strong>.</li>
-              <li>Copy and paste the key above.</li>
+        <div id="geminiKeyData">
+          <label class="block text-sm font-medium mb-2">Gemini API Key</label>
+          <input type="password" id="apiKey" placeholder="Enter your Gemini API key" class="w-full p-2 rounded border border-slate-600 bg-slate-800">
+          <details class="mt-2 text-xs text-slate-400">
+            <summary class="cursor-pointer font-medium text-slate-300">How to get a free Gemini API key</summary>
+            <ol class="mt-2 ml-4 list-decimal space-y-1">
+              <li>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-400 hover:underline">Google AI Studio</a></li>
+              <li>Click "Create API Key"</li>
+              <li>Copy and paste the key above</li>
             </ol>
           </details>
         </div>
 
-        <div id="groqKeyData" class="key-section hidden">
-          <label for="groqApiKey">Groq API Key</label>
-          <input type="password" id="groqApiKey" placeholder="Enter Groq API Key">
-          <details class="help-details">
-            <summary>How to get a Free Groq Key</summary>
-            <ol>
-              <li>Go to <a href="https://console.groq.com/keys" target="_blank">Groq Console</a>.</li>
-              <li>Create an API Key and paste it above.</li>
-            </ol>
-          </details>
+        <div id="groqKeyData" class="hidden">
+          <label class="block text-sm font-medium mb-2">Groq API Key</label>
+          <input type="password" id="groqApiKey" placeholder="Enter your Groq API key" class="w-full p-2 rounded border border-slate-600 bg-slate-800">
         </div>
 
-        <div id="openrouterKeyData" class="key-section hidden">
-          <label for="openrouterApiKey">OpenRouter API Key</label>
-          <input type="password" id="openrouterApiKey" placeholder="Enter OpenRouter API Key">
-          <details class="help-details">
-            <summary>How to get a Free OpenRouter Key</summary>
-            <ol>
-              <li>Go to <a href="https://openrouter.ai/keys" target="_blank">OpenRouter Keys</a>.</li>
-              <li>Create a key and paste it above.</li>
-            </ol>
-          </details>
+        <div id="openrouterKeyData" class="hidden">
+          <label class="block text-sm font-medium mb-2">OpenRouter API Key</label>
+          <input type="password" id="openrouterApiKey" placeholder="Enter your OpenRouter API key" class="w-full p-2 rounded border border-slate-600 bg-slate-800">
         </div>
-
-        <p class="text-xs text-muted" style="margin-top: 12px; font-style: italic;">
-          Unlimited generations · Your keys stay on <b>your</b> device
-        </p>
       </div>
 
-      <button id="saveSettingsBtn" class="primary-btn" style="width:100%; margin-top:16px;">Save & Apply</button>
-
+      <button id="saveSettingsBtn" class="btn-primary w-full mb-6">Save Settings</button>
       <div id="settingsStatus"></div>
     </div>
-
-    <p class="text-center text-xs text-muted" style="margin-top: 16px; padding: 0 10px;">
-      Free tier uses open-source AI models via ForgeCV servers. For best quality and unlimited use, bring your own
-      Gemini key.
-    </p>
   </div>
 
   <!-- Profile Management UI -->
-  <div id="profileUI" class="hidden">
-    <div class="flex-between" style="margin-bottom: 16px;">
-      <h3>Manage Profile</h3>
-      <button id="backFromProfile" class="secondary-btn icon-btn"
-        style="width:auto; padding: 4px 8px; font-size:11px;">✕</button>
-    </div>
-
-    <div class="card" style="margin-bottom: 12px;">
-      <h4 style="margin-bottom: 10px;">📂 Profiles</h4>
-      <div id="profileList" style="margin-bottom: 10px;"></div>
-      <div style="display: flex; gap: 8px;">
-        <input type="text" id="newProfileName" placeholder="New profile name..."
-          style="flex: 1; font-size: 12px; padding: 8px;">
-        <button id="createProfileBtn" class="secondary-btn"
-          style="white-space: nowrap; font-size: 12px; padding: 8px 12px;">+ Create</button>
+  <div id="profileUI" class="hidden animate-in">
+    <div class="container">
+      <div class="flex-between mb-6">
+        <h2 class="text-xl font-bold">Manage Profile</h2>
+        <button id="backFromProfile" class="btn-ghost p-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
       </div>
-    </div>
 
-    <div class="card">
-      <h4 style="margin-bottom:12px;">📄 Re-upload Base Resume</h4>
-      <input type="file" id="reuploadResumeFile" accept=".pdf" style="margin-bottom:10px;">
-      <button id="reuploadBtn" class="primary-btn" style="width:100%;">Upload New Resume</button>
-
-      <div class="divider-or"><span>OR LINKEDIN</span></div>
-
-      <div style="margin-bottom:12px;">
-        <label
-          style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:6px;">Upload
-          LinkedIn PDF</label>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <input type="file" id="reuploadLinkedinPdf" accept=".pdf" style="flex:1;">
-          <button id="reuploadLinkedinPdfBtn" class="primary-btn"
-            style="white-space:nowrap; padding:8px 12px; font-size:11px;">Upload</button>
+      <div class="card mb-6">
+        <h3 class="font-semibold mb-4">📂 Profiles</h3>
+        <div id="profileList" class="mb-4 space-y-2"></div>
+        <div class="flex gap-2">
+          <input type="text" id="newProfileName" placeholder="Profile name..." class="flex-1 p-2 rounded border border-slate-600 bg-slate-800 text-sm">
+          <button id="createProfileBtn" class="btn-primary">Create</button>
         </div>
       </div>
 
-      <div>
-        <label
-          style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:6px;">Or
-          paste LinkedIn URL</label>
-        <div style="display:flex; gap:8px;">
-          <input type="text" id="reuploadLinkedinUrl" placeholder="https://linkedin.com/in/..."
-            style="flex:1; font-size:11px;">
-          <button id="reuploadLinkedinUrlBtn" class="secondary-btn"
-            style="white-space:nowrap; padding:8px 12px; font-size:11px;">🔍 Fetch</button>
+      <div class="card">
+        <h3 class="font-semibold mb-4">📄 Update Resume</h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-2">Upload PDF</label>
+            <input type="file" id="reuploadResumeFile" accept=".pdf" class="w-full text-sm mb-2">
+            <button id="reuploadBtn" class="btn-primary w-full">Upload Resume</button>
+          </div>
+
+          <div class="relative">
+            <div class="absolute inset-0 flex items-center">
+              <div class="w-full border-t border-slate-700"></div>
+            </div>
+            <div class="relative flex justify-center text-xs">
+              <span class="px-2 bg-slate-900 text-slate-400">OR</span>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-2">LinkedIn Profile</label>
+            <input type="text" id="reuploadLinkedinUrl" placeholder="linkedin.com/in/..." class="w-full p-2 rounded border border-slate-600 bg-slate-800 text-sm mb-2">
+            <button id="reuploadLinkedinUrlBtn" class="btn-secondary w-full">Fetch LinkedIn</button>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-2">Paste Resume Text</label>
+            <textarea id="reuploadResumeText" placeholder="Paste your resume text..." class="w-full p-2 rounded border border-slate-600 bg-slate-800 text-sm h-24"></textarea>
+            <button id="reuploadTextBtn" class="btn-primary w-full mt-2">Process Text</button>
+          </div>
         </div>
       </div>
 
-      <div class="divider-or"><span>OR PASTE TEXT</span></div>
-
-      <textarea id="reuploadResumeText" placeholder="Paste full resume text..." style="height: 80px;"></textarea>
-      <button id="reuploadTextBtn" class="primary-btn" style="width:100%; margin-top:8px;">Process Text</button>
+      <div id="profileStatus" class="mt-4"></div>
     </div>
-
-    <div class="card">
-      <h4 style="margin-bottom:12px;">✏️ Manual Edit</h4>
-      <label for="profileSectionSelect" class="text-sm text-muted">Select Section:</label>
-      <select id="profileSectionSelect" style="margin-bottom:12px;">
-        <option value="summary">Summary</option>
-        <option value="contact">Contact Info</option>
-        <option value="education">Education</option>
-        <option value="experience">Experience</option>
-        <option value="projects">Projects</option>
-        <option value="skills">Skills</option>
-        <option value="leadership">Leadership</option>
-        <option value="research">Research & Publications</option>
-        <option value="certifications">Certifications</option>
-        <option value="awards">Awards & Honors</option>
-        <option value="volunteering">Volunteering</option>
-        <option value="languages">Languages</option>
-      </select>
-
-      <div id="profileFormContainer" style="max-height: 400px; overflow-y: auto;"></div>
-
-      <div class="flex-between" style="gap:10px; margin-top:16px;">
-        <button id="saveProfileBtn" class="primary-btn" style="flex:1;">Save Changes</button>
-        <button id="cancelProfileEditBtn" class="secondary-btn" style="flex:1;">Cancel</button>
-      </div>
-    </div>
-    <div id="profileStatus"></div>
   </div>
 
   <!-- Setup UI -->
-  <div id="setupUI" class="hidden">
-    <div class="upload-zone">
-      <h2 style="font-size:18px; margin-bottom:4px;">Welcome to ForgeCV</h2>
-      <p class="text-muted" style="margin-bottom:4px; font-size: 12px;">AI-powered resume tailoring in 3 steps:</p>
-      <div
-        style="text-align: left; margin: 0 auto 16px; max-width: 260px; font-size: 11px; color: var(--text-secondary);">
-        <div style="margin-bottom: 4px;">1️⃣ Upload your base resume (PDF or text)</div>
-        <div style="margin-bottom: 4px;">2️⃣ Navigate to a job posting page</div>
-        <div>3️⃣ Click "Generate" — AI tailors your resume to the job</div>
-      </div>
-
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h3 style="margin:0;">Setup</h3>
-        <button id="backFromSetup" class="secondary-btn" style="font-size:11px; padding:4px 8px;">Back</button>
-      </div>
-
-      <!-- Primary: PDF Upload -->
-      <div id="methodUpload" class="setup-hero-upload">
-        <div class="upload-zone" id="uploadDropZone">
-          <div class="upload-zone-content">
-            <span class="upload-icon">📄</span>
-            <p class="upload-title">Upload Your Resume</p>
-            <p class="upload-subtitle">Drop a PDF here or click to browse</p>
-            <input type="file" id="resumeFile" accept=".pdf" style="display:none">
-            <button id="uploadBtn" class="upload-choose-btn">Choose PDF File</button>
+  <div id="setupUI" class="hidden animate-in">
+    <div class="container">
+      <div class="mb-8 text-center">
+        <h1 class="text-2xl font-bold mb-2">Welcome to ForgeCV</h1>
+        <p class="text-slate-400 mb-6">AI-powered resume tailoring in 3 steps</p>
+        <div class="space-y-2 text-sm text-slate-300 mb-6">
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-xs font-bold">1</span>
+            Upload your base resume (PDF or text)
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-xs font-bold">2</span>
+            Navigate to a job posting
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-xs font-bold">3</span>
+            Click "Forge" — AI tailors your resume
           </div>
         </div>
-        <div id="uploadStatus" style="margin-top:8px;"></div>
       </div>
 
-      <!-- Alternative methods — collapsed -->
-      <details class="alt-methods-details">
-        <summary class="alt-methods-toggle">
+      <!-- Upload Zone -->
+      <div class="upload-zone mb-6" id="uploadDropZone">
+        <div class="text-4xl mb-2">📄</div>
+        <p class="font-semibold mb-1">Drop your resume here</p>
+        <p class="text-sm text-slate-400 mb-4">or click to browse for a PDF</p>
+        <button id="uploadBtn" class="btn-primary">Choose PDF</button>
+        <input type="file" id="resumeFile" accept=".pdf" style="display:none;">
+      </div>
+      <div id="uploadStatus"></div>
+
+      <!-- Alternative Methods -->
+      <details class="card mb-4">
+        <summary class="cursor-pointer font-semibold flex justify-between items-center">
           <span>Other ways to import</span>
-          <span class="toggle-chevron">▾</span>
+          <span class="text-sm">▾</span>
         </summary>
-        <div class="alt-methods-content">
-          <!-- LinkedIn Import -->
-          <div class="alt-method-card" id="methodLinkedIn">
-            <div class="alt-method-header">
-              <span>🔗</span>
-              <div>
-                <strong>Import from LinkedIn</strong>
-                <span class="alt-method-note">Opens your profile in a new tab</span>
-              </div>
-            </div>
-            <div style="display:flex; gap:6px; margin-top:8px;">
-              <input type="text" id="linkedinUrlInput" placeholder="https://linkedin.com/in/your-profile"
-                style="flex:1; font-size:11px; padding:8px;">
-              <button id="fetchLinkedinBtn" class="primary-btn"
-                style="padding:8px 12px; font-size:11px; white-space:nowrap;">🔍 Fetch</button>
-            </div>
-            <div class="alt-method-warning">
-              ⚠️ LinkedIn may limit data visibility. PDF upload gives better results.
-            </div>
-            <div id="linkedinUrlStatus" style="margin-top:6px;"></div>
+        <div class="mt-4 space-y-4">
+          <div>
+            <h4 class="font-medium mb-2 flex items-center gap-2">🔗 Import from LinkedIn</h4>
+            <input type="text" id="linkedinUrlInput" placeholder="https://linkedin.com/in/your-profile" class="w-full p-2 rounded border border-slate-600 bg-slate-800 text-sm mb-2">
+            <button id="fetchLinkedinBtn" class="btn-primary w-full">Fetch Profile</button>
+            <p class="text-xs text-slate-400 mt-2">⚠️ LinkedIn may limit data visibility. PDF upload gives better results.</p>
+            <div id="linkedinUrlStatus" class="mt-2"></div>
           </div>
 
-          <!-- Paste Text -->
-          <div class="alt-method-card" id="methodText">
-            <div class="alt-method-header">
-              <span>📝</span>
-              <div>
-                <strong>Paste Resume Text</strong>
-                <span class="alt-method-note">Copy-paste from any source</span>
-              </div>
-            </div>
-            <textarea id="resumeTextInit" placeholder="Paste your full resume text here..."
-              style="height:100px; margin-top:8px; font-size:11px;"></textarea>
-            <button id="processTextInitBtn" class="primary-btn"
-              style="width:100%; margin-top:8px; font-size:12px;">Process Text</button>
-            <div id="textStatus" style="margin-top:6px;"></div>
+          <div class="border-t border-slate-700 pt-4">
+            <h4 class="font-medium mb-2 flex items-center gap-2">📝 Paste Resume Text</h4>
+            <textarea id="resumeTextInit" placeholder="Paste your full resume text..." class="w-full p-2 rounded border border-slate-600 bg-slate-800 text-sm h-24 mb-2"></textarea>
+            <button id="processTextInitBtn" class="btn-primary w-full">Process Text</button>
+            <div id="textStatus" class="mt-2"></div>
           </div>
         </div>
       </details>
 
-      <!-- How it works — collapsed -->
-      <details class="how-it-works-details">
-        <summary class="how-it-works-toggle">ℹ️ How does ForgeCV work?</summary>
-        <div class="how-it-works-content">
-          <p><strong>Your data is private.</strong> Your resume and API key stay on your device.</p>
-          <p><strong>Step 1:</strong> Upload your resume once. ForgeCV extracts and stores your profile locally.</p>
-          <p><strong>Step 2:</strong> Open any job posting. ForgeCV reads the job description from the page.</p>
-          <p><strong>Step 3:</strong> Click Forge. AI rewrites your resume to match the job's keywords.</p>
-          <p><strong>Step 4:</strong> Download the tailored PDF or copy content directly.</p>
+      <!-- How it Works -->
+      <details class="card">
+        <summary class="cursor-pointer font-semibold">ℹ️ How does ForgeCV work?</summary>
+        <div class="mt-4 space-y-3 text-sm text-slate-300">
+          <p><strong class="text-slate-100">Your data is private.</strong> Your resume and API key stay on your device.</p>
+          <p><strong class="text-slate-100">Step 1:</strong> Upload your resume. ForgeCV extracts and stores your profile locally.</p>
+          <p><strong class="text-slate-100">Step 2:</strong> Open any job posting. ForgeCV reads the job description.</p>
+          <p><strong class="text-slate-100">Step 3:</strong> Click Forge. AI rewrites your resume to match the job's keywords.</p>
+          <p><strong class="text-slate-100">Step 4:</strong> Download the tailored PDF or copy content directly.</p>
         </div>
       </details>
-      <div style="margin-top: 12px; text-align: center; font-size: 10px; color: var(--text-muted);">
-        ✨ Trusted by job seekers. Powered by AI. Zero data leaves your device.
-      </div>
-      <div style="margin-top: 12px; text-align: center; font-size: 10px; color: var(--text-muted);">
-        ✨ Trusted by job seekers. Powered by AI. Zero data leaves your device.
-      </div>
     </div>
   </div>
 
   <!-- Main UI -->
-  <div id="mainUI" class="hidden">
-    <div id="usageLimitBanner" class="hidden"></div>
-    <div class="profile-pill">
-      <span>Using:</span> <strong id="profileName">Loading...</strong>
-      <span id="atsScoreBadge" class="ats-badge" style="display:none;"></span>
-      <span id="activeProfileLabel" style="font-size:10px; opacity:0.7; margin-left:4px;"></span>
-    </div>
-
-    <!-- JD Source Card -->
-    <div id="jdStatusCard" class="card" style="padding: 12px 14px; margin-bottom: 12px;">
-      <!-- Active Tab Display -->
-      <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-        <span id="jdStatusDot"
-          style="width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; flex-shrink: 0;"></span>
-        <div style="flex: 1; min-width: 0;">
-          <div id="jdStatusText"
-            style="font-size: 11px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-            No job description loaded</div>
-          <div id="jdSourceUrl"
-            style="font-size: 9px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;">
-          </div>
-        </div>
+  <div id="mainUI" class="hidden animate-in">
+    <div class="container">
+      <!-- Profile Pill -->
+      <div class="profile-pill">
+        <span class="text-slate-400">Using:</span>
+        <strong id="profileName">Loading...</strong>
+        <span id="activeProfileLabel" class="text-xs text-slate-500"></span>
       </div>
 
-      <!-- Active Tab Label -->
-      <div id="activeTabLabel"
-        style="font-size: 9px; color: var(--text-muted); background: #f9fafb; padding: 4px 8px; border-radius: 4px; margin-bottom: 8px; display: flex; align-items: center; gap: 4px;">
-        <span>🌐</span>
-        <span id="activeTabUrl" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Loading current
-          tab...</span>
-      </div>
-
-      <!-- Two Action Buttons -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-        <button id="fetchJdBtn" class="secondary-btn" style="font-size: 11px; padding: 8px 6px; gap: 4px;"
-          title="Scans the current browser tab for a job description">
-          🔍 Fetch from Page
-        </button>
-        <button id="manualJdBtn" class="secondary-btn" style="font-size: 11px; padding: 8px 6px; gap: 4px;"
-          title="Paste a job description or upload a JD as PDF">
-          📝 Add JD Manually
-        </button>
-      </div>
-
-      <!-- Manual JD Input (hidden by default) -->
-      <div id="manualJdInput"
-        style="display: none; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
-        <textarea id="manualJdText" placeholder="Paste the full job description text here..."
-          style="height: 120px; font-size: 12px;"></textarea>
-        <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
-          <span style="font-size: 10px; color: var(--text-muted);">or</span>
-          <label style="font-size: 11px; color: var(--primary); cursor: pointer; font-weight: 500;" for="jdPdfFile">📎
-            Upload JD PDF</label>
-          <input type="file" id="jdPdfFile" accept=".pdf" style="display: none;">
-          <span id="jdPdfFileName" style="font-size: 10px; color: var(--text-secondary);"></span>
-        </div>
-        <div style="display: flex; gap: 6px; margin-top: 10px;">
-          <button id="saveManualJdBtn" class="primary-btn" style="flex: 1; font-size: 11px; padding: 8px;">✅ Use This
-            JD</button>
-          <button id="cancelManualJdBtn" class="secondary-btn"
-            style="flex: 1; font-size: 11px; padding: 8px;">Cancel</button>
-        </div>
-      </div>
-
-      <!-- Current JD Preview & Edit (expands) -->
-      <div id="jdPreviewContainer"
-        style="display: none; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
-        <div class="flex-between" style="margin-bottom: 6px;">
-          <span style="font-size: 10px; font-weight: 600; color: var(--text-muted);">CURRENT JD</span>
-          <button id="toggleJdPreviewBtn" class="secondary-btn"
-            style="width: auto; padding: 2px 6px; font-size: 9px; height: 18px;">Expand View</button>
-        </div>
-
-        <div style="position: relative;">
-          <textarea id="jdPreviewText"
-            style="width: 100%; height: auto; min-height: 48px; max-height: 48px; font-size: 11px; padding: 6px; line-height: 1.4; border-radius: 4px; overflow-y: hidden; transition: max-height 0.2s ease-in-out; background: #fdfdfd; border: 1px solid #eee;"
-            placeholder="No JD content loaded..."></textarea>
-          <div id="jdEditSaveContainer" style="display: none; position: absolute; bottom: 4px; right: 4px; z-index: 5;">
-            <button id="saveJdEditBtn" class="primary-btn"
-              style="padding: 4px 8px; font-size: 9px; height: 22px; width: auto;">Save Changes</button>
+      <!-- JD Status Card -->
+      <div class="card mb-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div id="jdStatusDot" class="w-3 h-3 rounded-full bg-slate-500 flex-shrink-0"></div>
+          <div class="flex-1 min-w-0">
+            <div id="jdStatusText" class="text-sm font-semibold truncate">No job description loaded</div>
+            <div id="jdSourceUrl" class="text-xs text-slate-400 truncate mt-0.5"></div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Forge Section — Primary CTA -->
-    <div class="forge-section">
-      <button id="generateBtn" class="forge-btn">
-        <span class="forge-btn-icon">🔥</span>
-        <div class="forge-btn-text">
-          <span class="forge-btn-title">Forge My Resume</span>
-          <span class="forge-btn-desc">AI tailors your resume to match the job description</span>
+        <div id="activeTabLabel" class="text-xs text-slate-400 bg-slate-800/50 px-3 py-2 rounded mb-4 flex items-center gap-2">
+          <span>🌐</span>
+          <span id="activeTabUrl" class="truncate">Loading current tab...</span>
         </div>
-      </button>
 
-      <!-- Forge Options — collapsed by default -->
-      <details class="forge-options-details" id="forgeOptionsDetails">
-        <summary class="forge-options-toggle">
-          <span>⚙️ Forge Options</span>
-          <span class="toggle-chevron">▾</span>
-        </summary>
-        <div class="forge-options-content">
-          <!-- Tailoring Strategy -->
-          <div class="forge-option-group">
-            <label class="forge-option-label">Tailoring Strength</label>
-            <input type="range" id="tailoringSlider" min="0" max="2" value="1" step="1" class="forge-slider">
-            <div class="strategy-labels">
-              <span>🛡 Preserve</span>
-              <span>⚖️ Balanced</span>
-              <span>🎯 Aggressive</span>
-            </div>
-            <div id="strategyDescription" class="forge-option-desc">
-              Balanced — integrates JD keywords while keeping it authentic
-            </div>
-          </div>
-
-          <!-- Page Mode -->
-          <div class="forge-option-group">
-            <label class="forge-option-label">Page Length</label>
-            <div class="page-mode-toggle-bar">
-              <button id="pageMode1" class="page-mode-btn active" data-mode="1page">1 Page</button>
-              <button id="pageMode2" class="page-mode-btn" data-mode="2page">2 Pages</button>
-            </div>
-          </div>
-
-          <!-- Export Base (no AI) -->
-          <button id="generateBaseBtn" class="forge-base-btn">
-            📄 Export without AI
-            <span class="forge-base-desc">Download your base profile as PDF — no tailoring</span>
-          </button>
+        <div class="grid grid-cols-2 gap-3">
+          <button id="fetchJdBtn" class="btn-secondary text-sm">🔍 Fetch from Page</button>
+          <button id="manualJdBtn" class="btn-secondary text-sm">📝 Add Manually</button>
         </div>
-      </details>
-    </div>
 
-    <!-- Actions (Post-Generation) -->
-    <div id="actions" class="hidden">
-      <!-- Primary Actions — always visible, large -->
-      <div class="actions-primary">
-        <button id="previewBtn" class="action-btn action-primary">
-          <span class="action-icon">🔍</span>
-          <span class="action-label">Preview</span>
-          <span class="action-desc">Open PDF in new tab</span>
-        </button>
-        <button id="downloadBtn" class="action-btn action-primary">
-          <span class="action-icon">⬇️</span>
-          <span class="action-label">Download</span>
-          <span class="action-desc">Save PDF to your device</span>
-        </button>
-      </div>
-
-      <!-- Edit Actions — always visible, medium -->
-      <div class="actions-edit">
-        <button id="editBtn" class="action-btn action-secondary">
-          <span class="action-icon">✏️</span>
-          <span class="action-label">Fine-Tune</span>
-          <span class="action-desc">Edit bullets & sections</span>
-        </button>
-        <button id="copyContentBtn" class="action-btn action-secondary">
-          <span class="action-icon">📋</span>
-          <span class="action-label">Copy</span>
-          <span class="action-desc">Copy text to clipboard</span>
-        </button>
-      </div>
-
-      <!-- More Actions — collapsed by default -->
-      <details class="more-actions-details">
-        <summary class="more-actions-toggle">
-          <span>More tools</span>
-          <span class="toggle-chevron">▾</span>
-        </summary>
-        <div class="actions-more">
-          <button id="analyzeBtn" class="action-btn action-tertiary">
-            <span class="action-icon">📊</span>
-            <span class="action-label">ATS Score</span>
-            <span class="action-desc">AI keyword analysis</span>
-          </button>
-          <button id="formatBtn" class="action-btn action-tertiary">
-            <span class="action-icon">🎨</span>
-            <span class="action-label">Style</span>
-            <span class="action-desc">Font, margins, layout</span>
-          </button>
-          <button id="historyBtn" class="action-btn action-tertiary">
-            <span class="action-icon">🕰</span>
-            <span class="action-label">History</span>
-            <span class="action-desc">Past generated resumes</span>
-          </button>
-        </div>
-      </details>
-
-      <!-- Drag and drop feature removed -->
-
-      <!-- Generation Progress -->
-      <div id="generationProgress" class="hidden card" style="margin-top: 16px;">
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-          <div id="progressSpinner" class="spinner"></div>
-          <span id="progressStepText" style="font-weight: 500; font-size: 13px;">Preparing...</span>
-        </div>
-        <div id="progressBar" style="height: 4px; background: #e5e7eb; border-radius: 2px; overflow: hidden;">
-          <div id="progressFill"
-            style="height: 100%; width: 0%; background: linear-gradient(90deg, #667eea, #764ba2); transition: width 0.5s ease;">
-          </div>
-        </div>
-        <div id="progressDetail" class="text-sm text-muted" style="margin-top: 6px; font-size: 11px;"></div>
-      </div>
-      <div id="diffSummaryContainer"></div>
-    </div>
-
-    <!-- Copy UI -->
-    <div id="copyUI" class="hidden card">
-      <div class="flex-between">
-        <h3>Copy Content</h3>
-        <button id="closeCopyBtn" class="secondary-btn icon-btn">✕</button>
-      </div>
-      <div id="copyList"></div>
-    </div>
-
-    <!-- Format Settings UI -->
-    <div id="formatUI" class="hidden card">
-      <!-- Header -->
-      <div class="format-header">
-        <h3 class="format-title">Resume Style</h3>
-        <button id="closeFormatBtn" class="editor-icon-btn" title="Close">✕</button>
-      </div>
-
-      <!-- Quick Presets -->
-      <div class="format-presets">
-        <label class="format-section-label">Quick Presets</label>
-        <div class="preset-grid">
-          <button class="preset-btn" id="presetCompact">
-            <span class="preset-icon">📐</span>
-            <span class="preset-name">Compact</span>
-            <span class="preset-desc">Small text, narrow margins — fits more content</span>
-          </button>
-          <button class="preset-btn preset-active" id="presetStandard">
-            <span class="preset-icon">📄</span>
-            <span class="preset-name">Standard</span>
-            <span class="preset-desc">Clean, professional, balanced spacing</span>
-          </button>
-          <button class="preset-btn" id="presetSpacious">
-            <span class="preset-icon">📰</span>
-            <span class="preset-name">Spacious</span>
-            <span class="preset-desc">Larger text, wide margins — easy to read</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Fine-tune — collapsed -->
-      <details class="finetune-details">
-        <summary class="finetune-toggle">
-          <span>🎛️ Fine-tune individual settings</span>
-          <span class="toggle-chevron">▾</span>
-        </summary>
-        <div class="finetune-content">
-
-          <!-- Font -->
-          <div class="finetune-group">
-            <label class="format-section-label">Font</label>
-            <div class="finetune-btn-row">
-              <button class="format-option" data-setting="font" data-value="times"
-                style="font-family:'Times New Roman',serif;">Times</button>
-              <button class="format-option" data-setting="font" data-value="helvetica"
-                style="font-family:Helvetica,Arial,sans-serif;">Helvetica</button>
-              <button class="format-option" data-setting="font" data-value="courier"
-                style="font-family:'Courier New',monospace;">Courier</button>
-            </div>
-          </div>
-
-          <!-- Density -->
-          <div class="finetune-group">
-            <label class="format-section-label">Density</label>
-            <div class="finetune-btn-row">
-              <button class="format-option" data-setting="density" data-value="compact">Tight</button>
-              <button class="format-option" data-setting="density" data-value="normal">Normal</button>
-              <button class="format-option" data-setting="density" data-value="spacious">Airy</button>
-            </div>
-          </div>
-
-          <!-- Margins -->
-          <div class="finetune-group">
-            <label class="format-section-label">Margins</label>
-            <div class="finetune-btn-row">
-              <button class="format-option" data-setting="margins" data-value="narrow">Narrow</button>
-              <button class="format-option" data-setting="margins" data-value="normal">Normal</button>
-              <button class="format-option" data-setting="margins" data-value="wide">Wide</button>
-            </div>
-          </div>
-
-          <!-- Size Sliders -->
-          <div class="finetune-group">
-            <label class="format-section-label">Name Size</label>
-            <div class="slider-row">
-              <input type="range" id="nameSizeSlider" min="16" max="28" value="21" step="1">
-              <span id="nameSizeValue" class="slider-value">21pt</span>
-            </div>
-          </div>
-
-          <div class="finetune-group">
-            <label class="format-section-label">Body Text</label>
-            <div class="slider-row">
-              <input type="range" id="bodySizeSlider" min="9" max="14" value="10" step="0.5">
-              <span id="bodySizeValue" class="slider-value">10pt</span>
-            </div>
-          </div>
-
-          <div class="finetune-group">
-            <label class="format-section-label">Section Headers</label>
-            <div class="slider-row">
-              <input type="range" id="headerSizeSlider" min="10" max="24" value="12" step="1">
-              <span id="headerSizeValue" class="slider-value">12pt</span>
-            </div>
-          </div>
-
-          <div class="finetune-group">
-            <label class="format-section-label">Sub-headings</label>
-            <div class="slider-row">
-              <input type="range" id="subheaderSizeSlider" min="10" max="18" value="11" step="0.5">
-              <span id="subheaderSizeValue" class="slider-value">11pt</span>
-            </div>
-          </div>
-
-          <!-- Header Style -->
-          <div class="finetune-group">
-            <label class="format-section-label">Header Style</label>
-            <select id="headerStyleSelect" class="finetune-select">
-              <option value="uppercase_line">UPPERCASE + Line</option>
-              <option value="uppercase_noline">UPPERCASE Only</option>
-              <option value="bold_line">Bold Title Case + Line</option>
-              <option value="bold_noline">Bold Title Case Only</option>
-            </select>
-          </div>
-
-          <!-- Bullet & Page -->
-          <div class="finetune-row-split">
-            <div class="finetune-group" style="flex:1;">
-              <label class="format-section-label">Bullets</label>
-              <div class="finetune-btn-row">
-                <button class="format-option" data-setting="bulletChar" data-value="•">•</button>
-                <button class="format-option" data-setting="bulletChar" data-value="–">–</button>
-              </div>
-            </div>
-            <div class="finetune-group" style="flex:1;">
-              <label class="format-section-label">Page Size</label>
-              <div class="finetune-btn-row">
-                <button class="format-option" data-setting="pageSize" data-value="letter">Letter</button>
-                <button class="format-option" data-setting="pageSize" data-value="a4">A4</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Show Links -->
-          <div class="finetune-group">
-            <label class="finetune-checkbox-label">
-              <input type="checkbox" id="showLinksCheck" checked>
-              <span>Show clickable links in contact line</span>
+        <!-- Manual JD Input -->
+        <div id="manualJdInput" class="hidden mt-4 pt-4 border-t border-slate-700">
+          <textarea id="manualJdText" placeholder="Paste job description text..." class="w-full p-2 rounded border border-slate-600 bg-slate-800 text-sm h-20 mb-3"></textarea>
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-xs text-slate-400">or</span>
+            <label class="text-xs text-blue-400 cursor-pointer font-medium">
+              📎 Upload JD PDF
+              <input type="file" id="jdPdfFile" accept=".pdf" style="display:none;">
             </label>
+            <span id="jdPdfFileName" class="text-xs text-slate-500"></span>
           </div>
+          <div class="flex gap-2">
+            <button id="saveManualJdBtn" class="btn-primary flex-1 text-sm">Use This JD</button>
+            <button id="cancelManualJdBtn" class="btn-secondary flex-1 text-sm">Cancel</button>
+          </div>
+        </div>
 
+        <!-- JD Preview -->
+        <div id="jdPreviewContainer" class="hidden mt-4 pt-4 border-t border-slate-700">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-xs font-semibold text-slate-400">CURRENT JD</span>
+            <button id="toggleJdPreviewBtn" class="btn-ghost text-xs px-2 py-1">Expand</button>
+          </div>
+          <textarea id="jdPreviewText" placeholder="No JD content loaded..." class="w-full p-2 rounded border border-slate-600 bg-slate-800 text-sm h-12 resize-none"></textarea>
+          <div id="jdEditSaveContainer" class="hidden mt-2">
+            <button id="saveJdEditBtn" class="btn-primary text-sm">Save Changes</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Forge Section -->
+      <div class="mb-6">
+        <button id="generateBtn" class="w-full btn-primary bg-gradient-to-r from-blue-500 to-cyan-500 p-4 rounded-lg text-base font-semibold hover:shadow-lg hover:shadow-blue-500/50 flex items-center justify-center gap-3">
+          <span class="text-2xl">🔥</span>
+          <div class="text-left">
+            <div>Forge My Resume</div>
+            <div class="text-xs font-normal opacity-90">AI tailors to match job description</div>
+          </div>
+        </button>
+
+        <!-- Forge Options -->
+        <details class="mt-3">
+          <summary class="cursor-pointer text-sm font-medium text-slate-300 p-3 rounded hover:bg-slate-800 flex justify-between">
+            <span>⚙️ Forge Options</span>
+            <span>▾</span>
+          </summary>
+          <div class="mt-2 space-y-4 p-4 bg-slate-800/50 rounded">
+            <div>
+              <label class="text-xs font-medium text-slate-300 block mb-2">Tailoring Strength</label>
+              <input type="range" id="tailoringSlider" min="0" max="2" value="1" class="w-full">
+              <div class="flex justify-between text-xs text-slate-400 mt-1">
+                <span>🛡 Preserve</span>
+                <span>⚖️ Balanced</span>
+                <span>🎯 Aggressive</span>
+              </div>
+              <p id="strategyDescription" class="text-xs text-slate-400 mt-2">Balanced — integrates JD keywords while keeping it authentic</p>
+            </div>
+
+            <div>
+              <label class="text-xs font-medium text-slate-300 block mb-2">Page Length</label>
+              <div class="flex gap-2">
+                <button id="pageMode1" class="btn-secondary flex-1 text-sm active" data-mode="1page">1 Page</button>
+                <button id="pageMode2" class="btn-secondary flex-1 text-sm" data-mode="2page">2 Pages</button>
+              </div>
+            </div>
+
+            <button id="generateBaseBtn" class="w-full btn-secondary text-sm">📄 Export without AI</button>
+          </div>
+        </details>
+      </div>
+
+      <!-- Actions (Post-Generation) -->
+      <div id="actions" class="hidden space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <button id="previewBtn" class="btn-primary p-4 rounded-lg font-medium flex flex-col items-center gap-1">
+            <span class="text-2xl">🔍</span>
+            <span class="text-sm">Preview</span>
+          </button>
+          <button id="downloadBtn" class="btn-primary p-4 rounded-lg font-medium flex flex-col items-center gap-1">
+            <span class="text-2xl">⬇️</span>
+            <span class="text-sm">Download</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <button id="editBtn" class="btn-secondary p-3 rounded-lg font-medium flex flex-col items-center gap-1 text-sm">
+            <span>✏️</span>
+            <span>Fine-Tune</span>
+          </button>
+          <button id="copyContentBtn" class="btn-secondary p-3 rounded-lg font-medium flex flex-col items-center gap-1 text-sm">
+            <span>📋</span>
+            <span>Copy</span>
+          </button>
+        </div>
+
+        <!-- More Tools -->
+        <details>
+          <summary class="cursor-pointer text-sm font-medium text-slate-300 p-3 rounded hover:bg-slate-800 flex justify-between">
+            <span>More tools</span>
+            <span>▾</span>
+          </summary>
+          <div class="mt-2 grid grid-cols-3 gap-2">
+            <button id="analyzeBtn" class="btn-secondary p-2 rounded-lg text-xs flex flex-col items-center gap-1">
+              <span>📊</span>
+              ATS Score
+            </button>
+            <button id="formatBtn" class="btn-secondary p-2 rounded-lg text-xs flex flex-col items-center gap-1">
+              <span>🎨</span>
+              Style
+            </button>
+            <button id="historyBtn" class="btn-secondary p-2 rounded-lg text-xs flex flex-col items-center gap-1">
+              <span>🕰</span>
+              History
+            </button>
+          </div>
+        </details>
+
+        <!-- Generation Progress -->
+        <div id="generationProgress" class="hidden card">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="spinner"></div>
+            <span id="progressStepText" class="text-sm font-medium">Preparing...</span>
+          </div>
+          <div class="progress-bar">
+            <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+          </div>
+          <p id="progressDetail" class="text-xs text-slate-400 mt-2"></p>
+        </div>
+
+        <div id="diffSummaryContainer"></div>
+      </div>
+
+      <!-- Copy UI -->
+      <div id="copyUI" class="hidden card">
+        <div class="flex-between mb-4">
+          <h3 class="font-bold">Copy Content</h3>
+          <button id="closeCopyBtn" class="btn-ghost p-2">✕</button>
+        </div>
+        <div id="copyList" class="space-y-2"></div>
+      </div>
+
+      <!-- Analysis Results -->
+      <div id="analysisResults" class="hidden card mt-6">
+        <h3 class="font-bold border-b border-slate-700 pb-3 mb-4">ATS Analysis</h3>
+        <div class="flex items-center gap-4 mb-4">
+          <div id="atsScore" class="text-4xl font-bold">--</div>
+          <div>
+            <div class="font-semibold">Match Score</div>
+            <p class="text-xs text-slate-400">Keywords matched</p>
+          </div>
+        </div>
+        <div id="analysisDetails"></div>
+      </div>
+
+      <!-- Format UI (collapsed) -->
+      <div id="formatUI" class="hidden card mt-6">
+        <div class="flex-between mb-4">
+          <h3 class="font-bold">Resume Style</h3>
+          <button id="closeFormatBtn" class="btn-ghost p-2">✕</button>
+        </div>
+        <div id="formatContent"></div>
+      </div>
+
+      <!-- History UI (collapsed) -->
+      <div id="historyUI" class="hidden card mt-6">
+        <div class="flex-between mb-4">
+          <h3 class="font-bold">Resume History</h3>
+          <button id="closeHistoryBtn" class="btn-ghost p-2">✕</button>
+        </div>
+        <div id="historyList" class="space-y-2"></div>
+      </div>
+
+      <!-- Question Helper -->
+      <details class="card mt-6">
+        <summary class="cursor-pointer font-semibold flex justify-between">
+          <span>💡 Application Question Helper</span>
+          <span>▾</span>
+        </summary>
+        <div class="mt-4">
+          <textarea id="questionInput" placeholder="Paste any application question (e.g., 'Why are you interested in this role?')" class="w-full p-2 rounded border border-slate-600 bg-slate-800 text-sm h-16 mb-3"></textarea>
+          <button id="askBtn" class="btn-primary w-full">Generate Answer</button>
+          <div id="answerOutput" class="hidden mt-4 p-3 rounded bg-slate-800 text-sm text-slate-300"></div>
         </div>
       </details>
-
-      <!-- Footer Actions -->
-      <div class="format-footer">
-        <button id="previewFormatBtn" class="format-preview-btn">👁 Preview</button>
-        <button id="resetFormatBtn" class="format-reset-btn">↩ Reset</button>
-      </div>
     </div>
+  </div>
 
-    <!-- History UI -->
-    <div id="historyUI" class="hidden card">
-      <div class="flex-between" style="margin-bottom: 12px;">
-        <h3>Resume History</h3>
-        <button id="closeHistoryBtn" class="secondary-btn icon-btn">✕</button>
-      </div>
-      <div id="historyList"></div>
-    </div>
-
-    <!-- Editor UI -->
-    <div id="editorUI" class="hidden">
-      <!-- Editor Header — compact -->
-      <div class="editor-header">
-        <div class="editor-header-left">
-          <h3 class="editor-title">Edit Resume</h3>
-          <span id="atsScoreBadge" class="ats-badge" style="display:none;"></span>
-        </div>
-        <div class="editor-header-actions">
-          <button id="reorderBtn" class="editor-icon-btn" title="Reorder sections">⇅</button>
-          <button id="popoutEditorBtn" class="editor-icon-btn" title="Open in full editor">↗</button>
+  <!-- Editor UI -->
+  <div id="editorUI" class="hidden animate-in">
+    <div class="container">
+      <div class="flex-between mb-6 pb-4 border-b border-slate-700">
+        <h2 class="text-xl font-bold">Edit Resume</h2>
+        <div class="flex gap-2">
+          <button id="reorderBtn" class="btn-ghost p-2" title="Reorder sections">⇅</button>
+          <button id="popoutEditorBtn" class="btn-ghost p-2" title="Full editor">↗</button>
         </div>
       </div>
 
-      <!-- Reorder Box (hidden by default) -->
-      <div id="reorderUI" class="hidden card" style="background:#f1f5f9;">
-        <h4 style="font-size:13px; margin-bottom:10px;">Drag to Reorder</h4>
-        <ul id="sortableSections" style="list-style:none; padding:0; margin:0 0 10px 0;"></ul>
-        <div class="flex-between" style="gap:8px;">
-          <button id="saveOrderBtn" class="primary-btn" style="flex:1;">Save</button>
-          <button id="cancelOrderBtn" class="secondary-btn" style="flex:1;">Cancel</button>
+      <!-- Reorder UI -->
+      <div id="reorderUI" class="hidden card mb-6 bg-slate-800/50">
+        <h4 class="font-semibold mb-3">Drag to Reorder</h4>
+        <ul id="sortableSections" class="space-y-2 mb-4"></ul>
+        <div class="flex gap-2">
+          <button id="saveOrderBtn" class="btn-primary flex-1">Save</button>
+          <button id="cancelOrderBtn" class="btn-secondary flex-1">Cancel</button>
         </div>
       </div>
 
-      <!-- Section Selector — clean dropdown -->
-      <div class="editor-section-selector">
-        <select id="sectionSelect" class="editor-section-dropdown">
-          <optgroup label="Sections">
-            <option value="summary">Summary</option>
-            <option value="education">Education</option>
-            <option value="skills">Skills</option>
-            <option value="experience">Experience</option>
-            <option value="projects">Projects</option>
-            <option value="leadership">Leadership</option>
-            <option value="research">Research & Publications</option>
-            <option value="certifications">Certifications</option>
-            <option value="awards">Awards & Honors</option>
-            <option value="volunteering">Volunteering</option>
-            <option value="languages">Languages</option>
-            <option value="contact">Contact Info</option>
-          </optgroup>
+      <!-- Section Selector -->
+      <div class="mb-6">
+        <select id="sectionSelect" class="w-full p-2 rounded border border-slate-600 bg-slate-800">
+          <option value="summary">Summary</option>
+          <option value="education">Education</option>
+          <option value="skills">Skills</option>
+          <option value="experience">Experience</option>
+          <option value="projects">Projects</option>
+          <option value="leadership">Leadership</option>
+          <option value="research">Research & Publications</option>
+          <option value="certifications">Certifications</option>
+          <option value="awards">Awards & Honors</option>
+          <option value="volunteering">Volunteering</option>
+          <option value="languages">Languages</option>
+          <option value="contact">Contact Info</option>
         </select>
       </div>
 
-      <!-- Editor Form Content — scrollable -->
-      <div id="formContainer" class="editor-form-scroll"></div>
+      <!-- Form Container -->
+      <div id="formContainer" class="max-h-96 overflow-y-auto mb-6 space-y-4"></div>
 
-      <!-- Sticky Footer — simplified to 3 buttons -->
-      <div class="editor-footer">
-        <div class="editor-footer-primary">
-          <button id="saveManualBtn" class="editor-save-btn">
-            <span>💾 Save</span>
-          </button>
-          <button id="saveRegenBtn" class="editor-regen-btn">
-            <span>✨ Save & Re-tailor</span>
-          </button>
-        </div>
-        <button id="cancelEditBtn" class="editor-cancel-btn">Cancel</button>
+      <!-- Footer -->
+      <div class="sticky bottom-0 bg-slate-900 border-t border-slate-700 -mx-4 px-4 py-4 flex gap-3">
+        <button id="saveManualBtn" class="btn-primary flex-1">💾 Save</button>
+        <button id="saveRegenBtn" class="btn-primary flex-1">✨ Save & Re-tailor</button>
+        <button id="cancelEditBtn" class="btn-secondary flex-1">Cancel</button>
       </div>
-    </div>
-
-    <!-- Analysis Results -->
-    <div id="analysisResults" class="hidden card" style="margin-top:16px;">
-      <h3 style="border-bottom:1px solid #e2e8f0; padding-bottom:8px;">ATS Analysis</h3>
-      <div style="display: flex; align-items: center; gap:16px; margin-bottom: 12px;">
-        <div id="atsScore">--</div>
-        <div>
-          <div style="font-weight:700; font-size:14px;">Match Score</div>
-          <div class="text-sm text-muted">Analysis based on basic keywords</div>
-        </div>
-      </div>
-      <div id="analysisDetails"></div>
-    </div>
-
-    <!-- Question Helper -->
-    <div style="margin-top: 20px;">
-      <details class="card" style="padding:0; overflow:hidden;">
-        <summary
-          style="padding:12px; font-weight:600; cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center;">
-          💡 Application Question Helper <span style="font-size:10px;">▼</span>
-        </summary>
-        <div style="padding:16px; border-top:1px solid #f1f5f9;">
-          <textarea id="questionInput"
-            placeholder="Paste any application question here (e.g., &quot;Why are you interested in this role?&quot; or &quot;Describe a time you led a team&quot;)"
-            style="height:60px; margin-bottom:8px;"></textarea>
-          <div style="display:flex; justify-content:flex-end;">
-            <button id="askBtn" class="primary-btn" style="font-size:12px; padding:6px 12px;">Generate Answer</button>
-          </div>
-          <div id="answerOutput" class="hidden" style="margin-top:12px;"></div>
-        </div>
-      </details>
     </div>
   </div>
 
-  <footer style="text-align: center; padding: 12px 0 4px; margin-top: 20px; border-top: 1px solid var(--border-color);">
-    <div style="font-size: 9px; color: var(--text-muted);">
-      ForgeCV v1.0.1 · Your data stays on your device · API keys are stored locally
-    </div>
-  </footer>
-
-  <div id="toastContainer"
-    style="position:fixed; top:12px; right:12px; z-index:1000; display:flex; flex-direction:column; gap:8px; pointer-events:none;">
-  </div>
+  <!-- Toast Container -->
+  <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
   <!-- Scripts -->
   <script src="jspdf.umd.min.js"></script>
   <script type="module" src="pdf_init.js"></script>
   <script src="loader.js"></script>
 </body>
-
 </html>

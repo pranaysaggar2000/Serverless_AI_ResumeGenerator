@@ -14,7 +14,8 @@ export function showStatus(message, type = 'info', elementId = 'status') {
         if (!message) return;
 
         const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
+        const statusClass = `status-${type}`;
+        toast.className = `${statusClass} flex items-center gap-2 px-4 py-3 rounded-lg animate-in shadow-lg`;
 
         const icon = {
             'success': '✅',
@@ -23,7 +24,7 @@ export function showStatus(message, type = 'info', elementId = 'status') {
             'warning': '⚠️'
         }[type] || 'ℹ️';
 
-        toast.innerHTML = `<span style="flex-shrink:0;">${icon}</span> <span style="line-height:1.4;">${message}</span>`;
+        toast.innerHTML = `<span style="flex-shrink:0; font-size:16px;">${icon}</span> <span style="line-height:1.4; flex:1;">${message}</span>`;
 
         // Limit to 3 visible toasts
         while (container.children.length >= 3) {
@@ -35,7 +36,7 @@ export function showStatus(message, type = 'info', elementId = 'status') {
         const duration = type === 'error' ? 5000 : 3000;
 
         setTimeout(() => {
-            toast.classList.add('fade-out');
+            toast.style.animation = 'fadeOut 0.3s ease-out forwards';
             setTimeout(() => {
                 if (toast.parentNode) toast.remove();
             }, 300);
@@ -53,7 +54,7 @@ export function showStatus(message, type = 'info', elementId = 'status') {
     }
 
     statusEl.innerHTML = message;
-    statusEl.className = type;
+    statusEl.className = `status-${type}`;
     statusEl.style.display = 'block';
 }
 

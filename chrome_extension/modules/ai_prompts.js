@@ -152,6 +152,7 @@ REWRITING RULES:
 3. SKILLS: Put JD keywords first.
 4. INTEGRITY: Never invent roles, dates, or metrics.
 5. SECTION_ORDER must only contain renderable body sections: summary, education, skills, experience, projects, research, leadership, certifications, awards, volunteering, languages. NEVER include "name" or "contact" in section_order.
+6. FORMATTING: Never insert spaces between letters in words. "P y t h o n" is WRONG, "Python" is correct. All text must use normal word spacing.
 
 Return ONLY valid JSON wrapped in a markdown code block.
 
@@ -283,24 +284,44 @@ export function convert_markdown_to_html(text) {
     return text;
 }
 
+/**
+ * Detect and fix character-spaced hallucinations like "P y t h o n" → "Python"
+ */
+function deCharSpace(str) {
+    if (!str || typeof str !== 'string' || str.length < 5) return str;
+
+    const spacedPattern = /(?<=\S) (?=\S)/g;
+    const spaces = (str.match(spacedPattern) || []).length;
+    const nonSpaceChars = str.replace(/\s/g, '').length;
+
+    if (spaces < nonSpaceChars * 0.4) return str;
+
+    return str
+        .replace(/(\S) (?=\S)/g, '$1')
+        .replace(/,(\S)/g, ', $1')
+        .replace(/\+\+/g, '++')
+        .replace(/\.(\w)/g, '.$1');
+}
+
 export function clean_tailored_resume(resume_data) {
     if (resume_data.summary) {
-        resume_data.summary = convert_markdown_to_html(resume_data.summary);
+        resume_data.summary = convert_markdown_to_html(deCharSpace(resume_data.summary));
     }
 
     if (resume_data.skills) {
-        for (const cat in resume_data.skills) {
-            let val = resume_data.skills[cat];
-            if (Array.isArray(val)) val = val.join(", ");
-            resume_data.skills[cat] = convert_markdown_to_html(String(val));
+        const fixedSkills = {};
+        for (const [cat, val] of Object.entries(resume_data.skills)) {
+            let v = Array.isArray(val) ? val.join(", ") : String(val);
+            fixedSkills[deCharSpace(cat)] = convert_markdown_to_html(deCharSpace(v));
         }
+        resume_data.skills = fixedSkills;
     }
 
     ['experience', 'projects', 'leadership', 'research', 'volunteering'].forEach(sec => {
         if (resume_data[sec]) {
             resume_data[sec].forEach(item => {
                 if (item.bullets) {
-                    item.bullets = item.bullets.map(b => convert_markdown_to_html(b));
+                    item.bullets = item.bullets.map(b => convert_markdown_to_html(deCharSpace(b)));
                 }
             });
         }

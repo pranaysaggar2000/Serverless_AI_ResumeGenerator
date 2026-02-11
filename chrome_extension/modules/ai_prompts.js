@@ -237,40 +237,40 @@ JOB CONTEXT: ${jdText ? jdText.substring(0, 800) : 'Not provided'}
 // ---------- 6. Extract Profile from Resume Text ----------
 
 export function buildExtractProfilePrompt(resumeText) {
-    return `Parse this resume text into structured JSON.The text may be jumbled from PDF extraction.
+    return `Parse this resume text into structured JSON. The text may be jumbled from PDF extraction.
 
 RESUME TEXT:
 ${resumeText}
 
-    RULES:
-    - Name: usually the first prominent text
-        - Contact: look for email, phone(xxx - xxx - xxxx), city / state, URLs, "[Extracted Link: ...]" patterns
-            - Map non - standard headers to standard sections(e.g. "Work History" → experience, "Core Competencies" → skills)
-                - Each bullet = one accomplishment.Split run - on text at action verbs.
+RULES:
+- Name: usually the first prominent text
+- Contact: look for email, phone (xxx-xxx-xxxx), city/state, URLs, "[Extracted Link: ...]" patterns
+- Map non-standard headers to standard sections (e.g. "Work History" → experience, "Core Competencies" → skills)
+- Each bullet = one accomplishment. Split run-on text at action verbs.
 - Dates: normalize to "Mon YYYY - Mon YYYY" or "Mon YYYY - Present"
-        - Skills: group by category.Keep original categories if present.
+- Skills: group by category. Keep original categories if present.
 - Preserve ALL metrics, numbers, percentages exactly as written
-        - section_order: list sections in the order they appear in the original
-            - Only include sections that have content
-                - Do NOT rephrase bullets — preserve exact wording
+- section_order: list sections in the order they appear in the original
+- Only include sections that have content
+- Do NOT rephrase bullets — preserve exact wording
 
 Return ONLY this JSON:
-    {
-        "name": "",
-            "contact": { "location": "", "phone": "", "email": "", "linkedin_url": "", "portfolio_url": "" },
-        "summary": "",
-            "education": [{ "institution": "", "degree": "", "gpa": "", "dates": "", "location": "", "bullets": [] }],
-                "skills": { "Category": "skill1, skill2" },
-        "experience": [{ "company": "", "role": "", "dates": "", "location": "", "bullets": [] }],
-            "projects": [{ "name": "", "tech": "", "dates": "", "bullets": [] }],
-                "leadership": [{ "organization": "", "role": "", "dates": "", "location": "", "bullets": [] }],
-                    "research": [{ "title": "", "conference": "", "dates": "", "link": "", "bullets": [] }],
-                        "certifications": [{ "name": "", "issuer": "", "dates": "" }],
-                            "awards": [{ "name": "", "organization": "", "dates": "" }],
-                                "volunteering": [{ "organization": "", "role": "", "dates": "", "location": "", "bullets": [] }],
-                                    "languages": "",
-                                        "section_order": []
-    } `;
+{
+  "name": "",
+  "contact": {"location": "", "phone": "", "email": "", "linkedin_url": "", "portfolio_url": ""},
+  "summary": "",
+  "education": [{"institution": "", "degree": "", "gpa": "", "dates": "", "location": "", "bullets": []}],
+  "skills": {"Category": "skill1, skill2"},
+  "experience": [{"company": "", "role": "", "dates": "", "location": "", "bullets": []}],
+  "projects": [{"name": "", "tech": "", "dates": "", "bullets": []}],
+  "leadership": [{"organization": "", "role": "", "dates": "", "location": "", "bullets": []}],
+  "research": [{"title": "", "conference": "", "dates": "", "link": "", "bullets": []}],
+  "certifications": [{"name": "", "issuer": "", "dates": ""}],
+  "awards": [{"name": "", "organization": "", "dates": ""}],
+  "volunteering": [{"organization": "", "role": "", "dates": "", "location": "", "bullets": []}],
+  "languages": "",
+  "section_order": []
+}`;
 }
 
 // ============================================================
@@ -429,12 +429,16 @@ export function restore_immutable_fields(original, generated) {
 
 export function enforce_bullet_limits(resume_data, bullet_counts) {
     if (!bullet_counts) return resume_data;
-    ['experience', 'projects', 'leadership'].forEach(sec => {
+    ['experience', 'projects', 'leadership', 'research'].forEach(sec => {
         if (bullet_counts[sec] && resume_data[sec]) {
             const counts = bullet_counts[sec];
             resume_data[sec].forEach((item, i) => {
                 if (i < counts.length && item.bullets) {
-                    item.bullets = item.bullets.slice(0, counts[i]);
+                    const requested = counts[i];
+                    const actual = item.bullets.length;
+                    if (actual > requested) {
+                        item.bullets = item.bullets.slice(0, requested);
+                    }
                 }
             });
         }

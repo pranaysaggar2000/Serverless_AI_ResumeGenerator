@@ -82,6 +82,11 @@ export async function extractBaseProfile(text, apiKey, provider) {
         // Python did this inside the function. We can do it here or in prompts helper.
         // Let's do it here to keep prompts pure text builders.
 
+        if (data.section_order) {
+            const NON_SECTION_KEYS = ['name', 'contact', 'section_order', 'section_titles', 'excluded_items'];
+            data.section_order = data.section_order.filter(s => !NON_SECTION_KEYS.includes(s));
+        }
+
         if (data.experience) {
             data.experience.forEach(item => {
                 if (!item.role) {

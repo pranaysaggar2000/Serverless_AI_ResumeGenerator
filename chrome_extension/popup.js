@@ -34,7 +34,7 @@ import { logError, logWarn, sendFeedback } from './modules/logger.js';
 
 // CSP COMPLIANCE: Delegate clicks for dynamically injected links
 document.addEventListener('click', (e) => {
-    if (e.target && e.target.classList.contains('settings-redirect')) {
+    if (e.target && (e.target.classList.contains('settings-redirect') || e.target.classList.contains('settings-link'))) {
         e.preventDefault();
         showSettings();
     }
@@ -42,6 +42,8 @@ document.addEventListener('click', (e) => {
 
 let isScanning = false;
 let tabDetectionTimer = null;
+let lastProfileSection = 'summary';
+let lastEditorSection = 'summary';
 
 const setupUI = document.getElementById('setupUI');
 const mainUI = document.getElementById('mainUI');
@@ -382,7 +384,8 @@ async function loadState() {
         'auth_mode',
         'page_mode',
         'excluded_items',
-        'must_include_items'
+        'must_include_items',
+        'jd_keywords'
     ]);
 
     // Backward compatibility: use last_analysis as fallback for jd_analysis
@@ -398,12 +401,14 @@ async function loadState() {
         tailoringStrategy: data.tailoring_strategy || "balanced",
         lastAnalysis: data.ats_analysis || null,
         currentJdAnalysis: jdAnalysis,
-        lastParsedJdText: data.last_parsed_jd_text || "",  // Load cached JD text
+        lastParsedJdText: data.last_parsed_jd_text || "",
         jdKeywords: jdAnalysis ? [
             ...(jdAnalysis.mandatory_keywords || []),
             ...(jdAnalysis.preferred_keywords || []),
             ...(jdAnalysis.industry_terms || [])
-        ].map(k => k.toLowerCase()) : [],
+        ].map(k => k.toLowerCase()) : (data.jd_keywords || []),
+        excludedItems: data.excluded_items || null,
+        mustIncludeItems: data.must_include_items || null,
         activeProfile: data.active_profile || 'default',
         currentJdText: data.current_jd_text || "",
         detectedJobTitle: data.detected_job_title || null,
@@ -450,13 +455,6 @@ async function loadState() {
     }, 100);
 
     updateActiveProfileLabel(state.activeProfile);
-
-    // Restore excluded items
-    const storedExcluded = data.excluded_items || null;
-    updateState({ excludedItems: storedExcluded });
-
-    // Restore must include items
-    updateState({ mustIncludeItems: data.must_include_items || null });
 
     setupSettings();
     updateJdStatus();
@@ -1017,8 +1015,10 @@ function setupEventListeners() {
     });
 
     // Profile Section Change
-    document.getElementById('profileSectionSelect').addEventListener('change', (e) => {
-        // Updated Fix: Render only to the profile container
+    document.getElementById('profileSectionSelect').addEventListener('change', async (e) => {
+        // Auto-save current section before switching
+        await saveProfileChanges(lastProfileSection, 'profileFormContainer');
+        lastProfileSection = e.target.value;
         renderProfileEditor(e.target.value, null, 'profileFormContainer');
     });
 
@@ -1301,7 +1301,10 @@ function setupEventListeners() {
 
 
     // Generate Button
+    let isForging = false;
     generateBtn.addEventListener('click', async () => {
+        if (isForging) return;
+        isForging = true;
         debugLog("Generate (AI) clicked");
         // Drag and drop removed
 
@@ -1363,7 +1366,8 @@ function setupEventListeners() {
             if (state.authMode === 'free') updateUsageDisplay();
             await chrome.storage.local.set({
                 tailored_resume: newResume,
-                jd_analysis: analysis
+                jd_analysis: analysis,
+                jd_keywords: keywords
             });
 
             // Show notification if items were excluded
@@ -1469,13 +1473,16 @@ function setupEventListeners() {
             }
             setTimeout(hideProgress, 3000);
         } finally {
+            isForging = false;
             setButtonLoading(generateBtn, false, "🔥 Forge My Resume");
             buttonsToDisable.forEach(b => { if (b) b.disabled = false; });
         }
     });
 
     if (downloadBtn) {
-        downloadBtn.addEventListener('click', () => generateAndDownloadPDF(state.tailoredResume));
+        downloadBtn.addEventListener('click', async () => {
+            await generateAndDownloadPDF(state.tailoredResume);
+        });
     }
 
     if (previewBtn) {
@@ -1492,7 +1499,7 @@ function setupEventListeners() {
                 if (result instanceof Blob) {
                     const url = URL.createObjectURL(result);
                     chrome.tabs.create({ url: url });
-                    setTimeout(() => URL.revokeObjectURL(url), 120000); // 2 mins
+                    setTimeout(() => URL.revokeObjectURL(url), 300000); // 5 mins
                     showStatus("Preview opened in new tab", "success");
                 } else if (result.error) {
                     throw new Error(result.error);
@@ -1589,6 +1596,7 @@ function setupEventListeners() {
             document.getElementById('editorUI').style.display = 'block';
             document.getElementById('actions').style.display = 'none';
             // Default to summary or first available
+            lastEditorSection = 'summary';
             document.getElementById('sectionSelect').value = 'summary';
             renderProfileEditor('summary', state.tailoredResume, 'formContainer');
         });
@@ -1596,9 +1604,10 @@ function setupEventListeners() {
 
     const sectionSelect = document.getElementById('sectionSelect');
     if (sectionSelect) {
-        sectionSelect.addEventListener('change', (e) => {
-            // Updated Fix: Don't pass resumeToEdit (null) so logic uses currentEditingResume clone.
-            // This prevents re-cloning on every switch and ensures unsaved edits persist across sections.
+        sectionSelect.addEventListener('change', async (e) => {
+            // Auto-save current section before switching
+            await saveProfileChanges(lastEditorSection, 'formContainer');
+            lastEditorSection = e.target.value;
             renderProfileEditor(e.target.value, null, 'formContainer');
         });
     }
@@ -1736,8 +1745,10 @@ function setupEventListeners() {
                     setButtonLoading(saveRegenBtn, false, "Save & Regenerate");
                     return;
                 } else {
+                    // Use latest in-memory resume (Bug 4)
+                    const resumeToRegen = getCurrentEditingResume('formContainer') || state.tailoredResume;
                     const regenData = await regenerateResume(
-                        state.tailoredResume,
+                        resumeToRegen,
                         bulletCounts,
                         jdAnalysis,
                         activeKey,
@@ -1802,7 +1813,7 @@ function setupEventListeners() {
                 if (result instanceof Blob) {
                     const url = URL.createObjectURL(result);
                     chrome.tabs.create({ url });
-                    setTimeout(() => URL.revokeObjectURL(url), 120000);
+                    setTimeout(() => URL.revokeObjectURL(url), 300000); // 5 mins
                 }
                 editorPreviewBtn.textContent = originalText;
             } catch (e) {
@@ -1942,7 +1953,7 @@ async function generateAndDownloadPDF(resumeData) {
         a.click();
         document.body.removeChild(a);
 
-        setTimeout(() => { URL.revokeObjectURL(url); }, 60000);
+        setTimeout(() => { URL.revokeObjectURL(url); }, 300000); // 5 mins
     }
 }
 

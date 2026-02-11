@@ -94,23 +94,29 @@ export function extractJobDescription(debugEnabled = false) {
         }
     }
 
-    // 3. Shadow DOM & Body Fallback
+    // 3. Consolidated Body Fallback (Traverses Shadow DOM & Removes Noise)
     if (!jdText) {
-        debug("No selector match. Using deep text extraction...");
-        const deepText = getDeepInnerText(document.body);
-        if (deepText.length > 200) {
-            jdText = cleanText(deepText);
-            debug(`Extracted deep text: ${jdText.length} chars`);
-        }
-    }
-
-    // 4. Final Body Fallback (Cleaned)
-    if (!jdText) {
-        debug("Final fallback: Cleaned body text...");
+        debug("No selector match. Using cleaned body text...");
         const bodyClone = document.body.cloneNode(true);
-        const noise = bodyClone.querySelectorAll('nav, footer, header, aside, script, style, noscript, iframe');
+        const noiseSelectors = 'nav, footer, header, aside, script, style, noscript, iframe, [role="navigation"], [role="banner"], [class*="cookie"], [class*="sidebar"], [class*="menu"], [id*="cookie"], [id*="footer"], [id*="nav"]';
+        const noise = bodyClone.querySelectorAll(noiseSelectors);
         noise.forEach(n => n.remove());
-        jdText = cleanText(bodyClone.innerText || bodyClone.textContent);
+
+        // Try clean fallback from standard clone
+        const cleanedText = cleanText(bodyClone.innerText || bodyClone.textContent);
+
+        if (cleanedText.length > 500) {
+            jdText = cleanedText;
+            debug(`Body fallback match: ${jdText.length} chars`);
+        } else {
+            // Last resort: deep text if standard body text was too small
+            const deepText = getDeepInnerText(document.body);
+            const cleanedDeep = cleanText(deepText);
+            if (cleanedDeep.length > 500) {
+                jdText = cleanedDeep;
+                debug(`Deep text fallback match: ${jdText.length} chars`);
+            }
+        }
     }
 
     // Truncate if extreme

@@ -107,7 +107,7 @@ export function setupReorderUI(generateAndCachePDFCallback) {
             const isVisible = reorderUI.style.display === 'block';
             if (!isVisible) {
                 const activeSection = document.getElementById('sectionSelect').value;
-                await saveProfileChanges(activeSection);
+                await saveProfileChanges(activeSection, 'formContainer');
                 reorderUI.style.display = 'block';
                 renderReorderList();
             } else {
@@ -131,8 +131,10 @@ export function setupReorderUI(generateAndCachePDFCallback) {
             });
 
             if (state.tailoredResume) {
-                state.tailoredResume.section_order = newOrder;
-                await chrome.storage.local.set({ tailored_resume: state.tailoredResume });
+                const updated = JSON.parse(JSON.stringify(state.tailoredResume));
+                updated.section_order = newOrder;
+                updateState({ tailoredResume: updated });
+                await chrome.storage.local.set({ tailored_resume: updated });
 
                 saveOrderBtn.textContent = "Updating PDF...";
                 saveOrderBtn.disabled = true;

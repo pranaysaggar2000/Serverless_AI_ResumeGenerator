@@ -2,6 +2,7 @@ import { state, updateState } from './state.js';
 import { generatePdf } from './api.js';
 import { showStatus, showMainUI, showSetupUI, showSettings } from './ui.js';
 import { checkCurrentProviderKey } from './utils.js';
+import { getCurrentEditingResume } from './editor.js';
 
 // Local helper to invalidate PDF cache (drag and drop removed)
 function invalidatePdfCache() {
@@ -192,7 +193,8 @@ export function setupFormatUI() {
                 showStatus("No resume to preview", "error");
                 return;
             }
-            const resume = state.tailoredResume || state.baseResume;
+
+            const resume = getCurrentEditingResume('formContainer') || state.tailoredResume || state.baseResume;
             // Show loading
             previewFormatBtn.textContent = "Generating...";
             try {

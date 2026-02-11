@@ -721,6 +721,12 @@ function renderItemBlock(container, item, section) {
             const newTa = bContainer.lastElementChild.querySelector('textarea');
             handleInput(newTa); // Initial
             newTa.addEventListener('input', () => handleInput(newTa));
+
+            // Sync bullet count display
+            syncBulletCountDisplay(div, bContainer);
+
+            // Persist preference
+            updateBulletPreference(container, section);
         };
         bContainer.addEventListener('click', (e) => {
             if (e.target.classList.contains('remove-bullet-btn')) {
@@ -729,6 +735,12 @@ function renderItemBlock(container, item, section) {
                 checkKeywordLoss(bulletText);
 
                 bulletItem.remove();
+
+                // Sync bullet count display
+                syncBulletCountDisplay(div, bContainer);
+
+                // Persist preference
+                updateBulletPreference(container, section);
 
                 // Refresh live score
                 const formContainer = container.closest('[data-editor-mode]') || container;
@@ -750,11 +762,20 @@ function renderItemBlock(container, item, section) {
 
         if (decreaseBtn) decreaseBtn.onclick = () => {
             let c = parseInt(countInput.value) || 0;
-            if (c > 0) { countInput.value = --c; countDisplay.textContent = c; }
+            if (c > 0) {
+                countInput.value = --c;
+                countDisplay.textContent = c;
+                // Persist to in-memory resume immediately
+                updateBulletPreference(container, section);
+            }
         };
         if (increaseBtn) increaseBtn.onclick = () => {
             let c = parseInt(countInput.value) || 0;
-            if (c < 10) { countInput.value = ++c; countDisplay.textContent = c; }
+            if (c < 10) {
+                countInput.value = ++c;
+                countDisplay.textContent = c;
+                updateBulletPreference(container, section);
+            }
         };
     }
 
@@ -807,6 +828,29 @@ function updateCharCount(field) {
     counter.textContent = `${len} / 200`; // Suggested limit
     if (len > 200) counter.classList.add('warning');
     else counter.classList.remove('warning');
+}
+
+function syncBulletCountDisplay(itemBlock, bulletContainer) {
+    const count = bulletContainer.querySelectorAll('.bullet-item').length;
+    const countInput = itemBlock.querySelector('.bullet-count-input');
+    const countDisplay = itemBlock.querySelector('.bullet-count-display');
+    if (countInput) countInput.value = count;
+    if (countDisplay) countDisplay.textContent = count;
+}
+
+function updateBulletPreference(container, section) {
+    const formContainer = container.closest('[data-editor-mode]') || container;
+    const es = getEditState(formContainer.id);
+    if (!es.resume || !es.resume[section]) return;
+
+    const itemBlocks = formContainer.querySelectorAll('.item-block');
+
+    itemBlocks.forEach((block, index) => {
+        const countInput = block.querySelector('.bullet-count-input');
+        if (countInput && es.resume[section][index]) {
+            es.resume[section][index].bullet_count_preference = parseInt(countInput.value) || 0;
+        }
+    });
 }
 
 function renderSkillBlock(container, category, skills) {
@@ -1003,8 +1047,9 @@ export async function saveProfileChanges(section, containerId = 'profileFormCont
     // Persist
     if (containerId === 'profileFormContainer') {
         // Base resume
-        await chrome.storage.local.set({ base_resume: es.resume });
-        updateState({ baseResume: es.resume });
+        const snapshot = JSON.parse(JSON.stringify(es.resume));
+        await chrome.storage.local.set({ base_resume: snapshot });
+        updateState({ baseResume: snapshot });
         refreshProfileName();
         // Also persist the display name
         if (es.resume.name) {
@@ -1012,8 +1057,9 @@ export async function saveProfileChanges(section, containerId = 'profileFormCont
         }
     } else {
         // Tailored resume
-        await chrome.storage.local.set({ tailored_resume: es.resume });
-        updateState({ tailoredResume: es.resume });
+        const snapshot = JSON.parse(JSON.stringify(es.resume));
+        await chrome.storage.local.set({ tailored_resume: snapshot });
+        updateState({ tailoredResume: snapshot });
     }
 
     const statusTarget = containerId === 'profileFormContainer' ? 'profileStatus' : 'status';

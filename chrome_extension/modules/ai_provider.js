@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { debugLog } from './utils.js';
+import { logWarn } from './logger.js';
 
 export async function callAI(prompt, provider, apiKey, options = {}) {
     debugLog('🤖 callAI invoked:', {
@@ -229,6 +230,7 @@ async function callGroq(prompt, apiKey, options) {
             } catch (e) {
                 if (e.name === 'AbortError' || e.message === "GROQ_AUTH_ERROR") throw e; // Propagate abort and auth
                 console.warn(`Groq model failed: ${modelId}`, e);
+                logWarn('model_fallback', `${modelId} failed`, { model: modelId, taskType: options.taskType, provider: 'groq' });
                 continue;
             }
         }
@@ -374,14 +376,9 @@ async function callOpenRouter(prompt, apiKey, options) {
                 }
 
             } catch (e) {
-                if (e.name === 'AbortError') {
-                    // This is the total timeout, not per-model
-                    throw e;
-                }
-                if (e.message === "OPENROUTER_AUTH_ERROR" || e.message === "OPENROUTER_PAYMENT_ERROR") {
-                    throw e; // Propagate critical errors
-                }
+                if (e.name === 'AbortError' || e.message === "OPENROUTER_AUTH_ERROR" || e.message === "OPENROUTER_PAYMENT_ERROR") throw e; // Propagate critical errors
                 console.warn(`OpenRouter model failed: ${modelId}`, e);
+                logWarn('model_fallback', `${modelId} failed`, { model: modelId, taskType: options.taskType, provider: 'openrouter' });
                 continue;
             }
         }

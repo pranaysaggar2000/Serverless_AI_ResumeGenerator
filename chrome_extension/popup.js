@@ -30,6 +30,7 @@ import { showProgress, hideProgress } from './modules/progress.js';
 import { saveVersion, setupHistoryUI } from './modules/history.js';
 import { setupFormatUI, loadFormatSettings, debouncedSaveFormat } from './modules/format.js';
 import { setupReorderUI } from './modules/reorder.js';
+import { logError, logWarn, sendFeedback } from './modules/logger.js';
 
 // Expose these to window so they can be called from inline HTML (like onclick in showStatus)
 window.showSettings = showSettings;
@@ -1287,9 +1288,10 @@ function setupEventListeners() {
                 document.getElementById('actions').style.display = 'block';
                 document.getElementById('actions').classList.remove('hidden');
 
-            } catch (e) {
-                console.error("Base Resume Error:", e);
-                showStatus(`Error preparing resume: ${e.message}`, "error");
+            } catch (error) {
+                console.error("Base Resume Error:", error);
+                logError('generate_base_resume_error', error);
+                showStatus(`Error preparing resume: ${error.message}`, "error");
             } finally {
                 setTimeout(() => { setButtonLoading(generateBaseBtn, false, "📄 Export Base Resume (No AI)"); }, 500);
             }
@@ -1385,12 +1387,47 @@ function setupEventListeners() {
                 ];
                 showStatus(wittySuccess[Math.floor(Math.random() * wittySuccess.length)], "success");
 
+                // Show Feedback UI
+                const diffContainer = document.getElementById('diffSummaryContainer');
+                if (diffContainer) {
+                    const feedbackDiv = document.createElement('div');
+                    feedbackDiv.id = 'forgeFeedback';
+                    feedbackDiv.style.textAlign = 'center';
+                    feedbackDiv.style.marginTop = '12px';
+                    feedbackDiv.style.padding = '8px';
+                    feedbackDiv.style.borderTop = '1px dashed #e2e8f0';
+                    feedbackDiv.innerHTML = `
+                        <span style="font-size:11px; color:#666; margin-right:8px;">How was this forge?</span>
+                        <button id="fbUp" style="border:none;background:none;cursor:pointer;font-size:16px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Good">👍</button>
+                        <button id="fbDown" style="border:none;background:none;cursor:pointer;font-size:16px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Bad">👎</button>
+                    `;
+
+                    // Remove existing if any
+                    const existing = document.getElementById('forgeFeedback');
+                    if (existing) existing.remove();
+
+                    diffContainer.after(feedbackDiv);
+
+                    document.getElementById('fbUp')?.addEventListener('click', () => {
+                        sendFeedback(1);
+                        feedbackDiv.innerHTML = '<span style="font-size:11px;color:#10b981;font-weight:600;">Glad it helped! ✓</span>';
+                        setTimeout(() => feedbackDiv.remove(), 3000);
+                    });
+
+                    document.getElementById('fbDown')?.addEventListener('click', () => {
+                        const reason = prompt('What went wrong? (Optional, helps us improve)');
+                        sendFeedback(-1, reason || '');
+                        feedbackDiv.innerHTML = '<span style="font-size:11px;color:#666;">Thanks for the feedback! We\'ll work on it.</span>';
+                        setTimeout(() => feedbackDiv.remove(), 3000);
+                    });
+                }
+
                 // Save Version
                 saveVersion(newResume, analysis ? (analysis.title || analysis.job_title || "New Role") : "Tailored Resume");
 
                 const diff = generateDiffSummary(state.baseResume, newResume);
-                const diffContainer = document.getElementById('diffSummaryContainer');
-                if (diff && diffContainer) {
+                let diffCont = document.getElementById('diffSummaryContainer');
+                if (diff && diffCont) {
                     const parts = [];
                     if (diff.bulletsChanged > 0) parts.push(`${diff.bulletsChanged} bullets tailored`);
                     if (diff.summaryChanged) parts.push('summary rewritten');
@@ -1398,10 +1435,10 @@ function setupEventListeners() {
                     if (diff.skillsRemoved > 0) parts.push(`${diff.skillsRemoved} skills removed`);
 
                     if (parts.length > 0) {
-                        diffContainer.innerHTML = `<div class="card" style="font-size:11px; padding:10px; margin-top:8px; background:#f0fdf4; border:1px solid #a7f3d0;">
+                        diffCont.innerHTML = `<div class="card" style="font-size:11px; padding:10px; margin-top:8px; background:#f0fdf4; border:1px solid #a7f3d0;">
                             ✨ AI changes: ${parts.join(' · ')}
                         </div>`;
-                        setTimeout(() => { diffContainer.innerHTML = ''; }, 10000);
+                        setTimeout(() => { diffCont.innerHTML = ''; }, 10000);
                     }
                 }
             }, 1000);
@@ -1834,6 +1871,7 @@ function setupEventListeners() {
                 setTimeout(() => showStatus("", ""), 3000);
 
             } catch (e) {
+                logError('score_failed', e, { taskType: 'score' });
                 if (e.message === 'SERVER_UNAVAILABLE') {
                     showStatus('Server unavailable. <a onclick="showSettings()">Add your own API key</a> for uninterrupted access.', 'warning');
                 } else {

@@ -3,6 +3,7 @@ import { callAI, extractJSON } from './ai_provider.js';
 import { debugLog } from './utils.js';
 import * as Prompts from './ai_prompts.js';
 import { generateResumePdf } from './pdf_builder.js';
+import { logError } from './logger.js';
 export async function extractText(file) {
     try {
         const arrayBuffer = await file.arrayBuffer();
@@ -104,6 +105,7 @@ export async function extractBaseProfile(text, apiKey, provider) {
 
     } catch (e) {
         console.error("extractBaseProfile failed", e);
+        logError('profile_extract_failed', e, { taskType: 'profile' });
         throw e;
     }
 }
@@ -226,6 +228,7 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
 
     } catch (e) {
         console.error("tailorResume failed", e);
+        logError('tailor_failed', e, { taskType: 'tailor' });
         throw e;
     }
 }
@@ -300,6 +303,7 @@ export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis,
 
     } catch (e) {
         console.error("regenerateResume failed", e);
+        logError('regen_failed', e, { taskType: 'tailor' });
         throw e;
     }
 }
@@ -328,6 +332,7 @@ export async function analyzeResume(resumeData, jdText, apiKey, provider) {
         return data;
     } catch (e) {
         console.error("analyzeResume failed", e);
+        logError('score_failed', e, { taskType: 'score' });
         return { error: e.message };
     }
 }

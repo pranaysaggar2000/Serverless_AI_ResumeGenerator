@@ -4,8 +4,17 @@ import { showConfirmDialog, debugLog } from './utils.js';
 import * as Prompts from './ai_prompts.js';
 import { renderLiveAtsBadge } from './ats_live.js';
 
-let currentEditingResume = null;
-let currentEditingResumeSource = null; // Track which state object we cloned from
+// Separate editing state for base profile vs tailored resume
+let editingState = {
+    profile: { resume: null, source: null },
+    tailored: { resume: null, source: null }
+};
+
+// Helper to get the right state for a container
+function getEditState(containerId) {
+    return containerId === 'profileFormContainer' ? editingState.profile : editingState.tailored;
+}
+
 let inputTimeout = null;
 
 function getExcludedItemsForSection(section) {
@@ -75,12 +84,14 @@ function escapeRegex(string) {
 }
 
 export function resetEditorState() {
-    currentEditingResume = null;
-    currentEditingResumeSource = null;
+    editingState = {
+        profile: { resume: null, source: null },
+        tailored: { resume: null, source: null }
+    };
 }
 
-export function getCurrentEditingResume() {
-    return currentEditingResume;
+export function getCurrentEditingResume(containerId = 'profileFormContainer') {
+    return getEditState(containerId).resume;
 }
 
 function escapeHtml(unsafe) {
@@ -170,18 +181,21 @@ function getSectionData(data, section) {
 }
 
 export function renderProfileEditor(section, resumeToEdit = null, containerId = 'profileFormContainer') {
+    const es = getEditState(containerId);
+
     if (resumeToEdit) {
-        // Deep clone ONLY if we're starting a new edit session or switching resumes
-        // To avoid re-cloning on every section switch which would lose unsaved edits from previous tabs
-        if (currentEditingResume === null || resumeToEdit !== currentEditingResumeSource) {
-            currentEditingResume = JSON.parse(JSON.stringify(resumeToEdit));
-            currentEditingResumeSource = resumeToEdit; // Track source to prevent re-cloning
+        // Clone only if starting new session or source changed
+        if (es.resume === null || resumeToEdit !== es.source) {
+            es.resume = JSON.parse(JSON.stringify(resumeToEdit));
+            es.source = resumeToEdit;
         }
-    } else if (!currentEditingResume) {
-        // Fallback clone
-        const source = state.tailoredResume || state.baseResume;
-        currentEditingResume = source ? JSON.parse(JSON.stringify(source)) : null;
-        currentEditingResumeSource = source;
+    } else if (!es.resume) {
+        // Fallback: pick the right source based on container
+        const source = containerId === 'profileFormContainer'
+            ? state.baseResume
+            : (state.tailoredResume || state.baseResume);
+        es.resume = source ? JSON.parse(JSON.stringify(source)) : null;
+        es.source = source;
     }
 
     const container = document.getElementById(containerId);
@@ -193,17 +207,17 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
     // Store containerId on the container for save operations to find later if needed
     container.dataset.editorMode = containerId;
 
-    if (!currentEditingResume) {
-        console.warn("renderProfileEditor: No currentEditingResume found.");
+    if (!es.resume) {
+        console.warn("renderProfileEditor: No editing resume found.");
         container.innerHTML = '<p style="font-size: 11px; color: #999;">No profile data loaded.</p>';
         return;
     }
 
     debugLog(`renderProfileEditor: Rendering '${section}'`);
-    debugLog("Current Editing Resume keys:", Object.keys(currentEditingResume));
+    debugLog("Editing Resume keys:", Object.keys(es.resume));
 
     let html = '';
-    const data = currentEditingResume;
+    const data = es.resume;
     let sectionData = getSectionData(data, section);
     debugLog("Found Section Data:", sectionData);
 
@@ -401,8 +415,9 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
                 // Clear research in current data
                 data.research = [];
                 // Force save and re-render projects
-                updateState({ tailoredResume: data }); // Update global state wrapper
-                currentEditingResume = data;
+                const clonedData = JSON.parse(JSON.stringify(data));
+                updateState({ tailoredResume: clonedData });
+                es.resume = clonedData;
 
                 // Trigger UI update
                 // Clean up list
@@ -507,7 +522,7 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
     // Render live ATS keyword badge
     // Only show live ATS badge in tailored resume editor
     if (containerId === 'formContainer') {
-        setTimeout(() => renderLiveAtsBadge(containerId, currentEditingResume), 150);
+        setTimeout(() => renderLiveAtsBadge(containerId, es.resume), 150);
     }
 }
 
@@ -679,7 +694,8 @@ function renderItemBlock(container, item, section) {
 
         // Refresh live score
         const formContainer = container.closest('[data-editor-mode]') || container;
-        setTimeout(() => renderLiveAtsBadge(formContainer.id, currentEditingResume), 100);
+        const es = getEditState(formContainer.id);
+        setTimeout(() => renderLiveAtsBadge(formContainer.id, es.resume), 100);
     };
 
     const upBtn = div.querySelector('.move-up-btn');
@@ -716,7 +732,8 @@ function renderItemBlock(container, item, section) {
 
                 // Refresh live score
                 const formContainer = container.closest('[data-editor-mode]') || container;
-                setTimeout(() => renderLiveAtsBadge(formContainer.id, currentEditingResume), 100);
+                const es = getEditState(formContainer.id);
+                setTimeout(() => renderLiveAtsBadge(formContainer.id, es.resume), 100);
             }
         });
 
@@ -819,7 +836,8 @@ function renderSkillBlock(container, category, skills) {
 
         // Refresh live score
         const formContainer = container.closest('[data-editor-mode]') || container;
-        setTimeout(() => renderLiveAtsBadge(formContainer.id, currentEditingResume), 100);
+        const es = getEditState(formContainer.id);
+        setTimeout(() => renderLiveAtsBadge(formContainer.id, es.resume), 100);
     };
 
     // Auto expand skills
@@ -873,40 +891,47 @@ export async function saveProfileChanges(section, containerId = 'profileFormCont
     const container = document.getElementById(containerId);
     if (!container) return null;
 
-    if (!currentEditingResume) {
-        currentEditingResume = state.tailoredResume || state.baseResume;
+    const es = getEditState(containerId);
+
+    if (!es.resume) {
+        // Fallback: pick the right source based on container
+        const source = containerId === 'profileFormContainer'
+            ? state.baseResume
+            : (state.tailoredResume || state.baseResume);
+        es.resume = source ? JSON.parse(JSON.stringify(source)) : null;
+        es.source = source;
     }
 
-    // Safety check: prevent profile edits from leaking into tailored resume if currentEditingResume was mis-assigned
-    if (containerId === 'profileFormContainer' && currentEditingResumeSource === state.tailoredResume) {
+    // Safety check: profile editor must never use tailored data
+    if (containerId === 'profileFormContainer' && es.source === state.tailoredResume) {
         debugLog("saveProfileChanges: Rectifying source mismatch. Cloning from baseResume.");
-        currentEditingResume = JSON.parse(JSON.stringify(state.baseResume));
-        currentEditingResumeSource = state.baseResume;
+        es.resume = JSON.parse(JSON.stringify(state.baseResume));
+        es.source = state.baseResume;
     }
 
-    if (!currentEditingResume.section_titles) currentEditingResume.section_titles = {};
+    if (!es.resume.section_titles) es.resume.section_titles = {};
     const titleInput = document.getElementById('sectionTitleInput');
     if (titleInput) {
-        currentEditingResume.section_titles[section] = titleInput.value;
+        es.resume.section_titles[section] = titleInput.value;
     }
 
     if (section === 'summary') {
         const el = document.getElementById('edit_summary_text');
-        if (el) currentEditingResume.summary = el.value;
+        if (el) es.resume.summary = el.value;
     } else if (section === 'languages') {
         const el = document.getElementById('edit_languages_text');
         // Return string, can split if needed by consumer
-        if (el) currentEditingResume.languages = el.value.split(',').map(s => s.trim());
+        if (el) es.resume.languages = el.value.split(',').map(s => s.trim());
     } else if (section === 'contact') {
         // Save name (stored on root)
         const nameField = document.getElementById('edit_name_field');
-        if (nameField) currentEditingResume.name = nameField.value;
+        if (nameField) es.resume.name = nameField.value;
 
         const inputs = container.querySelectorAll('.contact-input');
         const data = {};
         inputs.forEach(i => { if (i.value) data[i.dataset.key] = i.value; });
         // Merge with existing
-        currentEditingResume.contact = { ...currentEditingResume.contact, ...data };
+        es.resume.contact = { ...es.resume.contact, ...data };
     } else if (section === 'skills') {
         const blocks = container.querySelectorAll('.item-block');
         const skills = {};
@@ -915,7 +940,7 @@ export async function saveProfileChanges(section, containerId = 'profileFormCont
             const v = b.querySelector('.skill-values-input').value;
             if (k) skills[k] = v;
         });
-        currentEditingResume.skills = skills;
+        es.resume.skills = skills;
     } else {
         // List Sections
         const blocks = container.querySelectorAll('.item-block');
@@ -972,23 +997,23 @@ export async function saveProfileChanges(section, containerId = 'profileFormCont
             }
             list.push(item);
         });
-        currentEditingResume[section] = list;
+        es.resume[section] = list;
     }
 
     // Persist
     if (containerId === 'profileFormContainer') {
         // Base resume
-        await chrome.storage.local.set({ base_resume: currentEditingResume });
-        updateState({ baseResume: currentEditingResume });
+        await chrome.storage.local.set({ base_resume: es.resume });
+        updateState({ baseResume: es.resume });
         refreshProfileName();
         // Also persist the display name
-        if (currentEditingResume.name) {
-            await chrome.storage.local.set({ user_profile_name: currentEditingResume.name });
+        if (es.resume.name) {
+            await chrome.storage.local.set({ user_profile_name: es.resume.name });
         }
     } else {
         // Tailored resume
-        await chrome.storage.local.set({ tailored_resume: currentEditingResume });
-        updateState({ tailoredResume: currentEditingResume });
+        await chrome.storage.local.set({ tailored_resume: es.resume });
+        updateState({ tailoredResume: es.resume });
     }
 
     const statusTarget = containerId === 'profileFormContainer' ? 'profileStatus' : 'status';
@@ -996,10 +1021,10 @@ export async function saveProfileChanges(section, containerId = 'profileFormCont
 
     // Update live ATS badge after saving changes  
     if (containerId === 'formContainer') {
-        setTimeout(() => renderLiveAtsBadge(containerId, currentEditingResume), 100);
+        setTimeout(() => renderLiveAtsBadge(containerId, es.resume), 100);
     }
 
-    return currentEditingResume[section]; // Return data for immediate use if needed
+    return es.resume[section]; // Return data for immediate use if needed
 }
 
 export function collectBulletCounts(section, containerId = 'profileFormContainer') {
@@ -1030,7 +1055,8 @@ export function collectBulletCounts(section, containerId = 'profileFormContainer
     // Fill others from state
     trackedSections.forEach(sec => {
         if (sec !== section) {
-            const data = currentEditingResume ? currentEditingResume[sec] : [];
+            const es = getEditState(containerId);
+            const data = es.resume ? es.resume[sec] : [];
             if (data) {
                 bulletCounts[sec] = data.map(item =>
                     item.bullet_count_preference !== undefined ? item.bullet_count_preference : (item.bullets || []).length

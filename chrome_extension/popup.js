@@ -32,9 +32,13 @@ import { setupFormatUI, loadFormatSettings, debouncedSaveFormat } from './module
 import { setupReorderUI } from './modules/reorder.js';
 import { logError, logWarn, sendFeedback } from './modules/logger.js';
 
-// Expose these to window so they can be called from inline HTML (like onclick in showStatus)
-window.showSettings = showSettings;
-window.showStatus = showStatus;
+// CSP COMPLIANCE: Delegate clicks for dynamically injected links
+document.addEventListener('click', (e) => {
+    if (e.target && e.target.classList.contains('settings-redirect')) {
+        e.preventDefault();
+        showSettings();
+    }
+});
 
 let isScanning = false;
 let tabDetectionTimer = null;
@@ -75,15 +79,18 @@ const cancelOrderBtn = document.getElementById('cancelOrderBtn');
 
 // Helper: Save new profile data (used by all upload/import handlers)
 async function saveNewProfile(profileData) {
-    // Read what we need first (one read)
+    const cloneForBase = JSON.parse(JSON.stringify(profileData));
+    const cloneForProfiles = JSON.parse(JSON.stringify(profileData));
+
+    // Read what we need first
     const pData = await chrome.storage.local.get(['profiles', 'active_profile']);
     const profiles = pData.profiles || {};
-    profiles[pData.active_profile || 'default'] = profileData;
+    profiles[pData.active_profile || 'default'] = cloneForProfiles;
 
     // Write everything in one call + one remove (parallel)
     await Promise.all([
         chrome.storage.local.set({
-            base_resume: profileData,
+            base_resume: cloneForBase,
             user_profile_name: profileData.name || "User",
             profiles: profiles
         }),
@@ -92,7 +99,7 @@ async function saveNewProfile(profileData) {
 
     // Update in-memory state
     updateState({
-        baseResume: profileData,
+        baseResume: JSON.parse(JSON.stringify(cloneForBase)),
         tailoredResume: null,
         currentJdAnalysis: null
     });
@@ -165,8 +172,8 @@ function renderProfileList(profiles, activeProfile) {
                 // Save current profile state before switching
                 profiles[currentName] = JSON.parse(JSON.stringify(state.baseResume));
 
-                const newResume = profiles[name];
-                updateState({ baseResume: newResume, activeProfile: name });
+                const newResume = JSON.parse(JSON.stringify(profiles[name]));
+                updateState({ baseResume: JSON.parse(JSON.stringify(newResume)), activeProfile: name });
                 await chrome.storage.local.set({
                     profiles,
                     active_profile: name,
@@ -663,7 +670,7 @@ function setupEventListeners() {
             setTimeout(showMainUI, 2000);
         } catch (e) {
             if (e.message === 'SERVER_UNAVAILABLE') {
-                showStatus('Server unavailable. <a onclick="showSettings()">Add your own API key</a> for uninterrupted access.', 'warning', 'linkedinUrlStatus');
+                showStatus('Server unavailable. <a class="settings-redirect" style="text-decoration:underline;cursor:pointer;">Add your own API key</a> for uninterrupted access.', 'warning', 'linkedinUrlStatus');
             } else {
                 showStatus(`LinkedIn import failed: ${e.message}`, 'error', 'linkedinUrlStatus');
             }
@@ -831,7 +838,7 @@ function setupEventListeners() {
                 } else if (e.message === 'MANUAL_PASTE_REQUESTED') {
                     showStatus("📝 Paste your job description in the text area below", "info");
                 } else if (e.message === 'SERVER_UNAVAILABLE') {
-                    showStatus('Server unavailable. <a onclick="showSettings()">Add your own API key</a> for uninterrupted access.', 'warning');
+                    showStatus('Server unavailable. <a class="settings-redirect" style="text-decoration:underline;cursor:pointer;">Add your own API key</a> for uninterrupted access.', 'warning');
                 } else {
                     showStatus("Scan failed: " + e.message, "error");
                 }
@@ -1011,15 +1018,8 @@ function setupEventListeners() {
 
     // Profile Section Change
     document.getElementById('profileSectionSelect').addEventListener('change', (e) => {
-        // Updated Fix: Don't pass resume data so logic uses currentEditingResume clone.
-        // This prevents re-cloning on every switch and ensures unsaved edits persist across sections.
-        const section = e.target.value;
-        const profileVisible = document.getElementById('profileUI').style.display === 'block';
-        if (profileVisible) {
-            renderProfileEditor(section, null, 'profileFormContainer');
-        } else {
-            renderProfileEditor(section, null, 'formContainer');
-        }
+        // Updated Fix: Render only to the profile container
+        renderProfileEditor(e.target.value, null, 'profileFormContainer');
     });
 
     // Save Profile (Base)
@@ -1029,7 +1029,8 @@ function setupEventListeners() {
         // Also update in profiles collection
         const pData = await chrome.storage.local.get(['profiles', 'active_profile']);
         const profiles = pData.profiles || {};
-        profiles[pData.active_profile || 'default'] = state.baseResume; // state.baseResume is updated by saveProfileChanges
+        // Use clone to prevent reference sharing bugs
+        profiles[pData.active_profile || 'default'] = JSON.parse(JSON.stringify(state.baseResume));
         await chrome.storage.local.set({ profiles });
 
         // Close profile section and return to main UI
@@ -1398,8 +1399,8 @@ function setupEventListeners() {
                     feedbackDiv.style.borderTop = '1px dashed #e2e8f0';
                     feedbackDiv.innerHTML = `
                         <span style="font-size:11px; color:#666; margin-right:8px;">How was this forge?</span>
-                        <button id="fbUp" style="border:none;background:none;cursor:pointer;font-size:16px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Good">👍</button>
-                        <button id="fbDown" style="border:none;background:none;cursor:pointer;font-size:16px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Bad">👎</button>
+                        <button id="fbUp" style="border:none;background:none;cursor:pointer;font-size:16px; transition: transform 0.2s;" title="Good">👍</button>
+                        <button id="fbDown" style="border:none;background:none;cursor:pointer;font-size:16px; transition: transform 0.2s;" title="Bad">👎</button>
                     `;
 
                     // Remove existing if any
@@ -1419,6 +1420,15 @@ function setupEventListeners() {
                         sendFeedback(-1, reason || '');
                         feedbackDiv.innerHTML = '<span style="font-size:11px;color:#666;">Thanks for the feedback! We\'ll work on it.</span>';
                         setTimeout(() => feedbackDiv.remove(), 3000);
+                    });
+
+                    // Avoid inline handlers for hover effect
+                    ['fbUp', 'fbDown'].forEach(id => {
+                        const btn = document.getElementById(id);
+                        if (btn) {
+                            btn.addEventListener('mouseover', () => btn.style.transform = 'scale(1.2)');
+                            btn.addEventListener('mouseout', () => btn.style.transform = 'scale(1)');
+                        }
                     });
                 }
 
@@ -1453,7 +1463,7 @@ function setupEventListeners() {
             console.error("Tailoring Error:", e);
             showProgress('error', e.message);
             if (e.message === 'SERVER_UNAVAILABLE') {
-                showStatus('Server unavailable. <a onclick="showSettings()">Add your own API key</a> for uninterrupted access.', 'warning');
+                showStatus('Server unavailable. <a class="settings-redirect" style="text-decoration:underline;cursor:pointer;">Add your own API key</a> for uninterrupted access.', 'warning');
             } else {
                 showStatus(`Error: ${e.message}`, "error");
             }
@@ -1529,7 +1539,7 @@ function setupEventListeners() {
                 answerOutput.textContent = res.answer || "No answer generated.";
             } catch (e) {
                 if (e.message === 'SERVER_UNAVAILABLE') {
-                    showStatus('Server unavailable. <a onclick="showSettings()">Add your own API key</a> for uninterrupted access.', 'warning');
+                    showStatus('Server unavailable. <a class="settings-redirect" style="text-decoration:underline;cursor:pointer;">Add your own API key</a> for uninterrupted access.', 'warning');
                     answerOutput.textContent = "Server unavailable. Please add your own API key in settings.";
                 } else {
                     answerOutput.textContent = `Error: ${e.message}`;
@@ -1618,7 +1628,7 @@ function setupEventListeners() {
                 // === NEW: Merge must-include items directly into tailored resume ===
                 if (state.mustIncludeItems && state.baseResume) {
                     let resumeModified = false;
-                    const tailored = state.tailoredResume;
+                    const tailored = JSON.parse(JSON.stringify(state.tailoredResume));
 
                     for (const [section, itemIds] of Object.entries(state.mustIncludeItems)) {
                         if (!itemIds || itemIds.length === 0) continue;
@@ -1760,7 +1770,7 @@ function setupEventListeners() {
             } catch (e) {
                 console.error("Regeneration Error:", e);
                 if (e.message === 'SERVER_UNAVAILABLE') {
-                    showStatus('Server unavailable. <a onclick="showSettings()">Add your own API key</a> for uninterrupted access.', 'warning');
+                    showStatus('Server unavailable. <a class="settings-redirect" style="text-decoration:underline;cursor:pointer;">Add your own API key</a> for uninterrupted access.', 'warning');
                 } else {
                     showStatus("Error regenerating: " + e.message, "error");
                 }
@@ -1774,7 +1784,7 @@ function setupEventListeners() {
     if (editorPreviewBtn) {
         editorPreviewBtn.addEventListener('click', async () => {
             // Get the REAL current resume being acted on inside the module
-            const editingResume = getCurrentEditingResume();
+            const editingResume = getCurrentEditingResume('formContainer');
 
             if (!editingResume) {
                 showStatus("No active resume to preview", "error");
@@ -1873,7 +1883,7 @@ function setupEventListeners() {
             } catch (e) {
                 logError('score_failed', e, { taskType: 'score' });
                 if (e.message === 'SERVER_UNAVAILABLE') {
-                    showStatus('Server unavailable. <a onclick="showSettings()">Add your own API key</a> for uninterrupted access.', 'warning');
+                    showStatus('Server unavailable. <a class="settings-redirect" style="text-decoration:underline;cursor:pointer;">Add your own API key</a> for uninterrupted access.', 'warning');
                 } else {
                     showStatus("Analysis Failed: " + e.message, "error");
                 }

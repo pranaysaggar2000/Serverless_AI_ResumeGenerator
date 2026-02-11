@@ -1,6 +1,6 @@
 import { state, updateState } from './state.js';
 import { showStatus } from './ui.js';
-import { renderProfileEditor } from './editor.js';
+import { renderProfileEditor, resetEditorState } from './editor.js';
 import { showConfirmDialog, debugLog } from './utils.js';
 
 export async function saveVersion(resumeData, jdTitle) {
@@ -103,6 +103,7 @@ export async function renderHistoryList() {
                 if (target) {
                     updateState({ tailoredResume: target.resume });
                     await chrome.storage.local.set({ tailored_resume: target.resume });
+                    resetEditorState(); // Force editor to re-clone on next open
                     showStatus("Version restored!", "success");
                     document.getElementById('historyUI').style.display = 'none';
                     // Refresh Main UI actions if needed (should already be fine)

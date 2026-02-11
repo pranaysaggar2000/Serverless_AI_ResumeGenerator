@@ -16,10 +16,10 @@ function getMaxTokens(taskType) {
 // https://cloud.cerebras.ai/
 // ============================================
 const CEREBRAS_CHAINS = {
-    jdParse: ['llama-3.3-70b', 'gpt-oss-120b'],
-    tailor: ['zai-glm-4.7', 'llama-3.3-70b', 'gpt-oss-120b'],
-    score: ['llama-3.3-70b', 'gpt-oss-120b'],
-    default: ['llama-3.3-70b', 'gpt-oss-120b']
+    jdParse: ['llama-3.3-70b', 'qwen-3-32b', 'gpt-oss-120b'],
+    tailor: ['llama-3.3-70b', 'gpt-oss-120b', 'qwen-3-32b'],
+    score: ['llama-3.3-70b', 'qwen-3-32b', 'gpt-oss-120b'],
+    default: ['llama-3.3-70b', 'qwen-3-32b', 'gpt-oss-120b']
 };
 
 async function callCerebras(prompt, options = {}) {
@@ -120,9 +120,9 @@ async function callMistral(prompt, options = {}) {
 // https://console.groq.com/
 // ============================================
 const GROQ_MODELS = [
-    'meta-llama/llama-4-scout-17b-16e-instruct',
-    'llama-3.3-70b-versatile',
-    'llama-3.1-8b-instant'
+    'meta-llama/llama-4-scout-17b-16e-instruct',  // 1K RPD, 500K TPD, good quality
+    'llama-3.3-70b-versatile',                      // 1K RPD, 100K TPD — tight token limit
+    'llama-3.1-8b-instant'                          // 14.4K RPD, fallback only (lower quality)
 ];
 
 async function callGroqServer(prompt, options = {}) {

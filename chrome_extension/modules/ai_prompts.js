@@ -398,10 +398,26 @@ export function restore_immutable_fields(original, generated) {
     restore('certifications', ['name', 'issuer', 'dates']);
     restore('awards', ['name', 'organization', 'dates']);
     restore('volunteering', ['role', 'organization', 'dates', 'location']);
-    restore('education', ['institution', 'school', 'degree', 'gpa', 'dates', 'location']);
+    // Always restore name and contact from original — these are never tailored
+    if (original.name) generated.name = original.name;
+    if (original.contact) generated.contact = original.contact;
 
-    // Don't overwrite section_order — let the AI's ordering stand,
-    // or fall back to original only if AI didn't provide one
+    // Restore education immutable fields
+    if (generated.education && original.education) {
+        generated.education.forEach((edu, i) => {
+            const orig = original.education[i];
+            if (orig) {
+                edu.institution = orig.institution || orig.school || edu.institution;
+                edu.school = orig.school || orig.institution || edu.school;
+                edu.degree = orig.degree || edu.degree;
+                edu.gpa = orig.gpa || edu.gpa;
+                edu.dates = orig.dates || edu.dates;
+                edu.location = orig.location || edu.location;
+            }
+        });
+    }
+
+    // Don't overwrite section_order — let AI's ordering stand, fall back only if missing
     if (!generated.section_order && original.section_order) {
         generated.section_order = original.section_order;
     }

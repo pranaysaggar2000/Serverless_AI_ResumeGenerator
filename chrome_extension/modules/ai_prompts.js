@@ -151,6 +151,7 @@ REWRITING RULES:
 2. BULLETS: Start with strong action verb. Use XYZ formula: "Did [X] measured by [Y] by doing [Z]".
 3. SKILLS: Put JD keywords first.
 4. INTEGRITY: Never invent roles, dates, or metrics.
+5. SECTION_ORDER must only contain renderable body sections: summary, education, skills, experience, projects, research, leadership, certifications, awards, volunteering, languages. NEVER include "name" or "contact" in section_order.
 
 Return ONLY valid JSON wrapped in a markdown code block.
 
@@ -305,7 +306,10 @@ export function clean_tailored_resume(resume_data) {
         }
     });
 
-    if (!resume_data.section_order) {
+    if (resume_data.section_order) {
+        const NON_SECTION_KEYS = ['name', 'contact', 'section_order', 'section_titles', 'excluded_items'];
+        resume_data.section_order = resume_data.section_order.filter(s => !NON_SECTION_KEYS.includes(s));
+    } else {
         const all = ["summary", "skills", "experience", "projects", "education", "leadership", "research", "certifications", "awards", "volunteering", "languages"];
         resume_data.section_order = all.filter(s => {
             const v = resume_data[s];

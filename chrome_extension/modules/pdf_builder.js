@@ -169,10 +169,11 @@ export function generateResumePdf(data, fmt = {}) {
     };
 
     const titles = { ...defaultTitles, ...(data.section_titles || {}) };
-    const sectionOrder = data.section_order || [
+    const NON_SECTION_KEYS = ['name', 'contact', 'section_order', 'section_titles', 'excluded_items'];
+    const sectionOrder = (data.section_order || [
         "summary", "education", "skills", "experience", "projects",
         "research", "leadership", "certifications", "awards", "volunteering", "languages"
-    ];
+    ]).filter(s => !NON_SECTION_KEYS.includes(s));
 
     // Helper for aligned row (Left | Right)
     function addAlignedRow(leftText, rightText, isBold = false, isItalic = false) {

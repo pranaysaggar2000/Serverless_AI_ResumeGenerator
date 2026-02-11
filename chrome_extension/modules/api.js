@@ -135,7 +135,7 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
             currentJdPreview: jdText?.substring(0, 100)
         });
 
-        if (cachedJdAnalysis && cachedJdText === jdText) {
+        if (cachedJdAnalysis && cachedJdText?.trim() === jdText?.trim()) {
             // Reuse cached JD analysis - saves 1 API call!
             debugLog('✅ Reusing cached JD analysis (saving 1 API call)');
             jdAnalysis = cachedJdAnalysis;
@@ -181,15 +181,16 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
             throw new Error(`Failed to parse AI response as JSON. Snippet: "${snippet}..."`);
         }
 
-        // Step 3: Post-processing
-        tailoredData = Prompts.restore_immutable_fields(baseResume, tailoredData);
-        tailoredData = Prompts.clean_tailored_resume(tailoredData);
-
-        // Step 4: Extract excluded items from AI response
+        // Step 3: Extract excluded items BEFORE cleanup (so clean doesn't see it as a section)
         let excludedItems = tailoredData.excluded_items || {
             projects: [], experience: [], leadership: [],
             research: [], certifications: [], awards: [], volunteering: []
         };
+        delete tailoredData.excluded_items;
+
+        // Step 4: Post-processing
+        tailoredData = Prompts.restore_immutable_fields(baseResume, tailoredData);
+        tailoredData = Prompts.clean_tailored_resume(tailoredData);
 
         // Accept both strings (new format) and numbers (legacy), convert numbers to strings
         for (const key of Object.keys(excludedItems)) {
@@ -211,9 +212,6 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
                 })
                 .filter(i => i && i.length > 0);
         }
-
-        // Remove excluded_items from the resume data itself (it's metadata, not resume content)
-        delete tailoredData.excluded_items;
 
         // Store excluded items in state
         updateState({ excludedItems });

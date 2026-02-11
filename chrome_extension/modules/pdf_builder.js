@@ -334,6 +334,15 @@ export function generateResumePdf(data, fmt = {}) {
                     addAlignedRow(subtitle, item.location || '', false, true);
                 }
 
+                // Render tech stack for projects
+                if (item.tech) {
+                    checkPageBreak(LEADING);
+                    doc.setFont(settings.font, 'italic');
+                    doc.setFontSize(BODY);
+                    doc.text(String(item.tech), MARGIN_SIDE, cursorY, { charSpace: 0 });
+                    cursorY += LEADING;
+                }
+
                 if (item.bullets) {
                     item.bullets.forEach(b => addBullet(b));
                 }
@@ -352,10 +361,14 @@ export function generateResumePdf(data, fmt = {}) {
                     doc.text(res.conference, MARGIN_SIDE, cursorY, { charSpace: 0 });
                     cursorY += LEADING;
                 }
-                if (res.link) {
+                if (res.link && settings.showLinks) {
                     checkPageBreak(LEADING);
                     doc.setFont(settings.font, 'normal');
-                    doc.text(`Link: ${res.link}`, MARGIN_SIDE, cursorY, { charSpace: 0 });
+                    doc.setFontSize(BODY);
+                    const linkLabel = 'Link: ' + res.link;
+                    doc.text(linkLabel, MARGIN_SIDE, cursorY, { charSpace: 0 });
+                    const linkWidth = doc.getTextWidth(linkLabel);
+                    doc.link(MARGIN_SIDE, cursorY - BODY + 2, linkWidth, BODY + 2, { url: res.link });
                     cursorY += LEADING;
                 }
                 if (res.bullets) res.bullets.forEach(b => addBullet(b));
@@ -375,9 +388,11 @@ export function generateResumePdf(data, fmt = {}) {
         }
 
         else if (section === 'languages') {
-            let val = data.languages;
-            if (Array.isArray(val)) val = val.join(", ");
-            addTextBlock(val);
+            const lang = data.languages;
+            const langStr = Array.isArray(lang) ? lang.join(', ') : String(lang || '');
+            if (langStr.trim()) {
+                addTextBlock(langStr);
+            }
         }
     });
 

@@ -357,7 +357,8 @@ export function restore_immutable_fields(original, generated) {
         ...(original.research || []),
         ...(original.certifications || []),
         ...(original.awards || []),
-        ...(original.volunteering || [])
+        ...(original.volunteering || []),
+        ...(original.education || [])
     ];
 
     const restore = (section, fields) => {
@@ -376,8 +377,13 @@ export function restore_immutable_fields(original, generated) {
     restore('certifications', ['name', 'issuer', 'dates']);
     restore('awards', ['name', 'organization', 'dates']);
     restore('volunteering', ['role', 'organization', 'dates', 'location']);
+    restore('education', ['institution', 'school', 'degree', 'gpa', 'dates', 'location']);
 
-    if (original.section_order) generated.section_order = original.section_order;
+    // Don't overwrite section_order — let the AI's ordering stand,
+    // or fall back to original only if AI didn't provide one
+    if (!generated.section_order && original.section_order) {
+        generated.section_order = original.section_order;
+    }
     if (original.section_titles) {
         generated.section_titles = { ...original.section_titles, ...(generated.section_titles || {}) };
     }

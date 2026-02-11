@@ -1,5 +1,15 @@
 const https = require('https');
 
+// Helper to determine token limit based on task type
+function getMaxTokens(taskType) {
+    switch (taskType) {
+        case 'tailor': return 8192;
+        case 'score': return 4096;
+        case 'jdParse': return 4096;
+        default: return 4096;
+    }
+}
+
 // ============================================
 // PROVIDER 1: CEREBRAS (Primary - FREE)
 // 14,400 requests/day, 1M tokens/day
@@ -25,12 +35,12 @@ async function callCerebras(prompt, options = {}) {
                 model,
                 messages: [{ role: 'user', content: prompt }],
                 ...(expectJson && { response_format: { type: 'json_object' } }),
-                max_tokens: 4096,
+                max_tokens: getMaxTokens(taskType),
                 temperature: 0.3
             });
 
             const startTime = Date.now();
-            const timeout = model.startsWith('zai-glm') ? 30000 : 10000;
+            const timeout = taskType === 'tailor' ? 45000 : 30000;
             const result = await httpPost('api.cerebras.ai', '/v1/chat/completions', body, {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json'
@@ -77,15 +87,16 @@ async function callMistral(prompt, options = {}) {
                 model,
                 messages: [{ role: 'user', content: prompt }],
                 ...(expectJson && { response_format: { type: 'json_object' } }),
-                max_tokens: 4096,
+                max_tokens: getMaxTokens(taskType),
                 temperature: 0.3
             });
 
             const startTime = Date.now();
+            const timeout = taskType === 'tailor' ? 45000 : 30000;
             const result = await httpPost('api.mistral.ai', '/v1/chat/completions', body, {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json'
-            }, 10000);
+            }, timeout);
             const duration = Date.now() - startTime;
 
             const data = JSON.parse(result);
@@ -115,7 +126,7 @@ const GROQ_MODELS = [
 ];
 
 async function callGroqServer(prompt, options = {}) {
-    const { expectJson = false } = options;
+    const { taskType = 'default', expectJson = false } = options;
     const apiKey = process.env.GROQ_API_KEY;
 
     if (!apiKey) throw new Error('GROQ_API_KEY not configured');
@@ -126,15 +137,16 @@ async function callGroqServer(prompt, options = {}) {
                 model,
                 messages: [{ role: 'user', content: prompt }],
                 ...(expectJson && { response_format: { type: 'json_object' } }),
-                max_tokens: 4096,
+                max_tokens: getMaxTokens(taskType),
                 temperature: 0.3
             });
 
             const startTime = Date.now();
+            const timeout = taskType === 'tailor' ? 45000 : 30000;
             const result = await httpPost('api.groq.com', '/openai/v1/chat/completions', body, {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json'
-            }, 10000);
+            }, timeout);
             const duration = Date.now() - startTime;
 
             const data = JSON.parse(result);
@@ -165,6 +177,7 @@ const OPENROUTER_FREE_MODELS = [
 ];
 
 async function callOpenRouterServer(prompt, options = {}) {
+    const { taskType = 'default' } = options;
     const apiKey = process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) throw new Error('OPENROUTER_API_KEY not configured');
@@ -174,17 +187,18 @@ async function callOpenRouterServer(prompt, options = {}) {
             const body = JSON.stringify({
                 model,
                 messages: [{ role: 'user', content: prompt }],
-                max_tokens: 4096,
+                max_tokens: getMaxTokens(taskType),
                 temperature: 0.3
             });
 
             const startTime = Date.now();
+            const timeout = taskType === 'tailor' ? 45000 : 30000;
             const result = await httpPost('openrouter.ai', '/api/v1/chat/completions', body, {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
                 'HTTP-Referer': 'https://forgecv.app',
                 'X-Title': 'ForgeCV'
-            }, 10000);
+            }, timeout);
             const duration = Date.now() - startTime;
 
             const data = JSON.parse(result);

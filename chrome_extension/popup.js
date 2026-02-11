@@ -555,7 +555,10 @@ function setupSettings() {
 function setupEventListeners() {
     // Resume Upload Trigger (Hero section)
     if (uploadBtn) {
-        uploadBtn.addEventListener('click', () => resumeFile.click());
+        uploadBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resumeFile.click();
+        });
     }
 
     // Auto-process on file selection

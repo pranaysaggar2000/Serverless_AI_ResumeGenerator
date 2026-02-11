@@ -176,7 +176,10 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
         const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true, taskType: 'tailor', actionId });
         let tailoredData = extractJSON(tailorResponse);
 
-        if (!tailoredData) throw new Error("Failed to generate tailored resume JSON");
+        if (!tailoredData) {
+            const snippet = tailorResponse ? tailorResponse.substring(0, 100).replace(/\n/g, ' ') : "EMPTY";
+            throw new Error(`Failed to parse AI response as JSON. Snippet: "${snippet}..."`);
+        }
 
         // Step 3: Post-processing
         tailoredData = Prompts.restore_immutable_fields(baseResume, tailoredData);

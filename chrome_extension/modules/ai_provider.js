@@ -69,18 +69,43 @@ export async function callAI(prompt, provider, apiKey, options = {}) {
 export function extractJSON(text) {
     if (!text) return null;
 
-    try { return JSON.parse(text); } catch (e) { }
+    // 1. Initial Cleanup: Remove character spacing hallucinations (e.g., "t e x t") 
+    // IF it looks like JSON but with spaces.
+    let cleaned = text.trim();
 
-    const blockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (blockMatch) {
-        try { return JSON.parse(blockMatch[1]); } catch (e) { }
+    // Heuristic: If there are many spaces and it looks like it's split, try to join it
+    if (cleaned.includes('{') && cleaned.split(' ').length > cleaned.length / 3) {
+        // Attempt to remove spaces that look like character spacing
+        const joined = cleaned.replace(/(.) /g, '$1');
+        try {
+            if (JSON.parse(joined)) cleaned = joined;
+        } catch (e) { }
     }
 
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
+    // 2. Try direct parse
+    try { return JSON.parse(cleaned); } catch (e) { }
+
+    // 3. Try markdown block extraction
+    const blockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (blockMatch) {
+        let blockContent = blockMatch[1].trim();
+        try { return JSON.parse(blockContent); } catch (e) { }
+
+        // Handle trailing commas in JSON (common AI error)
+        blockContent = blockContent.replace(/,\s*([\]}])/g, '$1');
+        try { return JSON.parse(blockContent); } catch (e) { }
+    }
+
+    // 4. Try greedy brace matching
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
 
     if (start !== -1 && end !== -1 && end > start) {
-        const potentialJson = text.substring(start, end + 1);
+        let potentialJson = cleaned.substring(start, end + 1);
+        try { return JSON.parse(potentialJson); } catch (e) { }
+
+        // Handle trailing commas
+        potentialJson = potentialJson.replace(/,\s*([\]}])/g, '$1');
         try { return JSON.parse(potentialJson); } catch (e) { }
     }
 

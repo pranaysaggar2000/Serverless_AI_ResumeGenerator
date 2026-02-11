@@ -195,9 +195,13 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
         };
         delete tailoredData.excluded_items;
 
-        // Step 4: Post-processing
+        // Step 4: Post-processing (ORDER MATTERS)
         tailoredData = Prompts.restore_immutable_fields(baseResume, tailoredData);
         tailoredData = Prompts.clean_tailored_resume(tailoredData);
+        tailoredData = Prompts.clean_keyword_stuffing(tailoredData, jdAnalysis);
+        tailoredData = Prompts.remove_hallucinated_skills(tailoredData, baseResume, jdAnalysis);
+        tailoredData = Prompts.ensure_keyword_coverage(tailoredData, jdAnalysis);
+        tailoredData = Prompts.enforce_bullet_limits(tailoredData, null); // Initial generation typically has no overrides
 
         // Accept both strings (new format) and numbers (legacy), convert numbers to strings
         for (const key of Object.keys(excludedItems)) {
@@ -312,10 +316,13 @@ export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis,
                 .filter(i => i && i.length > 0);
         }
 
-        // Post-process
+        // Post-process (ORDER MATTERS)
         // Use baseResume for immutable field restoration to maintain data integrity
         newTailoredData = Prompts.restore_immutable_fields(state.baseResume || base, newTailoredData);
         newTailoredData = Prompts.clean_tailored_resume(newTailoredData);
+        newTailoredData = Prompts.clean_keyword_stuffing(newTailoredData, jdAnalysis);
+        newTailoredData = Prompts.remove_hallucinated_skills(newTailoredData, state.baseResume || base, jdAnalysis);
+        newTailoredData = Prompts.ensure_keyword_coverage(newTailoredData, jdAnalysis);
         newTailoredData = Prompts.enforce_bullet_limits(newTailoredData, bulletCounts);
 
         // Update excluded items state

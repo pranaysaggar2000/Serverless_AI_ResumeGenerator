@@ -111,20 +111,41 @@ export function buildTailorPrompt(baseResume, jdAnalysis, tailoringStrategy, bul
     // Page mode instructions
     let pageNote = '';
     if (pageMode === '1page') {
-        pageNote = `PAGE: Must fit ONE page. Be concise.
-- Experience: 3-4 bullets per role (5 max for most recent)
-- Projects: 2-3 bullets. Leadership: 1-2 bullets.
+        pageNote = `PAGE: Must fit ONE page. Include ALL items. Reduce bullets per item rather than removing entire items.
+- Experience: minimum 2 bullets, maximum 5 (most recent role can have 4-5, older roles 2-3).
+- Projects: minimum 2 bullets, maximum 3 per project. NEVER exclude a project unless absolutely necessary.
+- Leadership: minimum 1 bullet, maximum 2.
+- Skills: maximum 4 categories.
 - NEVER remove experience or education entries.
-- List removed items in "excluded_items" by name.`;
+- Only exclude items as an ABSOLUTE LAST RESORT if the resume would clearly overflow.
+- PRIORITY ORDER for space: reduce bullet count first → shorten bullet text → remove items last.
+- List any removed items in "excluded_items" by name.`;
     } else {
         pageNote = `PAGE: Up to TWO pages allowed.
-- Include ALL sections. Set excluded_items to empty arrays.`;
+- Include ALL sections and items. Set excluded_items to empty arrays.
+- Experience: 3-5 bullets per role. Projects: 2-3 bullets. Leadership: 1-2 bullets.`;
     }
 
     // Bullet count overrides
     let bulletNote = '';
     if (bulletCounts) {
-        bulletNote = `BULLET COUNT OVERRIDES (hard limits):\n${JSON.stringify(bulletCounts)}`;
+        // Format as human-readable per-item instructions
+        const parts = [];
+        ['experience', 'projects', 'leadership', 'research'].forEach(sec => {
+            if (bulletCounts[sec] && bulletCounts[sec].length > 0) {
+                const items = (baseResume[sec] || []).map((item, i) => {
+                    const name = item.company || item.name || item.organization || item.title || `Item ${i + 1}`;
+                    const count = bulletCounts[sec][i];
+                    return count !== undefined ? `${name}: exactly ${count} bullets` : null;
+                }).filter(Boolean);
+                if (items.length > 0) {
+                    parts.push(`${sec}: ${items.join(', ')}`);
+                }
+            }
+        });
+        if (parts.length > 0) {
+            bulletNote = `BULLET COUNT OVERRIDES (user-specified, must follow exactly):\n${parts.join('\n')}`;
+        }
     }
 
     return `You are an ATS resume optimizer. Rewrite this resume to match the target job.
@@ -428,21 +449,46 @@ export function restore_immutable_fields(original, generated) {
 }
 
 export function enforce_bullet_limits(resume_data, bullet_counts) {
-    if (!bullet_counts) return resume_data;
+    // Section minimums (even without user overrides)
+    const MINIMUMS = { experience: 2, projects: 2, leadership: 1, research: 1 };
+
     ['experience', 'projects', 'leadership', 'research'].forEach(sec => {
-        if (bullet_counts[sec] && resume_data[sec]) {
-            const counts = bullet_counts[sec];
-            resume_data[sec].forEach((item, i) => {
-                if (i < counts.length && item.bullets) {
-                    const requested = counts[i];
-                    const actual = item.bullets.length;
-                    if (actual > requested) {
+        if (!resume_data[sec]) return;
+        const min = MINIMUMS[sec] || 1;
+
+        resume_data[sec].forEach((item, i) => {
+            if (!item.bullets) return;
+
+            // If user specified exact count, enforce it
+            if (bullet_counts && bullet_counts[sec] && i < bullet_counts[sec].length) {
+                const requested = bullet_counts[sec][i];
+                if (requested > 0) {
+                    // Trim if too many
+                    if (item.bullets.length > requested) {
                         item.bullets = item.bullets.slice(0, requested);
                     }
+                    // Note: can't add bullets if too few (would need AI)
                 }
-            });
-        }
+            }
+
+            // Warn but don't fabricate if below minimum
+            // (AI should have generated at least this many)
+            if (item.bullets.length < min) {
+                console.warn(`${sec}[${i}] has ${item.bullets.length} bullets, minimum is ${min}`);
+            }
+        });
     });
+
+    // Skills category limit
+    if (resume_data.skills && typeof resume_data.skills === 'object' && !Array.isArray(resume_data.skills)) {
+        const entries = Object.entries(resume_data.skills);
+        if (entries.length > 4) {
+            // Keep top 4 categories (first 4 since AI should have ordered by relevance)
+            const kept = Object.fromEntries(entries.slice(0, 4));
+            resume_data.skills = kept;
+        }
+    }
+
     return resume_data;
 }
 

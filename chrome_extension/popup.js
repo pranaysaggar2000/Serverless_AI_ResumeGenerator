@@ -1745,6 +1745,19 @@ function setupEventListeners() {
                     setButtonLoading(saveRegenBtn, false, "Save & Regenerate");
                     return;
                 } else {
+                    // Warn if user has manual edits (Bug/Feature: re-tailoring from base)
+                    const hasManualEdits = state.tailoredResume?.summary !== state.baseResume?.summary;
+                    // Note: Comparing all bullets is expensive, summary is the most common manual edit.
+                    if (hasManualEdits) {
+                        const proceed = await showConfirmDialog(
+                            "Regenerating re-tailors from your original profile. Manual edits to bullets/summary will be replaced with AI-generated content. Continue?"
+                        );
+                        if (!proceed) {
+                            setButtonLoading(saveRegenBtn, false, "Save & Regenerate");
+                            return;
+                        }
+                    }
+
                     // Use latest in-memory resume (Bug 4)
                     const resumeToRegen = getCurrentEditingResume('formContainer') || state.tailoredResume;
                     const regenData = await regenerateResume(

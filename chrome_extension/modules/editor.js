@@ -722,11 +722,13 @@ function renderItemBlock(container, item, section) {
             handleInput(newTa); // Initial
             newTa.addEventListener('input', () => handleInput(newTa));
 
-            // Sync bullet count display
-            syncBulletCountDisplay(div, bContainer);
+            // Sync count (Bug fix 3)
+            const count = bContainer.querySelectorAll('.bullet-item').length;
+            if (countInput) countInput.value = count;
+            if (countDisplay) countDisplay.textContent = count;
 
             // Persist preference
-            updateBulletPreference(container, section);
+            persistBulletPreference(div, section);
         };
         bContainer.addEventListener('click', (e) => {
             if (e.target.classList.contains('remove-bullet-btn')) {
@@ -736,11 +738,13 @@ function renderItemBlock(container, item, section) {
 
                 bulletItem.remove();
 
-                // Sync bullet count display
-                syncBulletCountDisplay(div, bContainer);
+                // Sync count (Bug fix 3)
+                const count = bContainer.querySelectorAll('.bullet-item').length;
+                if (countInput) countInput.value = count;
+                if (countDisplay) countDisplay.textContent = count;
 
                 // Persist preference
-                updateBulletPreference(container, section);
+                persistBulletPreference(div, section);
 
                 // Refresh live score
                 const formContainer = container.closest('[data-editor-mode]') || container;
@@ -762,11 +766,11 @@ function renderItemBlock(container, item, section) {
 
         if (decreaseBtn) decreaseBtn.onclick = () => {
             let c = parseInt(countInput.value) || 0;
-            if (c > 0) {
+            if (c > 1) { // Minimum 1 bullet (never 0)
                 countInput.value = --c;
                 countDisplay.textContent = c;
                 // Persist to in-memory resume immediately
-                updateBulletPreference(container, section);
+                persistBulletPreference(div, section);
             }
         };
         if (increaseBtn) increaseBtn.onclick = () => {
@@ -774,7 +778,7 @@ function renderItemBlock(container, item, section) {
             if (c < 10) {
                 countInput.value = ++c;
                 countDisplay.textContent = c;
-                updateBulletPreference(container, section);
+                persistBulletPreference(div, section);
             }
         };
     }
@@ -838,17 +842,18 @@ function syncBulletCountDisplay(itemBlock, bulletContainer) {
     if (countDisplay) countDisplay.textContent = count;
 }
 
-function updateBulletPreference(container, section) {
-    const formContainer = container.closest('[data-editor-mode]') || container;
-    const es = getEditState(formContainer.id);
-    if (!es.resume || !es.resume[section]) return;
+function persistBulletPreference(itemDiv, section) {
+    const formContainer = itemDiv.closest('.editor-form-scroll, #formContainer, #profileFormContainer, [data-editor-mode]');
+    const es = getEditState(formContainer?.id || 'formContainer');
+    if (!es?.resume || !es.resume[section]) return;
 
-    const itemBlocks = formContainer.querySelectorAll('.item-block');
+    const allBlocks = formContainer.querySelectorAll('.item-block');
+    if (!allBlocks) return;
 
-    itemBlocks.forEach((block, index) => {
-        const countInput = block.querySelector('.bullet-count-input');
-        if (countInput && es.resume[section][index]) {
-            es.resume[section][index].bullet_count_preference = parseInt(countInput.value) || 0;
+    allBlocks.forEach((block, index) => {
+        const input = block.querySelector('.bullet-count-input');
+        if (input && es.resume[section][index]) {
+            es.resume[section][index].bullet_count_preference = parseInt(input.value) || 0;
         }
     });
 }

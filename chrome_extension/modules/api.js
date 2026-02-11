@@ -250,12 +250,30 @@ export async function generatePdf(resumeData) {
 }
 
 export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis, apiKey, provider, tailoringStrategy, pageMode = '1page', mustIncludeItems = null) {
-    // Uses the current tailored resume (with manual edits) as the base for re-tailoring.
-    // Applies bullet count limits and post-processing.
+    // Uses the base resume (full context) as the source for re-tailoring.
+    // Preserves manual edits from the tailored resume (titles, order, summary).
     try {
-        const base = tailoredResume;
+        // Use baseResume as the source for regeneration — it has full original content.
+        // The tailored resume is only used to preserve user's manual edits (section_order, titles, etc.)
+        const base = state.baseResume || tailoredResume;
 
         if (!jdAnalysis) throw new Error("JD Analysis missing for regeneration");
+
+        // Merge user customizations from tailored resume into the base before sending
+        const sourceResume = JSON.parse(JSON.stringify(base));
+
+        // Preserve section_order if user reordered
+        if (tailoredResume.section_order) {
+            sourceResume.section_order = tailoredResume.section_order;
+        }
+        // Preserve custom section_titles
+        if (tailoredResume.section_titles) {
+            sourceResume.section_titles = { ...sourceResume.section_titles, ...(tailoredResume.section_titles || {}) };
+        }
+        // Preserve user-edited summary if it differs from original
+        if (tailoredResume.summary && tailoredResume.summary !== base.summary) {
+            sourceResume.summary = tailoredResume.summary;
+        }
 
         // Add company description from state if not found in JD parsing
         if (!jdAnalysis.company_description && state.detectedCompanyDescription) {
@@ -263,7 +281,7 @@ export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis,
         }
 
         const actionId = `regen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const tailorPrompt = Prompts.buildTailorPrompt(base, jdAnalysis, tailoringStrategy, bulletCounts, pageMode, mustIncludeItems, state.formatSettings);
+        const tailorPrompt = Prompts.buildTailorPrompt(sourceResume, jdAnalysis, tailoringStrategy, bulletCounts, pageMode, mustIncludeItems, state.formatSettings);
         const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true, taskType: 'tailor', actionId });
         let newTailoredData = extractJSON(tailorResponse);
 

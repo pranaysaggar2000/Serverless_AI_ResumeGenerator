@@ -120,9 +120,10 @@ async function callMistral(prompt, options = {}) {
 // https://console.groq.com/
 // ============================================
 const GROQ_MODELS = [
-    'meta-llama/llama-4-scout-17b-16e-instruct',  // 1K RPD, 500K TPD, good quality
-    'llama-3.3-70b-versatile',                      // 1K RPD, 100K TPD — tight token limit
-    'llama-3.1-8b-instant'                          // 14.4K RPD, fallback only (lower quality)
+    'meta-llama/llama-4-scout-17b-16e-instruct',   // Best quality, 30K TPM, 500K TPD
+    'meta-llama/llama-4-maverick-17b-128e-instruct', // Backup Scout-class model
+    'llama-3.3-70b-versatile',                       // Fallback
+    'llama-3.1-8b-instant'                           // Last resort (fast but lower quality)
 ];
 
 async function callGroqServer(prompt, options = {}) {
@@ -221,10 +222,10 @@ async function callOpenRouterServer(prompt, options = {}) {
 // ============================================
 async function callAIServer(prompt, options = {}) {
     const providers = [
-        { name: 'Cerebras', fn: callCerebras, required_key: 'CEREBRAS_API_KEY' },
-        { name: 'Mistral', fn: callMistral, required_key: 'MISTRAL_API_KEY' },
-        { name: 'Groq', fn: callGroqServer, required_key: 'GROQ_API_KEY' },
-        { name: 'OpenRouter', fn: callOpenRouterServer, required_key: 'OPENROUTER_API_KEY' }
+        { name: 'Groq', fn: callGroqServer, required_key: 'GROQ_API_KEY' },           // 1st: Best quality (Scout)
+        { name: 'Cerebras', fn: callCerebras, required_key: 'CEREBRAS_API_KEY' },      // 2nd: High volume fallback
+        { name: 'Mistral', fn: callMistral, required_key: 'MISTRAL_API_KEY' },         // 3rd: Good quality backup
+        { name: 'OpenRouter', fn: callOpenRouterServer, required_key: 'OPENROUTER_API_KEY' } // 4th: Last resort
     ];
 
     // Debug: Log which keys are available at runtime

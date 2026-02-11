@@ -147,7 +147,7 @@ RESUME TO TAILOR:
 ${JSON.stringify(baseResume)}
 
 REWRITING RULES:
-1. SUMMARY: 3-4 sentences focusing on Identity, Core Skills, Accomplishments, and Domain Fit.
+1. SUMMARY: 3-4 sentences in third person WITHOUT pronouns. Never use "I", "my", "me", "am", "enables me". Write like: "Data Scientist with 5+ years of experience in X. Proven track record in Y. Skilled in Z." NOT "I am a Data Scientist..." or "My expertise in...". Focus on Identity, Core Skills, Accomplishments, and Domain Fit.
 2. BULLETS: Start with strong action verb. Use XYZ formula: "Did [X] measured by [Y] by doing [Z]".
 3. SKILLS: Put JD keywords first.
 4. INTEGRITY: Never invent roles, dates, or metrics.

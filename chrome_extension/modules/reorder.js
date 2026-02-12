@@ -31,12 +31,22 @@ export function renderReorderList() {
         li.className = 'sortable-item';
         li.setAttribute('draggable', 'true');
         li.setAttribute('data-section', section);
-        li.innerHTML = `
-            <div style="display:flex; align-items:center;">
-                <span class="handle">☰</span> 
-                <span class="section-name">${formatSectionName(section)}</span>
-            </div>
-        `;
+        // Handle
+        const handle = document.createElement('span');
+        handle.className = 'handle';
+        handle.textContent = '☰';
+
+        // Section Name
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'section-name';
+        nameSpan.textContent = formatSectionName(section);
+
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = "display:flex; align-items:center;";
+        wrapper.appendChild(handle);
+        wrapper.appendChild(nameSpan);
+
+        li.appendChild(wrapper);
 
         li.addEventListener('dragstart', handleDragStart);
         li.addEventListener('dragover', handleDragOver);
@@ -140,7 +150,7 @@ export function setupReorderUI(generateAndCachePDFCallback) {
                 saveOrderBtn.disabled = true;
 
                 if (generateAndCachePDFCallback) {
-                    await generateAndCachePDFCallback(state.tailoredResume);
+                    await generateAndCachePDFCallback(updated);
                 }
 
                 saveOrderBtn.textContent = "Save Order";

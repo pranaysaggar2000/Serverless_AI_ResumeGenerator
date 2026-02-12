@@ -129,15 +129,37 @@ export function renderLiveAtsBadge(containerId = 'formContainer', resumeData = n
     badge.style.color = textColor;
     badge.style.border = `1px solid ${textColor}22`;
 
-    badge.innerHTML = `
-        <div>
-            <span style="font-weight:bold;">${emoji} Keywords: ${result.mandatory.matched.length}/${result.mandatory.total.length} required found</span>
-            <span style="opacity:0.7; margin-left:4px; font-weight:normal;">· ${result.preferred.matched.length}/${result.preferred.total.length} preferred</span>
-        </div>
-        ${missingMandatory > 0
-            ? `<div style="font-size:10px;">⚠️ Missing: ${result.mandatory.missing.slice(0, 4).join(', ')}${result.mandatory.missing.length > 4 ? '...' : ''}</div>`
-            : '<div style="font-size:10px;">✅ All required keywords present · Run ATS Score for full analysis</div>'}
-    `;
+    // Build content safely
+    const content = document.createElement('div');
+
+    // Main Stats Line
+    const statsLine = document.createElement('div');
+    const mainStat = document.createElement('span');
+    mainStat.style.fontWeight = 'bold';
+    mainStat.textContent = `${emoji} Keywords: ${result.mandatory.matched.length}/${result.mandatory.total.length} required found`;
+
+    const subStat = document.createElement('span');
+    subStat.style.cssText = "opacity:0.7; margin-left:4px; font-weight:normal;";
+    subStat.textContent = `· ${result.preferred.matched.length}/${result.preferred.total.length} preferred`;
+
+    statsLine.appendChild(mainStat);
+    statsLine.appendChild(subStat);
+
+    // Missing Line
+    const missingLine = document.createElement('div');
+    missingLine.style.fontSize = '10px';
+
+    if (missingMandatory > 0) {
+        missingLine.textContent = `⚠️ Missing: ${result.mandatory.missing.slice(0, 4).join(', ')}${result.mandatory.missing.length > 4 ? '...' : ''}`;
+    } else {
+        missingLine.textContent = '✅ All required keywords present · Run ATS Score for full analysis';
+    }
+
+    content.appendChild(statsLine);
+    content.appendChild(missingLine);
+
+    badge.innerHTML = '';
+    badge.appendChild(content);
 
     // Click to expand missing keywords
     badge.onclick = () => {
@@ -150,17 +172,41 @@ export function renderLiveAtsBadge(containerId = 'formContainer', resumeData = n
         details.id = 'liveAtsDetails';
         details.style.cssText = 'padding:10px; margin-bottom:10px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; font-size:10px;';
 
-        let html = '<div style="font-weight:bold; margin-bottom:6px;">🔍 Keyword Presence Check</div>';
-        html += '<div style="color:#6b7280; font-size:9px; margin-bottom:6px;">Checks if keywords EXIST in your resume. Does NOT evaluate placement quality — a keyword only in Skills scores lower on real ATS than one used in a bullet point with context.</div>';
+        const title = document.createElement('div');
+        title.style.cssText = "font-weight:bold; margin-bottom:6px;";
+        title.textContent = "🔍 Keyword Presence Check";
+
+        const subtitle = document.createElement('div');
+        subtitle.style.cssText = "color:#6b7280; font-size:9px; margin-bottom:6px;";
+        subtitle.textContent = "Checks if keywords EXIST in your resume. Does NOT evaluate placement quality — a keyword only in Skills scores lower on real ATS than one used in a bullet point with context.";
+
+        details.appendChild(title);
+        details.appendChild(subtitle);
 
         if (result.mandatory.missing.length > 0) {
-            html += `<div style="color:#dc2626; margin-bottom:4px;"><strong>Missing Required:</strong> ${result.mandatory.missing.join(', ')}</div>`;
+            const missingReq = document.createElement('div');
+            missingReq.style.cssText = "color:#dc2626; margin-bottom:4px;";
+            const b = document.createElement('strong');
+            b.textContent = "Missing Required: ";
+            missingReq.appendChild(b);
+            missingReq.appendChild(document.createTextNode(result.mandatory.missing.join(', ')));
+            details.appendChild(missingReq);
         }
-        if (result.preferred.missing.length > 0) {
-            html += `<div style="color:#d97706; margin-bottom:4px;"><strong>Missing Preferred:</strong> ${result.preferred.missing.slice(0, 8).join(', ')}${result.preferred.missing.length > 8 ? '...' : ''}</div>`;
-        }
-        html += `<div style="color:#6b7280; margin-top:6px; font-style:italic;">💡 Tip: Don't just add keywords to Skills — use them in bullet points with context for higher ATS scores.</div>`;
 
-        badge.after(details);
+        if (result.preferred.missing.length > 0) {
+            const missingPref = document.createElement('div');
+            missingPref.style.cssText = "color:#d97706; margin-bottom:4px;";
+            const b = document.createElement('strong');
+            b.textContent = "Missing Preferred: ";
+            missingPref.appendChild(b);
+            const text = result.preferred.missing.slice(0, 8).join(', ') + (result.preferred.missing.length > 8 ? '...' : '');
+            missingPref.appendChild(document.createTextNode(text));
+            details.appendChild(missingPref);
+        }
+
+        const tip = document.createElement('div');
+        tip.style.cssText = "color:#6b7280; margin-top:6px; font-style:italic;";
+        tip.textContent = "💡 Tip: Don't just add keywords to Skills — use them in bullet points with context for higher ATS scores.";
+        details.appendChild(tip);
     };
 }

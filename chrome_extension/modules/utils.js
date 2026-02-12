@@ -132,14 +132,25 @@ export function showConfirmDialog(message) {
 
         const box = document.createElement('div');
         box.style.cssText = 'background:white;border-radius:12px;padding:24px;width:80%;max-width:300px;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,0.3);animation: slideIn 0.3s ease;';
-        box.innerHTML = `
-            <div style="font-size: 24px; margin-bottom: 12px;">⚠️</div>
-            <p style="margin:0 0 20px;font-size:14px;color:#374151;font-weight:500;line-height:1.5;">${message}</p>
-            <div style="display:flex;gap:10px;justify-content:center;">
-                <button id="confirmNo" style="flex:1;padding:10px;background:#f3f4f6;color:#4b5563;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Cancel</button>
-                <button id="confirmYes" style="flex:1;padding:10px;background:#ef4444;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Confirm</button>
-            </div>
+        const iconMsg = document.createElement('div');
+        iconMsg.style.cssText = "font-size: 24px; margin-bottom: 12px;";
+        iconMsg.textContent = "⚠️";
+
+        const textMsg = document.createElement('p');
+        textMsg.style.cssText = "margin:0 0 20px;font-size:14px;color:#374151;font-weight:500;line-height:1.5;";
+        textMsg.textContent = message;
+
+        const btnContainer = document.createElement('div');
+        btnContainer.style.cssText = "display:flex;gap:10px;justify-content:center;";
+
+        btnContainer.innerHTML = `
+            <button id="confirmNo" style="flex:1;padding:10px;background:#f3f4f6;color:#4b5563;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Cancel</button>
+            <button id="confirmYes" style="flex:1;padding:10px;background:#ef4444;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Confirm</button>
         `;
+
+        box.appendChild(iconMsg);
+        box.appendChild(textMsg);
+        box.appendChild(btnContainer);
         overlay.appendChild(box);
         document.body.appendChild(overlay);
 

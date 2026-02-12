@@ -146,19 +146,62 @@ function renderProfileList(profiles, activeProfile) {
         const displayName = profiles[name]?.name || name;
         const isDefault = name === 'default';
 
-        div.innerHTML = `
-            <div style="display:flex; align-items:center; gap:6px;">
-                <span style="width:8px; height:8px; border-radius:50%; background:${isActive ? '#6366f1' : '#d1d5db'};"></span>
-                <span style="font-weight:${isActive ? '600' : '400'}; line-height: 1.2;">
-                    ${name}
-                    ${isDefault ? '<span style="color:#6366f1; font-weight: normal; margin-left: 2px;">(Initial)</span>' : ''}
-                </span>
-            </div>
-            <div style="display:flex; gap:4px; align-items:center;">
-                ${!isActive ? `<button class="profile-switch-btn" data-name="${name}" style="font-size:10px; padding:2px 8px; cursor:pointer; border:1px solid #d1d5db; border-radius:4px; background:white;">Switch</button>` : '<span style="font-size:10px; color:#6366f1; font-weight:600;">Active</span>'}
-                ${!isDefault ? `<button class="profile-delete-btn" data-name="${name}" style="font-size:10px; width:20px; height:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:none; background:none; color:#ef4444; border-radius: 4px; hover: {background: #fee2e2}">✕</button>` : '<div style="width:20px;"></div>'}
-            </div>
-        `;
+        // Left side: Indicator + Name
+        const leftDiv = document.createElement('div');
+        leftDiv.style.cssText = "display:flex; align-items:center; gap:6px;";
+
+        const indicator = document.createElement('span');
+        indicator.style.cssText = `width:8px; height:8px; border-radius:50%; background:${isActive ? '#6366f1' : '#d1d5db'};`;
+
+        const nameSpan = document.createElement('span');
+        nameSpan.style.cssText = `font-weight:${isActive ? '600' : '400'}; line-height: 1.2;`;
+        nameSpan.textContent = name;
+
+        if (isDefault) {
+            const defaultTag = document.createElement('span');
+            defaultTag.style.cssText = "color:#6366f1; font-weight: normal; margin-left: 2px;";
+            defaultTag.textContent = "(Initial)";
+            nameSpan.appendChild(defaultTag);
+        }
+
+        leftDiv.appendChild(indicator);
+        leftDiv.appendChild(nameSpan);
+
+        // Right side: Buttons
+        const rightDiv = document.createElement('div');
+        rightDiv.style.cssText = "display:flex; gap:4px; align-items:center;";
+
+        if (!isActive) {
+            const switchBtn = document.createElement('button');
+            switchBtn.className = 'profile-switch-btn';
+            switchBtn.dataset.name = name;
+            switchBtn.style.cssText = "font-size:10px; padding:2px 8px; cursor:pointer; border:1px solid #d1d5db; border-radius:4px; background:white;";
+            switchBtn.textContent = 'Switch';
+            rightDiv.appendChild(switchBtn);
+        } else {
+            const activeLabel = document.createElement('span');
+            activeLabel.style.cssText = "font-size:10px; color:#6366f1; font-weight:600;";
+            activeLabel.textContent = 'Active';
+            rightDiv.appendChild(activeLabel);
+        }
+
+        if (!isDefault) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'profile-delete-btn';
+            deleteBtn.dataset.name = name;
+            deleteBtn.style.cssText = "font-size:10px; width:20px; height:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:none; background:none; color:#ef4444; border-radius: 4px;";
+            deleteBtn.textContent = '✕';
+
+            // Hover effect logic handled by CSS or leave simple for now
+            rightDiv.appendChild(deleteBtn);
+        } else {
+            const spacer = document.createElement('div');
+            spacer.style.width = '20px';
+            rightDiv.appendChild(spacer);
+        }
+
+        div.appendChild(leftDiv);
+        div.appendChild(rightDiv);
         list.appendChild(div);
     });
 
@@ -1996,21 +2039,7 @@ async function detectJobDescription() {
     try {
         // Step 1: Request permission for the current tab's origin
         // This uses optional_host_permissions to request access to any job board site
-        try {
-            const origin = new URL(tab.url).origin + '/*';
-            const granted = await chrome.permissions.request({
-                origins: [origin]
-            });
-
-            if (!granted) {
-                throw new Error('PERMISSION_DENIED');
-            }
-
-            debugLog('✅ Permission granted for:', origin);
-        } catch (permError) {
-            console.warn('Permission request failed:', permError);
-            // If permission request fails, try without it (might still work with activeTab)
-        }
+        // Step 1: Permission request Block Removed (Relying on activeTab)
 
         // Step 2: Try client-side extraction (fast, no API cost)
         let results;
@@ -2025,27 +2054,9 @@ async function detectJobDescription() {
             ]);
         } catch (scriptError) {
             // Content script injection failed - likely because tab was already loaded
-            // when popup opened, or we don't have permission for this page
+            // when popup opened, or we don't have permission for this page.
+            // Proceed to server-side fetch fallback.
             console.warn('Content script injection failed:', scriptError);
-
-            // Offer to reload the page to enable detection
-            const userWantsReload = await showConfirmDialog(
-                '⚠️ Cannot scan this page (it was loaded before the extension opened).\n\n' +
-                '✅ Click Confirm to reload the page.\n' +
-                '   After reload, click "Fetch from Page" again.\n\n' +
-                '❌ Click Cancel to paste the job description manually instead.'
-            );
-
-            if (userWantsReload) {
-                // Reload the page
-                await chrome.tabs.reload(tab.id);
-
-                // Show message to user
-                throw new Error('PAGE_RELOADED');
-            } else {
-                // User chose to paste manually
-                throw new Error('MANUAL_PASTE_REQUESTED');
-            }
         }
 
         let bestText = '';
@@ -2081,7 +2092,50 @@ async function detectJobDescription() {
         }
 
         // Step 2: Client-side extraction got too little text — try LLM fallback
+        // Step 2: Client-side extraction weak? Try Server-Side Fetch
+        // This is safer and more robust than injecting scripts
+        if (bestText.length < 200) {
+            debugLog("Client-side extraction weak. Trying Server-Side Fetch...");
+            try {
+                // Use the API endpoint we just created
+                const API_BASE = 'https://serverless-ai-resume-generator-api.vercel.app/api';
+                // For local testing, you might toggle this to localhost:3000
+
+                const fetchUrl = `${API_BASE}/fetch-jd?url=${encodeURIComponent(tab.url)}`;
+                const response = await fetch(fetchUrl);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.text && data.text.length > 200) {
+                        debugLog("✅ Server-side fetch successful");
+                        const updates = {
+                            currentJdText: data.text,
+                            detectedJobTitle: data.title || bestTitle, // Use server title if better
+                            detectedCompany: data.company || bestCompany,
+                            detectedPageUrl: tab.url,
+                            jdExtractionMethod: 'server-fetch'
+                        };
+                        updateState(updates);
+                        await chrome.storage.local.set({
+                            current_jd_text: data.text,
+                            detected_job_title: updates.detectedJobTitle,
+                            detected_company: updates.detectedCompany,
+                            detected_page_url: tab.url,
+                            jd_extraction_method: 'server-fetch'
+                        });
+                        return updates;
+                    }
+                } else {
+                    console.warn("Server-side fetch failed:", response.status);
+                }
+            } catch (fetchErr) {
+                console.warn("Server-side fetch error:", fetchErr);
+            }
+        }
+
+        // Step 3: Last Resort - AI Extraction (Costly but powerful)
         if (!checkCurrentProviderKey()) {
+            // If no API key, and we have *some* text from client/server, use it
             if (bestText.length > 50) {
                 const updates = {
                     currentJdText: bestText,

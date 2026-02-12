@@ -521,8 +521,11 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
 
     // Render live ATS keyword badge
     // Only show live ATS badge in tailored resume editor
-    if (containerId === 'formContainer') {
-        setTimeout(() => renderLiveAtsBadge(containerId, es.resume), 150);
+    if (containerId === 'formContainer' || containerId === 'resumeEditor') {
+        // Use a slight delay to ensure DOM is ready
+        setTimeout(() => {
+            renderLiveAtsBadge('formContainer', es.resume);
+        }, 150);
     }
 }
 

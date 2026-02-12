@@ -76,16 +76,30 @@ export async function renderHistoryList() {
             div.className = 'history-item';
             div.style.cssText = "border-bottom:1px solid #eee; padding:10px 0; display:flex; justify-content:space-between; align-items:center;";
 
-            div.innerHTML = `
-                <div>
-                    <div style="font-weight:bold; font-size:12px; color:#333;">${v.jdTitle}</div>
-                    <div style="font-size:10px; color:#888;">${timeStr}</div>
-                </div>
-                <div style="display:flex; gap:5px;">
-                    <button class="restore-btn" data-id="${v.id}" style="font-size:11px; padding:3px 8px; cursor:pointer;">Restore</button>
-                    <button class="delete-btn" data-id="${v.id}" style="font-size:11px; padding:3px 8px; color:#c62828; border:none; background:none; cursor:pointer;">✕</button>
-                </div>
+            // Left side: Title and timestamp
+            const infoDiv = document.createElement('div');
+
+            const titleDiv = document.createElement('div');
+            titleDiv.style.cssText = "font-weight:bold; font-size:12px; color:#333;";
+            titleDiv.textContent = v.jdTitle;
+
+            const timeDiv = document.createElement('div');
+            timeDiv.style.cssText = "font-size:10px; color:#888;";
+            timeDiv.textContent = timeStr;
+
+            infoDiv.appendChild(titleDiv);
+            infoDiv.appendChild(timeDiv);
+
+            // Right side: Buttons
+            const btnDiv = document.createElement('div');
+            btnDiv.style.cssText = "display:flex; gap:5px;";
+            btnDiv.innerHTML = `
+                <button class="restore-btn" data-id="${v.id}" style="font-size:11px; padding:3px 8px; cursor:pointer;">Restore</button>
+                <button class="delete-btn" data-id="${v.id}" style="font-size:11px; padding:3px 8px; color:#c62828; border:none; background:none; cursor:pointer;">✕</button>
             `;
+
+            div.appendChild(infoDiv);
+            div.appendChild(btnDiv);
             list.appendChild(div);
         });
 

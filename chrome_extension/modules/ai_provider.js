@@ -155,6 +155,7 @@ async function callGemini(prompt, apiKey, options) {
 
 async function callGroq(prompt, apiKey, options) {
     const modelsChain = [
+        'moonshotai/kimi-k2-instruct-0905',
         "meta-llama/llama-4-scout-17b-16e-instruct",
         "llama-3.3-70b-versatile",
         "llama-3.1-8b-instant"

@@ -120,6 +120,7 @@ async function callMistral(prompt, options = {}) {
 // https://console.groq.com/
 // ============================================
 const GROQ_MODELS = [
+    'moonshotai/kimi-k2-instruct-0905',
     'meta-llama/llama-4-scout-17b-16e-instruct',   // Best quality, 30K TPM, 500K TPD
     'meta-llama/llama-4-maverick-17b-128e-instruct', // Backup Scout-class model
     'llama-3.3-70b-versatile',                       // Fallback

@@ -282,7 +282,7 @@ Rule 1 — SUMMARY (MUST be exactly 4 sentences, third person, NO pronouns):
   NEVER use "I", "my", "me", "am", "his", "her", "their", "enables me".
   BAD:  "I am a Data Scientist with expertise in ML. My experience includes..."
   GOOD: "Data Scientist with 5 years of experience in ML and NLP. Skilled in Python, TensorFlow, and cloud deployment. Built recommendation engine serving 2M users. Background in e-commerce and fintech domains."
-  Structure: Sentence 1 = [Role] with [X] years in [domain]. Sentence 2 = Skilled in [3-4 tools from JD]. Sentence 3 = [One key accomplishment/project relevant to the role]. Sentence 4 = [Domain fit or industry context].
+  Structure: Sentence 1 = [Role] with [X] years in [domain]. Sentence 2 = Skilled in [3-4 tools from JD]. Sentence 3 = [Concrete accomplishment — use a metric if one exists in the experience section, otherwise describe what was built/delivered without inventing numbers]. Sentence 4 = [Domain fit or industry context].
   Calculate years from the work experience dates if not stated. A 2-sentence summary is TOO SHORT — always write 4 sentences.
   NEVER include: visa status, "passionate about", "seeking a role", "results-driven", "leverage", "utilize".
 
@@ -396,56 +396,65 @@ Before generating, verify: NO bullet ends with "with a focus on...", "utilizing.
 
 // ---------- 4. ATS SCORE ANALYSIS ----------
 
-export function buildAnalysisPrompt(resumeData, jdText) {
+export function buildAnalysisPrompt(resumeData, jdText, jdAnalysis = null) {
     const flatResume = flattenResumeForAnalysis(resumeData);
 
-    // Technique: Role priming, structured scoring rubric, calibration examples
-    return `You are an ATS (Applicant Tracking System) scoring engine. Score this resume against the job description.
+    const keywordsSection = jdAnalysis ? `
+PARSED JD KEYWORDS:
+Mandatory: ${(jdAnalysis.mandatory_keywords || []).join(', ')}
+Preferred: ${(jdAnalysis.preferred_keywords || []).join(', ')}
+` : '';
+
+    return `You are a senior recruiter and ATS scoring engine. Score this resume for keyword match AND audit it for quality issues. Be specific and actionable.
 
 === JOB DESCRIPTION ===
 ${jdText}
-
+${keywordsSection}
 === RESUME ===
 ${flatResume}
 
-=== SCORING METHOD ===
+=== PART 1: ATS SCORING ===
 
-Step 1: Extract every keyword from the JD — tools, skills, methods, certifications, domain terms, and qualifications.
+Extract every keyword from the JD. For each, score placement:
+  Skills only = 0.7 | Also in summary = +0.5 | In a bullet with context = +0.7 | In title/project name = +0.4 | Max per keyword: 2.3
+  Score = (keyword_pts / max_possible) * 70 + (soft_skill_match * 12) + (experience_relevance * 18)
+  "missing" = completely absent. "weak" = in skills but never in a bullet with context.
+  Calibration: 90-95 exceptional, 85-89 excellent, 75-84 strong, 65-74 good, 55-64 fair, <55 weak.
 
-Step 2: For each keyword, score placement in the resume:
-  - In skills section only: 0.7 points
-  - Also in summary: +0.5 points
-  - Also in at least one bullet with context: +0.7 points
-  - Also in a role title or project name: +0.4 points
-  - Maximum per keyword: 2.3 points
+=== PART 2: QUALITY AUDIT ===
 
-Step 3: Calculate overall score:
-  Score = (total_keyword_points / max_possible_points) * 70 + (soft_skill_match * 12) + (experience_relevance * 18)
+Check each of these and flag specific issues:
 
-CLASSIFICATION:
-  "missing" = keyword is COMPLETELY absent from the entire resume
-  "weak" = keyword appears in skills but is NEVER used in context in any bullet
+SUMMARY: Has years of experience? Has a metric or concrete accomplishment? Has domain fit? Is 3-4 sentences? Any "passionate about"/"results-driven"/"I/my" pronouns?
 
-SCORE CALIBRATION (be fair — don't over-inflate or under-score):
-  90-95: Near-perfect match. Almost every keyword present in context.
-  85-89: Excellent. Most keywords present, strong experience alignment.
-  75-84: Strong. Majority of keywords, relevant experience, some gaps.
-  65-74: Good. Decent coverage, needs optimization.
-  55-64: Fair. Notable gaps, experience somewhat relevant.
-  Below 55: Weak. Major keyword gaps or misaligned experience.
+KEYWORD STUFFING: Does any bullet end with a disconnected phrase like "applying [keyword]", "ensuring [keyword]", "through [keyword]", "with a focus on [keyword]"? Quote the exact bullet.
 
-=== RULES ===
-Rule 1: missing_keywords — ONLY keywords completely absent. If it's in skills but not bullets, that's "weak" not "missing".
-Rule 2: recommendations — give 3 specific, actionable improvements with the exact keyword to add and where.
-Rule 3: matching_areas — cite 3-5 specific strengths (e.g. "3 years Python experience matches 2+ year requirement").
+BULLETS: Any stubs under 60 chars? Any over 250 chars? Any vague filler ("Improved performance using various techniques")? Any missing metrics where the original likely had one? Any fabricated content?
+
+SKILLS: Duplicates across categories? Soft skills listed as technical skills? Parenthetical expansions like "LLMs (Large Language Models)"?
+
+CONTENT GAPS: Which JD requirements have zero evidence in the resume?
+
+Rate each issue: CRITICAL (likely rejection), MODERATE (reduces competitiveness), MINOR (cosmetic).
 
 ` + 'Return in ```json``` format:\n```json\n' + `{
   "score": 0,
-  "missing_keywords": ["keywords completely absent from resume"],
-  "weak_keywords": ["keywords in skills only, not in any bullet context"],
-  "matching_areas": ["specific strength descriptions"],
-  "recommendations": ["specific actionable improvements"],
-  "summary_feedback": "one paragraph constructive assessment"
+  "missing_keywords": [],
+  "weak_keywords": [],
+  "matching_areas": ["3-5 specific strengths"],
+  "summary_feedback": "one paragraph assessment",
+  "audit": {
+    "summary_issues": [{"issue": "description", "severity": "CRITICAL|MODERATE|MINOR"}],
+    "stuffing_found": [{"bullet": "exact text", "stuffed_phrase": "the phrase", "severity": "CRITICAL"}],
+    "bullet_issues": [{"section": "experience", "item": "company/project name", "bullet": "exact text", "issue": "what's wrong", "fix": "suggested rewrite", "severity": "CRITICAL|MODERATE|MINOR"}],
+    "skills_issues": [{"issue": "description", "severity": "MODERATE"}],
+    "content_gaps": [{"requirement": "JD requirement", "suggestion": "how to address", "severity": "CRITICAL|MODERATE"}]
+  },
+  "top_3_actions": [
+    "Most impactful fix with exact instructions",
+    "Second most impactful fix",
+    "Third most impactful fix"
+  ]
 }
 ` + '```';
 }

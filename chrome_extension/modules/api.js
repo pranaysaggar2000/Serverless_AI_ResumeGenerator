@@ -355,7 +355,8 @@ export async function askQuestion(question, resumeData, jdText, apiKey, provider
 export async function analyzeResume(resumeData, jdText, apiKey, provider) {
     try {
         const actionId = `score_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const prompt = Prompts.buildAnalysisPrompt(resumeData, jdText);
+        const jdAnalysis = state.currentJdAnalysis || null;
+        const prompt = Prompts.buildAnalysisPrompt(resumeData, jdText, jdAnalysis);
         const responseText = await callAI(prompt, provider, apiKey, { expectJson: true, useProModel: true, taskType: 'score', actionId });
         const data = extractJSON(responseText);
         if (!data) throw new Error("Failed to parse analysis JSON");

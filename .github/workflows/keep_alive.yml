@@ -1,0 +1,17 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # Run at 00:00 UTC every day
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase via Vercel API
+        run: |
+          # This endpoint calls Supabase Auth to generate an OAuth URL.
+          # This activity prevents Supabase from pausing the project due to inactivity.
+          curl -I https://serverless-ai-resume-generator-api.vercel.app/api/auth/google

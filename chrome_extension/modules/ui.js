@@ -381,6 +381,17 @@ export function renderAnalysis(analysis) {
     // Details - simplified rendering
     if (analysisDetails) {
         let html = '';
+
+        // --- TOP 3 ACTIONS (New) ---
+        if (analysis.top_3_actions && analysis.top_3_actions.length > 0) {
+            html += `<div style="margin-bottom: 15px; background: #eef2ff; padding: 10px; border-radius: 6px; border-left: 4px solid #4f46e5;">
+                <strong style="color: #3730a3; display: block; margin-bottom: 5px;">🚀 Top 3 Fixes</strong>
+                <ol style="margin: 0; padding-left: 20px;">`;
+            analysis.top_3_actions.forEach(action => html += `<li style="margin-bottom: 4px;">${action}</li>`);
+            html += `</ol></div>`;
+        }
+
+        // --- MATCHING STRENGTHS ---
         if (analysis.matching_areas && analysis.matching_areas.length) {
             html += `<div style="margin-bottom: 10px;">
                 <strong>✅ Strong Matches:</strong>
@@ -389,6 +400,7 @@ export function renderAnalysis(analysis) {
             html += `</ul></div>`;
         }
 
+        // --- MISSING KEYWORDS ---
         if (analysis.missing_keywords && analysis.missing_keywords.length) {
             html += `<div style="margin-bottom: 10px;">
                 <strong>⚠️ Missing Keywords:</strong> 
@@ -396,20 +408,66 @@ export function renderAnalysis(analysis) {
             </div>`;
         }
 
-        if (analysis.weak_keywords && analysis.weak_keywords.length) {
-            html += `<div style="margin-bottom: 10px;">
-                <strong>⚡ Weak Matches (in skills only, needs context):</strong>
-                <span style="color: #d97706;">${analysis.weak_keywords.join(', ')}</span>
-            </div>`;
+        // --- AUDIT ISSUES (New) ---
+        if (analysis.audit) {
+            // Keyword Stuffing
+            if (analysis.audit.stuffing_found && analysis.audit.stuffing_found.length > 0) {
+                html += `<div style="margin-bottom: 12px; padding: 8px; background: #fef2f2; border-left: 3px solid #ef4444; border-radius: 4px;">
+                    <strong style="color: #b91c1c;">🚫 Keyword Stuffing Detected:</strong>
+                    <ul style="margin: 5px 0; padding-left: 15px;">`;
+                analysis.audit.stuffing_found.forEach(item => {
+                    html += `<li style="font-size: 11px; margin-bottom: 4px;">
+                        "${item.stuffed_phrase}" in bullet: <em>"${item.bullet.substring(0, 60)}..."</em>
+                    </li>`;
+                });
+                html += `</ul></div>`;
+            }
+
+            // Content Gaps
+            if (analysis.audit.content_gaps && analysis.audit.content_gaps.length > 0) {
+                html += `<div style="margin-bottom: 10px;">
+                    <strong>🧩 Content Gaps:</strong>
+                    <ul style="margin: 5px 0; padding-left: 20px;">`;
+                analysis.audit.content_gaps.forEach(gap => {
+                    html += `<li style="margin-bottom: 3px;">
+                        <strong>${gap.requirement}:</strong> ${gap.suggestion}
+                        <span style="font-size: 9px; padding: 1px 4px; background: #fee2e2; color: #991b1b; border-radius: 4px;">${gap.severity}</span>
+                    </li>`;
+                });
+                html += `</ul></div>`;
+            }
+
+            // Summary/Bullet Issues
+            const issues = [
+                ...(analysis.audit.summary_issues || []),
+                ...(analysis.audit.bullet_issues || []),
+                ...(analysis.audit.skills_issues || [])
+            ];
+
+            if (issues.length > 0) {
+                html += `<div style="margin-bottom: 10px;">
+                    <strong>🔍 Quality Checks:</strong>
+                    <ul style="margin: 5px 0; padding-left: 20px;">`;
+                issues.forEach(issue => {
+                    const desc = issue.issue || (issue.bullet ? `Bullet: ${issue.issue}` : '');
+                    const sevColor = issue.severity === 'CRITICAL' ? '#dc2626' : issue.severity === 'MODERATE' ? '#d97706' : '#4b5563';
+                    html += `<li style="margin-bottom: 3px; color: ${sevColor};">
+                        ${desc} <span style="font-size: 9px; opacity: 0.8;">[${issue.severity || 'MINOR'}]</span>
+                     </li>`;
+                });
+                html += `</ul></div>`;
+            }
         }
 
-        if (analysis.recommendations && analysis.recommendations.length) {
+        // Legacy Recommendations (fallback)
+        if (!analysis.audit && analysis.recommendations && analysis.recommendations.length) {
             html += `<div style="margin-bottom: 8px;">
                 <strong>💡 Recommendations:</strong>
                 <ul style="margin: 5px 0; padding-left: 20px;">`;
             analysis.recommendations.forEach(rec => html += `<li>${rec}</li>`);
             html += `</ul></div>`;
         }
+
 
         // After score display, add a verdict
         let verdict = '';

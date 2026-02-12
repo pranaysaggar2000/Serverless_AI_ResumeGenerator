@@ -429,7 +429,7 @@ SUMMARY: Has years of experience? Has a metric or concrete accomplishment? Has d
 
 KEYWORD STUFFING: Does any bullet end with a disconnected phrase like "applying [keyword]", "ensuring [keyword]", "through [keyword]", "with a focus on [keyword]"? Quote the exact bullet.
 
-BULLETS: Any stubs under 60 chars? Any over 250 chars? Any vague filler ("Improved performance using various techniques")? Any missing metrics where the original likely had one? Any fabricated content?
+BULLETS: Any stubs under 60 chars? Any over 250 chars? Any vague filler ("Improved performance using various techniques")? Any fabricated content? Any bullet where the keyword doesn't match the work described (e.g. "AI Voices" on a bullet about database queries, or "statistical rigor" on a bullet about deploying Kubernetes)? Any claim that contradicts the candidate's experience level or timeline?
 
 SKILLS: Duplicates across categories? Soft skills listed as technical skills? Parenthetical expansions like "LLMs (Large Language Models)"?
 

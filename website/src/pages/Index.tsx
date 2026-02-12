@@ -79,9 +79,10 @@ const Index = () => {
           {/* ===== PROFESSIONAL SUMMARY ===== */}
           <ResumeSection title="Professional Summary">
             <p className="text-sm leading-relaxed text-card-foreground">
-              A 100% free, privacy-first Chrome Extension that tailors your resume to any job
-              description using AI. Runs entirely in your browser using your own Gemini or Groq
-              API key. No subscriptions. No servers. No data collection.
+              A powerful, privacy-first Chrome Extension that tailors your resume to any job
+              description using AI. <strong>New: Login with Google for 15 free generations daily.</strong> Supports both
+              <strong> Bring Your Own Key (BYOK)</strong> (Gemini, Groq, OpenRouter) for 100% client-side privacy and a managed serverless mode
+              for convenience. No subscriptions. No hidden data collection.
             </p>
           </ResumeSection>
 
@@ -106,9 +107,9 @@ const Index = () => {
               date="Feb 2026 – Present"
               icon={<Shield size={16} className="text-accent" />}
               bullets={[
-                "Operates 100% client-side with zero backend servers — no Vercel, no Heroku, nothing",
-                "Resume data travels only from your browser directly to Google/Groq and back",
-                "All state persisted locally via chrome.storage — we literally cannot see your data",
+                "Hybrid Architecture: Choose between zero-setup Google Login (Serverless) or full privacy BYOK (Client-side)",
+                "Generous Free Tier: 15 free AI generations per day with secure Google authentication",
+                "Zero Data Retention: We never store your personal data. All state is persisted locally via chrome.storage",
               ]}
             />
             <ExperienceEntry
@@ -142,7 +143,7 @@ const Index = () => {
               <ProblemBullet
                 icon={<DollarSign size={14} />}
                 label="The Cost"
-                text="Competitors charge $20+/month just to rewrite a few bullet points."
+                text="Competitors charge $20+/month. ForgeCV gives you 15 free generations every day, forever."
               />
             </div>
           </ResumeSection>
@@ -154,7 +155,7 @@ const Index = () => {
             <div className="mx-auto w-full px-4 sm:px-0">
               <Carousel className="w-full" opts={{ align: "start" }}>
                 <CarouselContent>
-                  <CarouselSlide src="/screenshots/API_Key_EditUI.png" caption="Secure API Key management (Gemini, Groq)." />
+                  <CarouselSlide src="/screenshots/API_Key_EditUI.png" caption="Secure Authentication: Google Login or BYOK (Gemini, Groq, OpenRouter)." />
                   <CarouselSlide src="/screenshots/ProfileUI.png" caption="Create and manage your base resume profile." />
                   <CarouselSlide src="/screenshots/Initial_Main_UI.png" caption="Clean, distraction-free interface." />
                   <CarouselSlide src="/screenshots/Main_Page_UI.png" caption="One-click tailoring from any job description." />
@@ -177,10 +178,10 @@ const Index = () => {
           {/* ===== SKILLS ===== */}
           <ResumeSection title="Skills">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
-              <SkillRow label="AI Providers" value="Google Gemini 2.0 Flash, Groq Llama 3.3" />
+              <SkillRow label="AI Providers" value="Google Gemini, Groq, OpenRouter" />
               <SkillRow label="Platform" value="Chrome Extension (Manifest V3)" />
               <SkillRow label="PDF Engine" value="pdf.js (input), jsPDF (output)" />
-              <SkillRow label="Architecture" value="Serverless, Client-Side, ES6 Modules" />
+              <SkillRow label="Architecture" value="Hybrid (Client/Server), Google Auth, ES6 Modules" />
             </div>
           </ResumeSection>
 
@@ -355,12 +356,28 @@ const Index = () => {
               </div>
             </div>
 
+            {/* Google Login Option */}
+            <div className="bg-foreground/[0.04] dark:bg-foreground/10 border border-border rounded-md overflow-hidden mb-6">
+              <div className="px-5 py-4 sm:px-6">
+                <div className="flex items-center gap-2 mb-1">
+                  <Sparkles size={16} className="text-accent" />
+                  <h4 className="font-bold text-sm text-card-foreground">Option 1: Google Login (Easiest)</h4>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">Instant Access &nbsp;·&nbsp; 15 Free Daily Generations</p>
+                <ol className="space-y-2 text-sm text-card-foreground">
+                  <InstallStep n={1}>Open the extension.</InstallStep>
+                  <InstallStep n={2}>Click <strong>"Sign in with Google"</strong>.</InstallStep>
+                  <InstallStep n={3}>Enjoy <strong>15 free generations</strong> every single day.</InstallStep>
+                </ol>
+              </div>
+            </div>
+
             {/* API Key Setup - Groq */}
             <div className="bg-foreground/[0.04] dark:bg-foreground/10 border border-border rounded-md overflow-hidden mb-6">
               <div className="px-5 py-4 sm:px-6">
                 <div className="flex items-center gap-2 mb-1">
                   <Sparkles size={16} className="text-accent" />
-                  <h4 className="font-bold text-sm text-card-foreground">Get Free Groq API Key (Recommended)</h4>
+                  <h4 className="font-bold text-sm text-card-foreground">Option 2: Get Free Groq API Key (Unlimited)</h4>
                 </div>
                 <p className="text-xs text-muted-foreground mb-4">Free Tier &nbsp;·&nbsp; Fast &nbsp;·&nbsp; ~1 minute</p>
                 <ol className="space-y-2 text-sm text-card-foreground">
@@ -438,7 +455,7 @@ const Index = () => {
               <div className="px-5 py-4 sm:px-6">
                 <div className="flex items-center gap-2 mb-1">
                   <Sparkles size={16} className="text-accent" />
-                  <h4 className="font-bold text-sm text-card-foreground">Get Free Google Gemini API Key (Alternative)</h4>
+                  <h4 className="font-bold text-sm text-card-foreground">Option 3: Get Free Google Gemini API Key (Alternative)</h4>
                 </div>
                 <p className="text-xs text-muted-foreground mb-4">Free Tier &nbsp;·&nbsp; Reliable &nbsp;·&nbsp; ~1 minute</p>
                 <ol className="space-y-2 text-sm text-card-foreground">
@@ -503,6 +520,29 @@ const Index = () => {
                     </div>
                   </div>
                 </details>
+              </div>
+            </div>
+
+            {/* API Key Setup - OpenRouter */}
+            <div className="bg-foreground/[0.04] dark:bg-foreground/10 border border-border rounded-md overflow-hidden mt-6">
+              <div className="px-5 py-4 sm:px-6">
+                <div className="flex items-center gap-2 mb-1">
+                  <Sparkles size={16} className="text-accent" />
+                  <h4 className="font-bold text-sm text-card-foreground">Option 4: OpenRouter API Key (Any Model)</h4>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">Paid/Free Models &nbsp;·&nbsp; Access Claude, GPT-4, etc.</p>
+                <ol className="space-y-2 text-sm text-card-foreground">
+                  <InstallStep n={1}>
+                    Visit{" "}
+                    <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline inline-flex items-center gap-1">
+                      openrouter.ai/keys
+                      <ExternalLink size={12} />
+                    </a>
+                  </InstallStep>
+                  <InstallStep n={2}>Sign in (Google/GitHub/Email).</InstallStep>
+                  <InstallStep n={3}>Click <strong>"Create Key"</strong>.</InstallStep>
+                  <InstallStep n={4}>Copy key → paste into ForgeCV settings.</InstallStep>
+                </ol>
               </div>
             </div>
           </ResumeSection>

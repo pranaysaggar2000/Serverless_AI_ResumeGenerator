@@ -1,7 +1,7 @@
 import { state, updateState } from './state.js';
 import { hasData, formatSectionName } from './utils.js';
 import { showStatus } from './ui.js';
-import { saveProfileChanges } from './editor.js';
+import { saveProfileChanges, updateEditorResume } from './editor.js';
 
 // Local helper to invalidate PDF cache (drag and drop removed)
 function invalidatePdfCache() {
@@ -144,6 +144,9 @@ export function setupReorderUI(generateAndCachePDFCallback) {
                 const updated = JSON.parse(JSON.stringify(state.tailoredResume));
                 updated.section_order = newOrder;
                 updateState({ tailoredResume: updated });
+                // NEW: Sync editor state so preview picks up the change
+                updateEditorResume(updated, 'formContainer');
+
                 await chrome.storage.local.set({ tailored_resume: updated });
 
                 saveOrderBtn.textContent = "Updating PDF...";

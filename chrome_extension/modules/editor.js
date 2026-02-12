@@ -94,6 +94,14 @@ export function getCurrentEditingResume(containerId = 'profileFormContainer') {
     return getEditState(containerId).resume;
 }
 
+export function updateEditorResume(resumeData, containerId = 'formContainer') {
+    const es = getEditState(containerId);
+    if (es) {
+        es.resume = JSON.parse(JSON.stringify(resumeData));
+        es.source = resumeData; // Update source too so it doesn't think it's dirty compared to old source
+    }
+}
+
 function escapeHtml(unsafe) {
     return (unsafe || "")
         .replace(/&/g, "&amp;")

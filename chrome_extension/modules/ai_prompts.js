@@ -463,35 +463,54 @@ Rate each issue: CRITICAL (likely rejection), MODERATE (reduces competitiveness)
 
 // ---------- 5. APPLICATION QUESTION ANSWERER ----------
 
+
 export function buildQuestionPrompt(question, resumeData, jdText) {
-    // Technique: Role priming, structured context, output constraints
-    // Added "RESUME" and "JOB DESCRIPTION" headers to ensure API validation passes (needs 3 markers)
-    return `You are a job applicant writing an answer for an application form.
+    // Reuse the existing full-resume serializer
+    const fullResume = flattenResumeForAnalysis(resumeData);
 
-=== YOUR RESUME BACKGROUND ===
-Name: ${resumeData.name || 'Applicant'}
-Current/Recent Role: ${resumeData.experience?.[0]?.role || 'N/A'} at ${resumeData.experience?.[0]?.company || 'N/A'}
-Top Skills: ${resumeData.skills ? Object.values(resumeData.skills).slice(0, 3).join('; ') : 'N/A'}
-Key Achievements: ${resumeData.experience?.[0]?.bullets?.slice(0, 2).join('; ') || 'N/A'}
-Education: ${resumeData.education?.[0]?.degree || ''} from ${resumeData.education?.[0]?.institution || ''}
+    return `You are an applicant answering a job application question. Your goal is to write the answer exactly as this person would — using their real background, in their voice.
 
-=== TARGET JOB DESCRIPTION ===
-${jdText ? jdText.substring(0, 800) : 'Not provided'}
+=== APPLICANT RESUME ===
+${fullResume}
 
-=== QUESTION ===
+=== JOB DESCRIPTION ===
+${jdText || 'Not provided'}
+
+=== APPLICATION QUESTION ===
 "${question}"
 
-=== RULES ===
-Rule 1: Write in first person ("I have...", "In my role at...").
-Rule 2: Keep it 2-4 sentences unless the question clearly asks for more.
-Rule 3: Reference SPECIFIC experiences from your background above — not generic statements.
-Rule 4: Behavioral questions → brief STAR format: Situation → Action → Result.
-Rule 5: Salary questions → "I'm open to discussing compensation that reflects the role's responsibilities and my experience."
-Rule 6: NEVER use: "passionate about", "leverage", "utilize", "I am excited to", "dynamic professional".
-Rule 7: Write naturally. This should sound like a real person, not a template.
-Rule 8: Output the answer directly — no quotes, no "Answer:" prefix, no preamble.
+=== INSTRUCTIONS ===
 
-Write the answer now:`;
+First, classify the question type, then answer accordingly:
+
+FACTUAL / DIRECT (e.g. tech stack, years of experience, location, availability, work authorization, salary expectations, notice period, LinkedIn URL):
+→ Answer directly and specifically using the resume data above.
+→ For tech preferences, list actual technologies from the applicant's skills and experience — don't generalize.
+→ For years of experience, calculate from the dates in the resume.
+→ For salary/compensation: say you're open to discussing compensation aligned with the role scope and your experience level, and ask about the budgeted range if appropriate.
+→ Keep it 1-3 sentences. No fluff.
+
+BEHAVIORAL / SITUATIONAL (e.g. "tell me about a time...", "describe a challenge...", "how do you handle..."):
+→ Pick the most relevant real experience from the resume that matches the question.
+→ Structure as: brief context → what you did → measurable result. Don't label these as "Situation/Action/Result".
+→ 3-5 sentences.
+
+MOTIVATIONAL / FIT (e.g. "why this role?", "why this company?", "what interests you?"):
+→ Connect a specific detail from the job description to a specific part of your background.
+→ Show alignment between what the role needs and what you've actually done.
+→ 2-4 sentences.
+
+OPEN-ENDED / OTHER (e.g. "anything else?", "additional information", cover letter):
+→ Highlight 1-2 strengths from the resume that aren't obvious elsewhere in the application.
+→ Tie them to something specific in the job description if available.
+→ Keep it concise unless the question explicitly asks for length.
+
+=== WRITING RULES ===
+- First person. Write as the applicant.
+- Use specific details: real company names, technologies, metrics, and outcomes from the resume.
+- Sound human. Vary sentence structure. No corporate buzzword chains.
+- If the resume doesn't contain enough info to answer well, give the best answer possible with what's available rather than making things up.
+- Output ONLY the answer text. No labels, no "Answer:", no quotes around it.`;
 }
 
 

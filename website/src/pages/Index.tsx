@@ -1,4 +1,4 @@
-import { Github, Linkedin, Download, Shield, Sparkles, GripVertical, Globe, Lock, DollarSign, Terminal, ExternalLink, ChevronDown } from "lucide-react";
+import { Github, Linkedin, Download, Shield, Sparkles, GripVertical, Globe, Lock, DollarSign, Terminal, ExternalLink, ChevronDown, Chrome } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -58,17 +58,35 @@ const Index = () => {
 
             {/* CTA */}
             <div className="mt-6">
-              <Button
-                asChild
-                size="lg"
-                className="bg-accent text-accent-foreground hover:bg-accent/90 text-base font-bold px-8 rounded-md shadow-md"
-              >
-                <a href={DOWNLOAD_URL}>
-                  <Download size={18} />
-                  Download for Chrome (v1.0.0)
-                </a>
-              </Button>
-              <p className="mt-2 text-xs text-muted-foreground">
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <Button
+                  asChild
+                  size="lg"
+                  className="bg-accent text-accent-foreground hover:bg-accent/90 text-base font-bold px-8 rounded-md shadow-md w-full sm:w-auto"
+                >
+                  <a href={DOWNLOAD_URL}>
+                    <Download size={18} className="mr-2" />
+                    Download .zip (v1.0.0)
+                  </a>
+                </Button>
+
+                <Button
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="text-base font-bold px-8 rounded-md shadow-sm w-full sm:w-auto border-2 hover:bg-muted/50"
+                >
+                  <a
+                    href="https://chromewebstore.google.com/detail/ncfipelmdjkgobmcdcobdjgbkjnblahg?utm_source=item-share-cb"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Chrome size={18} className="mr-2" />
+                    Available on Chrome Store
+                  </a>
+                </Button>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
                 No data leaves your device. No backend server. Open Source.
               </p>
             </div>

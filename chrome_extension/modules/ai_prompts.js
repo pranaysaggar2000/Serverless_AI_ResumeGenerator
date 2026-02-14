@@ -1,46 +1,22 @@
 // ============================================================
-// ai_prompts.js — ForgeCV Prompt Builder (v3 — Full PE Overhaul)
+// ai_prompts.js — ForgeCV Prompt Builder (v4.1 — Seniority-Aware)
 // ============================================================
 //
-// PROMPT ENGINEERING TECHNIQUES APPLIED:
+// OPTIMIZATIONS FOR LLAMA 3.3 70B & KIMI K2 1T:
 //
-// 1. ROLE PRIMING — Every prompt starts with a specific expert role
-//    to activate domain knowledge in the model's weights.
+// 1. TOKEN DENSITY REDUCTION — Target ~1000-1200 high-value tokens.
+//    Llama 3.3 degrades >1500 instruction tokens.
 //
-// 2. STRUCTURED DELIMITERS — Use ===, ---, XML-style tags to
-//    separate instructions from data. Models parse these better
-//    than plain paragraphs.
+// 2. SENIORITY ADAPTATION — Dynamic guidance based on experience level
+//    (Junior -> Executive). Prevents "junior voice" for seniors and
+//    "strategy fluff" for juniors.
 //
-// 3. FEW-SHOT INLINE — Show 1-2 concrete input→output examples
-//    inside the prompt so the model copies the pattern.
+// 3. GOAL-ORIENTED FRAMING — "Maximize ATS match and pass human review."
 //
-// 4. RECENCY BIAS EXPLOIT — Put the most critical rules LAST,
-//    right before the JSON schema. Free models weight the end
-//    of the prompt most heavily.
-//
-// 5. CHAIN-OF-CONSTRAINTS — Number rules simply (Rule 1, Rule 2)
-//    instead of nested bullets. Models follow numbered lists
-//    more reliably than nested hierarchies.
-//
-// 6. NEGATIVE EXAMPLES — Show "BAD: ..." / "GOOD: ..." pairs
-//    for the most common failure modes.
-//
-// 7. SCHEMA ANCHORING — The JSON schema is ALWAYS the last thing
-//    in the prompt. Models copy the last structure they see.
-//
-// 8. TOKEN BUDGET AWARENESS — Prompts stay under ~1200 words
-//    for the tailor prompt (the biggest one). Free-tier models
-//    (Llama 70B, Mistral 8x7B) degrade above ~1500 words of
-//    instructions.
-//
-// 9. SYSTEM/USER SPLIT SIMULATION — Even in single-turn prompts,
-//    "You are..." priming followed by "---" then the task
-//    simulates system+user separation for instruct models.
-//
-// 10. OUTPUT FORMAT FORCING — "Return ONLY JSON wrapped in
-//     ```json ... ```" works better than "Return ONLY valid JSON"
-//     because models have been trained to produce code blocks.
-//     extractJSON already handles stripping the wrapper.
+// 4. ATS 2025 INTELLIGENCE —
+//    - Semantic keyword clustering
+//    - Both-forms acronym injection
+//    - Contextual placement & Anti-stuffing
 //
 // ============================================================
 
@@ -49,24 +25,20 @@
 
 export function buildExtractJDFromPagePrompt(rawPageText) {
     const truncated = rawPageText.substring(0, 12000);
-
-    // Technique: Role priming + negative instruction + schema anchoring
-    // Added "for resume analysis" to ensure "resume" marker is present for API validation
-    return `You are a job posting extraction engine. Your ONLY job is to extract the job description from noisy webpage text for resume analysis.
+    return `You are a job posting extraction engine for resume analysis.
 
 ---
 RAW WEBPAGE TEXT:
 ${truncated}
 ---
 
-TASK: Extract the job posting content. Ignore everything that is NOT the job posting (navigation menus, cookie banners, footer links, sidebar ads, related jobs, company boilerplate).
+TASK: Extract the job posting content. Ignore navigation, footers, and sidebar ads.
 
-Rule 1: Extract the COMPLETE job description verbatim — do not summarize.
-Rule 2: Include ALL bullet points for responsibilities, requirements, and qualifications.
-Rule 3: company_description = what the company DOES (industry, products, mission), not just the name.
-Rule 4: If the page has no job description, return {"error": "No job description found on this page"}.
+Rule 1: Extract COMPLETE job description — every bullet, every section. Do not summarize.
+Rule 2: company_description = what the company DOES (industry, products, mission).
+Rule 3: If no job description is found, return {"error": "No job description found on this page"}.
 
-` + 'Return your answer in ```json``` format:\n```json\n' + `{
+` + 'Return ONLY JSON in ```json``` block:\n```json\n' + `{
   "job_title": "exact title from posting",
   "company_name": "company name",
   "location": "location(s) or Remote",
@@ -82,8 +54,7 @@ Rule 4: If the page has no job description, return {"error": "No job description
 // ---------- 2. PARSE JD INTO STRUCTURED KEYWORDS ----------
 
 export function buildParseJobDescriptionPrompt(jdText) {
-    // Technique: Role priming + few-shot examples + explicit splitting rule
-    return `You are an ATS keyword extraction specialist. Extract every skill, tool, and requirement from this job description.
+    return `You are an ATS keyword extraction specialist. Extract every skill, tool, and requirement.
 
 ---
 JOB DESCRIPTION:
@@ -93,36 +64,33 @@ ${jdText}
 EXTRACTION RULES:
 
 Rule 1 — MANDATORY vs PREFERRED:
-- Words near "required", "must have", "X+ years", "essential" → mandatory_keywords
-- Words near "nice to have", "preferred", "bonus", "ideally", "plus" → preferred_keywords
-- If unclear, default to mandatory
+- "required", "must have", "essential" → mandatory_keywords
+- "nice to have", "preferred", "bonus" → preferred_keywords
+- Default to mandatory if unclear.
 
-Rule 2 — SPLIT COMPOUND TERMS into individual entries:
-BAD:  "Hugging Face / LlamaIndex" as one entry
-GOOD: "Hugging Face" and "LlamaIndex" as two separate entries
-BAD:  "LoRA / QLoRA" as one entry
-GOOD: "LoRA" and "QLoRA" as two separate entries
-BAD:  "AWS/GCP/Azure" as one entry
-GOOD: "AWS", "GCP", "Azure" as three separate entries
+Rule 2 — SPLIT COMPOUND TERMS:
+BAD: "Hugging Face / LlamaIndex"
+GOOD: "Hugging Face" and "LlamaIndex" as separate entries
 
 Rule 3 — USE EXACT JD WORDING:
-BAD:  "React.js" when JD says "React"
-BAD:  "Amazon Web Services" when JD says "AWS"
-GOOD: Copy the exact term from the JD
+If JD says "AWS", use "AWS" (not "Amazon Web Services").
 
-Rule 4 — BE EXHAUSTIVE. Include:
-- Programming languages, frameworks, libraries, tools
-- Cloud platforms, databases, infrastructure
-- Methodologies: "Agile", "Six Sigma", "GAAP", "Prompt Engineering", "CI/CD"
-- Practices: "Code Review", "Responsible AI", "Compliance"
-- Domain terms: "hybrid search", "vector embeddings", "supply chain", "due diligence"
-- Soft skills ONLY if explicitly stated: "communication", "leadership"
+Rule 4 — INCLUDE BOTH FORMS:
+If JD says "Machine Learning (ML)", include BOTH "Machine Learning" and "ML" as separate keywords.
+If JD says "CI/CD", include "CI/CD".
 
-Rule 5 — tech_stack_nuances = specific tools, versions, sub-products (e.g. "Python 3.10", "Salesforce CPQ", "Adobe XD", "SAP FICO")
-Rule 6 — industry_terms = domain-specific business language (e.g. "underwriting", "ad serving", "clinical trials", "supply chain", "due diligence")
-Rule 7 — action_verbs = verbs from the responsibilities section that describe what the person will DO
+Rule 5 — BE EXHAUSTIVE:
+Include languages, frameworks, cloud platforms, methodologies (Agile, CI/CD), and domain terms (supply chain).
 
-` + 'Return in ```json``` format:\n```json\n' + `{
+Rule 6 — CLASSIFY PRECISELY:
+- tech_stack_nuances: versions/sub-products (Python 3.10, Salesforce CPQ).
+- industry_terms: domain business language (underwriting, clinical trials).
+- action_verbs: verbs describing what the person will DO.
+
+Rule 7 — LEADERSHIP/STRATEGY TERMS:
+For senior/lead/manager roles, extract "stakeholder management", "technical direction", "roadmap", "mentorship" as MANDATORY keywords (not soft skills). Only classify as soft_skills if the JD treats them as nice-to-haves.
+
+` + 'Return ONLY JSON in ```json``` block:\n```json\n' + `{
   "company_name": "",
   "job_title": "",
   "job_identifier": "Job ID if found, else role_in_snake_case",
@@ -147,89 +115,190 @@ Rule 7 — action_verbs = verbs from the responsibilities section that describe 
 
 // ---------- 3. TAILOR RESUME TO JD ----------
 
+function buildSeniorityGuidance(seniority, yearsExperience, candidateExperience = null) {
+    // Parse years into a number for range checks
+    const yrs = parseInt(yearsExperience) || 0;
+    const level = (seniority || '').toLowerCase();
+
+    // If candidate has more experience than JD requires, use the higher level
+    // to avoid dumbing down a strong candidate's resume
+    const candidateYrs = parseInt(candidateExperience) || 0;
+    const effectiveYrs = Math.max(yrs, candidateYrs);
+
+    if (level === 'junior' || level === 'entry' || effectiveYrs < 3) {
+        return `=== SENIORITY GUIDANCE: JUNIOR/ENTRY-LEVEL ===
+- Projects and education carry MORE weight than for senior roles — keep them prominent and detailed.
+- Bullets should emphasize: technical skills used, what you built/shipped, learning velocity.
+- It is OK to have fewer metrics — describe scope (users served, data volume, team size) instead of % improvements if the original resume lacks them. Do NOT invent metrics.
+- Keep skills section technical-heavy. This is your strongest ATS signal at this level.
+- Summary sentence 3: use a concrete project/deliverable if no strong work metric exists.
+- KEYWORD STUFFING RISK IS HIGH at this level (fewer bullets to distribute keywords across). Be extra careful: if a keyword doesn't fit naturally in any bullet, put it in skills ONLY.
+- Leadership/TA/mentoring bullets should stay authentic. Do NOT inject technical JD keywords into teaching, grading, or mentoring bullets — these demonstrate communication and leadership, not technical skills. Leave them as-is or only lightly reword.`;
+    }
+
+    if (level === 'mid' || (effectiveYrs >= 3 && effectiveYrs <= 7)) {
+        return `=== SENIORITY GUIDANCE: MID-LEVEL ===
+- Balance technical depth with measurable business impact in bullets.
+- Bullets should show BOTH the "how" (tools/methods) AND the "so what" (metrics, outcomes).
+- You should have enough experience to weave most keywords naturally — aim for the higher end of keyword coverage (60-70% of bullets).
+- Projects section is still valuable but experience section takes priority for space.
+- Summary sentence 3: use a work achievement with a metric, not a project.
+- Do NOT inject technical keywords into leadership/TA/mentoring bullets — keep them authentic.`;
+    }
+
+    if (level === 'senior' || level === 'staff' || level === 'principal' || (effectiveYrs >= 8 && effectiveYrs <= 14)) {
+        return `=== SENIORITY GUIDANCE: SENIOR/STAFF ===
+- Bullets should lead with IMPACT and SCALE: team size managed, revenue influenced, systems owned, org-wide initiatives.
+- Technical tools should appear as the "how" in bullets, not the "what". 
+  BAD: "Used Kubernetes and Terraform for infrastructure"
+  GOOD: "Architected multi-region infrastructure on Kubernetes serving 10M daily requests, reducing downtime by 99.5%"
+- Include strategic keywords from JD: "architecture", "mentorship", "technical direction", "cross-functional", "roadmap" — these are NOT soft skills at this level, they are core competencies.
+- Projects section can be shortened or removed if space is needed — experience section is what matters.
+- Summary sentence 3: use a leadership/scale achievement (team size, budget, org impact).`;
+    }
+
+    if (level === 'lead' || level === 'manager' || level === 'director' || level === 'vp' || effectiveYrs >= 15) {
+        return `=== SENIORITY GUIDANCE: LEADERSHIP/EXECUTIVE ===
+- Bullets must emphasize: strategy, org-building, P&L/budget ownership, cross-functional leadership, business outcomes.
+- Technical tool keywords belong primarily in the skills section — bullets should focus on WHAT you drove, not WHICH tool you used.
+  BAD: "Managed team using Jira and Confluence for project tracking"
+  GOOD: "Built and led 40-person engineering organization across 3 offices, delivering $12M product line on schedule"
+- Include leadership keywords even if they look like "soft skills": "stakeholder management", "executive communication", "organizational design", "talent development" — at this level these ARE hard requirements.
+- Education section: minimize to institution/degree/dates only (no GPA, no coursework).
+- Projects section: remove entirely if space is needed unless projects demonstrate executive-level impact.
+- Summary sentence 3: use a business/org-level achievement (revenue, team scale, market impact).
+- Do NOT over-optimize for technical ATS keywords — at this level, hiring managers matter more than ATS filters.`;
+    }
+
+    // Fallback: generic guidance
+    return `=== SENIORITY GUIDANCE ===
+- Adapt bullet emphasis to the seniority level: junior = technical depth, senior = impact/scale/leadership.
+- Ensure keyword integration matches what someone at this level would realistically do.`;
+}
+
+const ANTI_AI_WRITING_RULES = `
+=== WRITING STYLE: SOUND HUMAN, NOT AI-GENERATED ===
+
+BANNED WORDS (never use anywhere in the resume):
+"Spearheaded", "Orchestrated", "Synergized", "Pioneered", "Revolutionized",
+"Cutting-edge", "Best-in-class", "World-class", "Innovative solutions",
+"Leveraging", "Utilizing", "Harnessing", "Drive/Drove innovation",
+"Ensuring alignment with", "Diverse stakeholders", "Cross-functional synergies",
+"Passionate about", "Results-driven", "Detail-oriented", "Self-starter",
+"Significantly improved", "Effectively managed", "Successfully delivered",
+"Proven track record", "Thought leader", "Value-add",
+"Various" (when hiding lack of specifics), "Multiple" (same),
+"Expert in" (inflated for most levels — use "Skilled in" or "Experienced in"),
+"Expertise in" (same — prefer "Background in" or specific tool mentions).
+
+VARY SENTENCE STRUCTURE — the #1 AI tell is uniform bullet rhythm:
+- NOT every bullet should be "[Verb] [object] resulting in [metric]".
+- Mix these patterns within each role:
+  A: "[Verb] [thing] [how], [metric]." (standard)
+  B: "[Metric] by [verb]-ing [method]." (lead with result)
+  C: "[Verb] [thing] for [purpose] — [why it mattered]." (narrative)
+  D: "[Verb] [thing] using [tool]; [outcome]." (compound)
+- Each role with 3+ bullets must use at least 2 different patterns.
+
+VARY BULLET LENGTH:
+- Mix short punchy bullets (80-120 chars) with detailed ones (150-200 chars).
+- Not every bullet should be the same length.
+
+DO NOT INVENT METRICS:
+- If original bullet has no number, do NOT add one.
+- BAD: Original "Built dashboard" → "Built dashboard, improving productivity by 35%"
+- GOOD: Original "Built dashboard" → "Built admin dashboard used by 15-person ops team for real-time order tracking."
+
+USE NATURAL LANGUAGE:
+- Write like an engineer/analyst describing work to a peer, not a press release.
+- Prefer concrete nouns: "payment service" not "solution", "Slack bot" not "communication tool".
+- Prefer simple verbs: "built" > "architected" (unless actual architecture), "fixed" > "remediated", "wrote" > "authored", "ran" > "facilitated".
+- Use the candidate's OWN vocabulary. If they say "built", don't upgrade to "engineered".
+
+EXCEPTIONS: "Architected" is acceptable when describing actual system architecture work (designing infrastructure, defining service boundaries, choosing patterns). It is NOT acceptable as a fancy synonym for "built" or "set up".
+`;
+
 const STRATEGY_INSTRUCTIONS = {
     profile_focus: `STRATEGY: PRESERVE ORIGINAL (Target ATS: 75-85%)
-Rule S1: Keep ALL original bullet wording and metrics exactly as-is.
-Rule S2: Do NOT add any keywords not already in the original resume.
-Rule S3: Skills section — reorder categories by JD relevance, but add nothing new.
-Rule S4: Summary — only adjust to mention the target role title if it's missing.
-Rule S5: Projects — keep original descriptions unchanged.`,
+- Keep ALL original bullet wording and metrics exactly as-is.
+- Do NOT add any keywords not already in the original resume.
+- Skills: reorder by JD relevance, but add nothing new.
+- Summary/Projects: only minimal adjustment for role title match.`,
 
     jd_focus: `STRATEGY: MAXIMIZE ATS MATCH (Target ATS: 90-95%)
-Rule S1: Every mandatory keyword MUST appear in the skills section AND in at least one bullet with context.
-Rule S2: Summary — weave in 4-5 mandatory keywords naturally into the sentence structure.
-Rule S3: Skills — include ALL mandatory + preferred keywords. Rename categories to match JD language.
-Rule S4: Bullets — integrate JD keywords INTO the action/method/tool part of the sentence, not as a suffix.
-  BAD:  "Automated pipelines using Airflow, with a focus on AI Compliance and Responsible AI practices"
-  BAD:  "Built a chatbot, utilizing PyTorch and TensorFlow for model training"
-  BAD:  "Reduced latency by 40%, with expertise in Model deployment and Cloud platforms"
-  GOOD: "Automated AI model validation pipelines using Airflow DAGs with compliance checks for responsible AI deployment"
-  GOOD: "Fine-tuned transformer model in PyTorch, achieving 92% accuracy on domain classification task"
-  GOOD: "Deployed low-latency inference service on AWS EKS, reducing p95 response time from 800ms to 200ms"
-  The keyword must describe WHAT you did or HOW you did it — never tacked on at the end.
-Rule S5: If a keyword appears in skills but ZERO bullets, find the most relevant bullet and weave it in naturally.
-Rule S6: Use JD action verbs to start bullets where they fit.
-Rule S7: NOT every bullet needs a JD keyword. A strong metric-driven bullet with no keyword is better than a weak bullet with keywords stuffed in. Aim for 60-70% of bullets containing a keyword, not 100%.
-
-PROJECT TECH INJECTION:
-- For each project, check if mandatory JD keywords are RELATED to that project's existing domain but missing.
-- Related = same technical field and era (a backend project can get a backend framework, a data project can get a data tool, a cloud project can get a cloud service — but cross-domain injection is not allowed).
-  GOOD: Project already uses tool X for task Y + JD needs tool Z which does the same kind of task → weave Z in naturally.
-  BAD:  Project is in domain A + JD keyword is from completely different domain B → Do NOT inject.
-- Max 1 new bullet per project. Must read as realistic work.`,
+- MANDATORY: Every mandatory keyword MUST appear in specific skills AND >1 bullet.
+- Summary: Weave in 4-5 mandatory keywords naturally.
+- Skills: Include ALL mandatory + preferred. Rename categories.
+- Bullets: Integrate keywords INTO action (not suffix).
+  BAD: "Built X, focusing on Y"
+  GOOD: "Built Y-based X"
+- If a keyword is in skills but 0 bullets, weave into most relevant bullet.
+- Start bullets with JD action verbs where fitting.
+- Aim for 60-70% keyword coverage in bullets.`,
 
     balanced: `STRATEGY: BALANCED OPTIMIZATION (Target ATS: 85-90%)
-Rule S1: Summary — include 3-4 top mandatory keywords woven into the sentence structure.
-Rule S2: Skills — add missing JD keywords to appropriate categories.
-Rule S3: Bullets — integrate JD terms where they fit naturally into the action/method/tool part of the sentence.
-  BAD:  "[Completed task], with a focus on [KEYWORD1] and [KEYWORD2]"
-  GOOD: "[Verb] [KEYWORD]-based [system] for [purpose], [achieving metric]"
-Rule S4: NOT every bullet needs a keyword. Don't force them where they sound unnatural. 50-60% keyword coverage is fine.
-Rule S5: Preserve all original metrics and core meaning.
-
-PROJECT TECH INJECTION (selective):
-- If a mandatory JD keyword is closely related to a project's existing tech domain, weave it into an existing bullet.
-- ONLY if domains genuinely overlap. Do NOT inject cross-domain tech.
-- Prefer modifying existing bullets over adding new ones. Max 1 injection per project.`
+- Summary: Include 3-4 top mandatory keywords.
+- Skills: Add missing JD keywords to categories.
+- Bullets: Integrate JD terms naturally into action (50-60% coverage).
+  BAD: "Task, with focus on X"
+  GOOD: "X-based Task"
+- NOT every bullet needs a keyword.
+- Preserve all original metrics and substance.`
 };
 
 export function buildTailorPrompt(baseResume, jdAnalysis, tailoringStrategy, bulletCounts, pageMode = '1page', mustIncludeItems = null, formatSettings = null) {
     const strategy = STRATEGY_INSTRUCTIONS[tailoringStrategy] || STRATEGY_INSTRUCTIONS.balanced;
-
     const mandatory = jdAnalysis.mandatory_keywords || [];
     const preferred = jdAnalysis.preferred_keywords || [];
     const verbs = jdAnalysis.action_verbs || [];
     const techNuances = jdAnalysis.tech_stack_nuances || [];
     const industryTerms = jdAnalysis.industry_terms || [];
 
+    // Estimate candidate's actual years of experience from resume dates
+    const estimateCandidateYears = (resume) => {
+        const items = resume.experience || [];
+        if (items.length === 0) return 0;
+        let earliest = new Date(), latest = new Date(0);
+        for (const item of items) {
+            if (!item.dates) continue;
+            const parts = item.dates.split(/[-–—]/);
+            const parseDate = (s) => {
+                const t = (s || '').trim().toLowerCase();
+                if (t === 'present') return new Date();
+                const d = new Date(t);
+                return isNaN(d) ? null : d;
+            };
+            const start = parseDate(parts[0]);
+            const end = parts[1] ? parseDate(parts[1]) : start;
+            if (start && start < earliest) earliest = start;
+            if (end && end > latest) latest = end;
+        }
+        return Math.max(0, Math.round((latest - earliest) / (365.25 * 24 * 60 * 60 * 1000) * 2) / 2);
+    };
+
+    const candidateYrs = estimateCandidateYears(baseResume);
+
+    const seniorityNote = buildSeniorityGuidance(
+        jdAnalysis.seniority,
+        jdAnalysis.years_experience,
+        String(candidateYrs)
+    );
+
     // --- Page constraint ---
     let pageNote = '';
     if (pageMode === '1page') {
-        pageNote = `=== PAGE CONSTRAINT: ONE PAGE ===
-TARGET one page, but NEVER sacrifice content quality to achieve it. If keeping all detail means slightly overflowing, that is acceptable — the user can trim later.
-
-SPACE-SAVING APPROACH (in this order):
-1. Write concise bullets — cut filler words (a, the, in order to, which allowed for), keep all tools/metrics/details.
-2. Max 4 skill categories. Combine related ones.
-3. Education: GPA line only.
-4. LAST RESORT: Remove projects/leadership/awards with ZERO JD keyword overlap (list in excluded_items by name).
-
-NON-NEGOTIABLE:
-- NEVER remove experience or education entries.
-- NEVER remove bullets from experience — shorten them instead.
-- NEVER drop metrics or tool names from bullets to save space.`;
+        pageNote = `TARGET: One page. Write concise bullets (cut filler "in order to", "which allowed for") but KEEP all metrics/tools. Combine skill categories (max 4). Education GPA line only. Last resort: remove 0-overlap projects.
+NON-NEGOTIABLE: NEVER remove experience/education entries. NEVER remove bullets (shorten instead). NEVER drop metrics.`;
 
         if (mustIncludeItems) {
             const includes = Object.entries(mustIncludeItems)
                 .filter(([, v]) => v && v.length > 0)
                 .map(([sec, ids]) => `  ${sec}: ${ids.map(id => `"${id}"`).join(', ')}`)
                 .join('\n');
-            if (includes) pageNote += `\nMANDATORY INCLUSIONS (never remove these):\n${includes}`;
+            if (includes) pageNote += `\nMANDATORY INCLUSIONS:\n${includes}`;
         }
     } else {
-        pageNote = `=== PAGE CONSTRAINT: TWO PAGES ===
-- Experience: 3-5 bullets. Projects: 2-3. Leadership: 1-2.
-- Include ALL sections and items. Set excluded_items to empty arrays.`;
+        pageNote = `TARGET: Two pages. Include ALL sections/items. Experience: 3-5 bullets. Projects: 2-3.`;
     }
 
     // --- Bullet count overrides ---
@@ -246,29 +315,28 @@ NON-NEGOTIABLE:
                 if (items.length > 0) parts.push(`${sec}: ${items.join(', ')}`);
             }
         });
-        if (parts.length > 0) bulletNote = `=== BULLET COUNT OVERRIDES (user-specified, must follow exactly) ===\n${parts.join('\n')}`;
+        if (parts.length > 0) bulletNote = `=== BULLET COUNT OVERRIDES ===\n${parts.join('\n')}`;
     }
 
-    // Technique: Role priming, structured delimiters, numbered rules,
-    // negative examples, recency bias (critical rules + schema at end)
-    return `You are an expert ATS resume optimizer. Rewrite this resume to maximize keyword match for the target job.
+    return `You are an expert ATS resume optimizer. Rewrite this resume to maximize keyword match and pass both ATS screening and human hiring manager review.
 
 === TARGET JOB ===
 Company: ${jdAnalysis.company_name || 'Unknown'}
 Role: ${jdAnalysis.job_title || 'Unknown'}
-Seniority: ${jdAnalysis.seniority || 'Unknown'}
 Domain: ${jdAnalysis.domain_context || 'Unknown'}
 ${jdAnalysis.company_description ? `About: ${jdAnalysis.company_description}` : ''}
 
-=== KEYWORDS (each mandatory keyword MUST appear in skills + at least one bullet) ===
+=== KEYWORDS ===
 Mandatory: ${mandatory.join(', ')}
 Preferred: ${preferred.join(', ')}
-Action verbs: ${verbs.join(', ')}
-Tech specifics: ${techNuances.join(', ')}
-Industry terms: ${industryTerms.join(', ')}
+Verbs: ${verbs.join(', ')}
+Tech: ${techNuances.join(', ')}
+Industry: ${industryTerms.join(', ')}
 
 === STRATEGY ===
 ${strategy}
+
+${seniorityNote}
 
 ${pageNote}
 
@@ -277,112 +345,68 @@ ${bulletNote}
 === CANDIDATE RESUME ===
 ${JSON.stringify(baseResume)}
 
-=== REWRITING RULES (follow ALL of these) ===
+=== REWRITING RULES ===
 
-Rule 1 — SUMMARY (MUST be exactly 4 sentences, third person, NO pronouns):
-  NEVER use "I", "my", "me", "am", "his", "her", "their", "enables me".
-  BAD:  "I am a Data Scientist with expertise in ML. My experience includes..."
-  GOOD: "Data Scientist with 5 years of experience in ML and NLP. Skilled in Python, TensorFlow, and cloud deployment. Built recommendation engine serving 2M users. Background in e-commerce and fintech domains."
-  Structure: Sentence 1 = [Role] with [X] years in [domain]. Sentence 2 = Skilled in [3-4 tools from JD]. Sentence 3 = [Concrete accomplishment — use a metric if one exists in the experience section, otherwise describe what was built/delivered without inventing numbers]. Sentence 4 = [Domain fit or industry context].
-  Calculate years from the work experience dates if not stated. A 2-sentence summary is TOO SHORT — always write 4 sentences.
-  NEVER include: visa status, "passionate about", "seeking a role", "results-driven", "leverage", "utilize".
+Rule 1 — SUMMARY (exactly 4 sentences, third person, NO pronouns — "I", "my", "his", "her", "their"):
 
-Rule 2 — BULLETS (most important — read carefully):
-  Start with strong action verb (prefer JD verbs: ${verbs.slice(0, 5).join(', ')}).
-  Use XYZ formula: "Accomplished [X] as measured by [Y], by doing [Z]".
+Sentence 1 = [Role title] with [X] years of experience in [2-3 specific domains from resume].
+- Calculate years from WORK EXPERIENCE dates only (not education). Internships = partial years. Round to nearest half.
+- The verb/scope must match what the candidate ACTUALLY did. Do not inflate: if they built one system, say "building", not "architecting enterprise-scale systems". If they worked on a team, don't imply they led.
 
-  PRESERVE ALL ORIGINAL BULLETS — do not remove any:
-  Every bullet from the original resume must appear in the output (reworded for JD keywords, but same content).
-  If the original has 5 bullets for a role, output 5 bullets. If it has 3, output 3.
-  BAD:  Removing bullets to save space, then adding generic filler to compensate.
-  BAD:  Replacing a specific original bullet with vague filler like "Improved performance using various techniques"
-  GOOD: Rewording each original bullet to be concise and keyword-optimized while keeping all tools, metrics, and details.
+Sentence 2 = Skilled in [5-7 specific tool/framework names from both resume AND JD].
+- List ACTUAL TOOL NAMES (Python, PyTorch, LangChain, AWS), not capability claims ("building RAG architectures", "deploying high-availability models").
+- This sentence is the primary ATS keyword hook — pack it with matchable nouns.
 
-  NEVER HOLLOW OUT BULLETS — preserve technical substance:
-  BAD:  Dropping specific tools, libraries, metrics, or architectural details from a bullet to shorten it.
-  GOOD: Cutting filler words ("a", "the", "in order to", "which allowed for", "significantly") while keeping tool names, metrics, and technical specifics.
-  If the original bullet mentions specific tools/libraries, the rewritten bullet must still mention them.
-  If the original bullet has a metric (40%, 2000+ users, 30%), the rewritten bullet MUST keep that metric.
+Sentence 3 = [One concrete achievement pulled from the experience section, with a real metric].
+- MUST reference a metric that ALREADY EXISTS in the resume (users served, latency reduced, accuracy %, uptime %).
+- If the resume has no metrics at all, describe a specific deliverable with its scope (what was built + who used it + at what scale). Do NOT invent a percentage.
 
-  SHORTENING TECHNIQUE — what to cut vs what to keep:
-  CUT: articles (a, the), verbose phrases (in order to, which allowed for, resulting in a), redundant context
-  KEEP: tool/library names, metrics/numbers, technical architecture details, action verbs
-  The goal is the SAME information in fewer words — not less information.
+Sentence 4 = Background in [2-3 concrete domain areas, NOT abstract phrases].
+- Name specific fields: "NLP systems", "fraud detection", "e-commerce recommendations", "MLOps automation" — not "real-time production environments" or "scalable cloud solutions".
+- If the candidate has published research or certifications, mention it here as a differentiator.
 
-  CRITICAL ANTI-STUFFING RULE — the #1 quality problem to avoid:
-  NEVER append keywords to the end of a bullet as a disconnected suffix clause.
-  NEVER end a bullet with a keyword that has no logical connection to the work described.
+GLOBAL SUMMARY RULES:
+- No buzzword chains: never put 3+ abstract nouns in a row ("scalable Generative AI systems and MLOps pipelines"). Break them into concrete items.
+- A 2-sentence summary is TOO SHORT. A 5-sentence summary is TOO LONG. Exactly 4.
+- NEVER include: visa status, "passionate about", "seeking a role", "results-driven", "proven track record", "Expert in", "Expertise in", "leverage", "utilize".
 
-  BAD PATTERN — keyword stapled onto unrelated work:
-  "Designed 5+ Airflow DAGs, cutting manual intervention by 60% and ensuring [KEYWORD]"
-  "Guided 100+ students and grading assignments, promoting [KEYWORD]"
-  "Deployed chatbot on GCP Cloud Run, ensuring [KEYWORD]"
-  "Built REST API using Express, with a focus on [KEYWORD] and [KEYWORD]"
-  "Reduced query latency by 40%, with expertise in [KEYWORD]"
-  "Wrote unit tests for payment module, utilizing [KEYWORD] and [KEYWORD]"
+Rule 2 — BULLETS:
+Structure: "Accomplished [X] as measured by [Y], by doing [Z]".
+BAD: "Reduced latency by 40%, with expertise in Cloud"
+GOOD: "Deployed low-latency service on AWS, reducing p95 latency by 40%"
 
-  WHY THESE ARE BAD: The appended keyword has ZERO logical connection to the actual work described in the bullet. The keyword is just glued on as a suffix.
+TEST: If removing the keyword doesn't change what work the bullet describes, the keyword is decoration — remove it from the bullet, keep in skills only.
 
-  GOOD PATTERN — keyword is integral to the work described:
-  "Designed Airflow DAGs to automate model retraining, reducing manual intervention by 60%"
-  "Deployed inference endpoint on AWS EKS, reducing p95 latency from 800ms to 200ms"
-  "Built real-time data pipeline using Kafka and Spark, processing 2M events daily"
-  "Implemented role-based access controls and audit logging to meet SOC 2 compliance requirements"
+PRESERVE architectural reasoning: phrases like "to separate X from Y", "enabling Z to scale independently", "by decoupling A from B" show system design thinking. Cut filler words around them, but KEEP these clauses — they're what hiring managers care about most.
 
-  TEST: For each bullet, ask "if I remove the keyword, does the sentence still describe the same work?" If yes, the keyword is just decoration — REMOVE it. Put it in skills only.
-  If a keyword doesn't fit naturally in ANY bullet, it is FINE to only have it in the skills section. Do NOT force it.
+Rule 3 — SKILLS:
+Every mandatory keyword must appear. Rename categories to match JD. Max 4 categories. No parenthetical expansions (use JD form). Priority: 70% JD keywords, 30% candidate's other strengths.
+Keep up to 5 non-JD skills that demonstrate production/infrastructure breadth (Kafka, Terraform, Spark, etc.). Only drop non-JD skills that are truly irrelevant to the role's domain (e.g., drop Tableau for a pure backend role, keep Docker even if JD doesn't mention it).
 
-  Max ~200 characters per bullet. Never write stub bullets under 80 characters like "Developed microservices using FastAPI." — always include the impact or scale.
+Rule 4 — PROJECTS & RESEARCH:
+Projects: Inject related JD keywords ONLY if tech field overlaps and era is plausible. Max 1 modified bullet per project. NEVER fabricate implausible tech.
+Research: NEVER modify research/publication bullets — published work is immutable. Do not inject keywords into paper descriptions. Keywords from research topics can appear in the skills section.
 
-Rule 3 — SKILLS (this is the #1 most common failure — pay extra attention):
-  Go through the mandatory keyword list one by one. EVERY mandatory keyword must appear in a skills category.
-  Also add preferred keywords where they fit.
-  Rename categories to match JD language where possible.
-  Put JD keywords FIRST within each category.
-  If a keyword doesn't fit existing categories, create a new one.
-  NEVER duplicate a keyword across multiple categories. Each keyword appears EXACTLY ONCE.
-  NEVER use parenthetical expansions like "Large Language Models (LLMs)" — just use whichever form the JD uses.
-  Group by function: AI/ML tools together, cloud/infra together, languages together. Don't put ML frameworks under "Data Engineering".
-  Max 4 categories. Combine related skills rather than creating thin categories.
-  PRIORITIZE JD-relevant skills. If space is limited, drop skills from the original resume that have ZERO overlap with the JD before dropping JD keywords. For example, if the JD doesn't mention "Tableau" or "PowerBI" but the resume has them, they can be omitted to make room for JD keywords.
-  The skills section should be 70-80% JD keywords and 20-30% candidate's strongest remaining skills.
-
-Rule 4 — PROJECTS (tech injection — be VERY careful):
-  You MAY add related JD keywords to project bullets ONLY if:
-  a) The project's existing tech stack is in the same field, AND
-  b) The technology actually existed and was plausible at the time of the project dates.
-  BAD:  Adding a 2024 framework/technique to a 2020 project — check if the technology existed at the project's date.
-  BAD:  Adding a tool from a completely different paradigm (e.g. adding a container orchestration tool to an academic research paper, or adding a frontend framework to a data pipeline project).
-  GOOD: Adding a JD keyword that is a direct alternative/extension of what the project already uses, from the same era.
-  Max 1 modified bullet per project. NEVER fabricate an entirely new bullet with technologies the project clearly didn't use.
-  When in doubt, do NOT inject. It's better to leave a project untouched than to add implausible technology.
-
-Rule 5 — INTEGRITY (non-negotiable):
-  NEVER invent companies, roles, dates, or metrics. NEVER inflate numbers.
-  NEVER change company names, institution names, or dates.
-  NEVER add tools/frameworks to a project that the original doesn't mention AND that aren't plausible for that project's scope and timeline.
-  NEVER hollow out a detailed bullet into a stub. If the original bullet mentions specific tools (Celery, Redis, async processing), keep those details — they show depth. Reword to fit JD terminology but preserve the technical substance.
-  Skills from the candidate's original resume ARE allowed even if not in the JD — but JD keywords take priority for space.
-  NEVER add skills that appear in NEITHER the candidate's resume NOR the JD. No inventing from general knowledge.
-  The ONLY sources for content are: (1) the candidate's resume and (2) the JD keywords.
+Rule 5 — INTEGRITY:
+NEVER invent companies, roles, dates, or metrics. NEVER change company names.
 
 Rule 6 — FORMATTING:
-  NEVER insert spaces between letters ("P y t h o n" is WRONG, "Python" is CORRECT).
-  section_order must ONLY contain renderable sections: summary, education, skills, experience, projects, research, leadership, certifications, awards, volunteering, languages.
-  NEVER put "name" or "contact" in section_order.
+NEVER insert spaces between letters ("P y t h o n"). Only renderable sections in section_order (no "name"/"contact").
 
-` + '=== FINAL CHECK BEFORE OUTPUT ===\n' + `
-Before generating, verify: NO bullet ends with "with a focus on...", "utilizing...", "with expertise in...", or "leveraging...". If any do, rewrite them.
+${ANTI_AI_WRITING_RULES}
 
-` + '=== OUTPUT — Return ONLY this JSON in ```json``` block ===\n```json\n' + `{
+=== FINAL CHECK BEFORE OUTPUT ===
+Before output: verify NO bullet ends with "with a focus on...", "utilizing...", "with expertise in...", "leveraging...", or "ensuring...". Rewrite any that do.
+
+` + 'Return ONLY JSON in ```json``` block:\n```json\n' + `{
   "name": "${baseResume.name || ''}",
   "contact": ${JSON.stringify(baseResume.contact || { location: "", phone: "", email: "", linkedin_url: "", portfolio_url: "" })},
-  "summary": "rewritten summary here",
+  "summary": "rewritten summary",
   "education": [{"institution":"","degree":"","gpa":"","dates":"","location":"","bullets":[]}],
-  "skills": {"Category Name": "skill1, skill2, skill3"},
-  "experience": [{"company":"","role":"","dates":"","location":"","bullets":["bullet1","bullet2","bullet3"]}],
-  "projects": [{"name":"","tech":"","dates":"","bullets":["bullet1","bullet2"]}],
-  "leadership": [{"organization":"","role":"","dates":"","location":"","bullets":["bullet1"]}],
+  "skills": {"Category": "skill1, skill2"},
+  "experience": [{"company":"","role":"","dates":"","location":"","bullets":["bullet1"]}],
+  "projects": [{"name":"","tech":"","dates":"","bullets":[]}],
+  "leadership": [{"organization":"","role":"","dates":"","location":"","bullets":[]}],
   "research": [{"title":"","conference":"","dates":"","link":"","bullets":[]}],
   "certifications": [{"name":"","issuer":"","dates":""}],
   "awards": [{"name":"","organization":"","dates":""}],
@@ -391,7 +415,7 @@ Before generating, verify: NO bullet ends with "with a focus on...", "utilizing.
   "section_order": ${JSON.stringify(baseResume.section_order || ["summary", "skills", "experience", "projects", "education"])},
   "excluded_items": {"projects":[],"experience":[],"leadership":[],"research":[],"certifications":[],"awards":[],"volunteering":[]}
 }
-` + '```\n' + `Use item names as string identifiers in excluded_items (company name for experience, project name for projects, etc).`;
+` + '```\n' + `Use item names as string identifiers in excluded_items.`;
 }
 
 
@@ -399,14 +423,13 @@ Before generating, verify: NO bullet ends with "with a focus on...", "utilizing.
 
 export function buildAnalysisPrompt(resumeData, jdText, jdAnalysis = null) {
     const flatResume = flattenResumeForAnalysis(resumeData);
-
     const keywordsSection = jdAnalysis ? `
 PARSED JD KEYWORDS:
 Mandatory: ${(jdAnalysis.mandatory_keywords || []).join(', ')}
 Preferred: ${(jdAnalysis.preferred_keywords || []).join(', ')}
 ` : '';
 
-    return `You are a senior recruiter and ATS scoring engine. Score this resume for keyword match AND audit it for quality issues. Be specific and actionable.
+    return `You are a senior recruiter and ATS scoring engine. Score this resume for keyword match AND audit it for quality.
 
 === JOB DESCRIPTION ===
 ${jdText}
@@ -415,47 +438,37 @@ ${keywordsSection}
 ${flatResume}
 
 === PART 1: ATS SCORING ===
+Adjust scoring expectations for seniority: For junior roles (0-2 yrs), a score of 70+ is strong. For mid-level (3-7 yrs), 75+ is strong. For senior+ (8+ yrs), focus more on leadership/strategy keyword presence and less on individual tool mentions.
 
-Extract every keyword from the JD. For each, score placement:
-  Skills only = 0.7 | Also in summary = +0.5 | In a bullet with context = +0.7 | In title/project name = +0.4 | Max per keyword: 2.3
-  Score = (keyword_pts / max_possible) * 70 + (soft_skill_match * 12) + (experience_relevance * 18)
-  "missing" = completely absent. "weak" = in skills but never in a bullet with context.
-  Calibration: 90-95 exceptional, 85-89 excellent, 75-84 strong, 65-74 good, 55-64 fair, <55 weak.
+Score placement: Skills=0.7 | Summary=+0.5 | Bullet=+0.7 | Project=+0.4. Max 2.3/KW.
+Formula: (kw_pts/max) * 70 + soft_skills * 12 + relevance * 18.
+Grades: >90 Exceptional, >85 Excellent, >75 Strong, >65 Good.
 
-=== PART 2: QUALITY AUDIT ===
+=== PART 2: QUALITY AUDIT (Check 1-5) ===
+1. SUMMARY: Has years? Metric? Domain fit? No pronouns/clichés?
+2. KEYWORD STUFFING: Any bullet ending with disconnected "focusing on X", "ensuring Y"?
+3. BULLETS: Any stubs (<60 chars)? Vague filler? Mismatched keywords (e.g. AI tool in unrelated bullet)?
+4. SKILLS: No duplicates? No parenthetical expansions?
+5. GAPS: Missing requirements?
+6. AI-SOUNDING LANGUAGE: Flag bullets using "spearheaded", "orchestrated", "synergized", "pioneered", "innovative solutions", "cutting-edge", "leveraging", "significantly improved", "effectively managed", "successfully delivered", "diverse stakeholders", "ensuring alignment". Also flag if ALL bullets in a role use identical "[Verb] [object] resulting in [metric]" structure.
 
-Check each of these and flag specific issues:
+Rate each: CRITICAL, MODERATE, MINOR.
 
-SUMMARY: Has years of experience? Has a metric or concrete accomplishment? Has domain fit? Is 3-4 sentences? Any "passionate about"/"results-driven"/"I/my" pronouns?
-
-KEYWORD STUFFING: Does any bullet end with a disconnected phrase like "applying [keyword]", "ensuring [keyword]", "through [keyword]", "with a focus on [keyword]"? Quote the exact bullet.
-
-BULLETS: Any stubs under 60 chars? Any over 250 chars? Any vague filler ("Improved performance using various techniques")? Any fabricated content? Any bullet where the keyword doesn't match the work described (e.g. "AI Voices" on a bullet about database queries, or "statistical rigor" on a bullet about deploying Kubernetes)? Any claim that contradicts the candidate's experience level or timeline?
-
-SKILLS: Duplicates across categories? Soft skills listed as technical skills? Parenthetical expansions like "LLMs (Large Language Models)"?
-
-CONTENT GAPS: Which JD requirements have zero evidence in the resume?
-
-Rate each issue: CRITICAL (likely rejection), MODERATE (reduces competitiveness), MINOR (cosmetic).
-
-` + 'Return in ```json``` format:\n```json\n' + `{
+` + 'Return ONLY JSON in ```json``` block:\n```json\n' + `{
   "score": 0,
   "missing_keywords": [],
   "weak_keywords": [],
-  "matching_areas": ["3-5 specific strengths"],
-  "summary_feedback": "one paragraph assessment",
+  "matching_areas": ["3-5 strengths"],
+  "summary_feedback": "paragraph",
   "audit": {
-    "summary_issues": [{"issue": "description", "severity": "CRITICAL|MODERATE|MINOR"}],
-    "stuffing_found": [{"bullet": "exact text", "stuffed_phrase": "the phrase", "severity": "CRITICAL"}],
-    "bullet_issues": [{"section": "experience", "item": "company/project name", "bullet": "exact text", "issue": "what's wrong", "fix": "suggested rewrite", "severity": "CRITICAL|MODERATE|MINOR"}],
-    "skills_issues": [{"issue": "description", "severity": "MODERATE"}],
-    "content_gaps": [{"requirement": "JD requirement", "suggestion": "how to address", "severity": "CRITICAL|MODERATE"}]
+    "summary_issues": [{"issue": "desc", "severity": "CRITICAL|MODERATE|MINOR"}],
+    "stuffing_found": [{"bullet": "text", "stuffed_phrase": "phrase", "severity": "CRITICAL"}],
+    "bullet_issues": [{"section": "exp", "item": "name", "bullet": "text", "issue": "desc", "fix": "rewrite", "severity": "MODERATE"}],
+    "skills_issues": [{"issue": "desc", "severity": "MODERATE"}],
+    "content_gaps": [{"requirement": "req", "suggestion": "fix", "severity": "CRITICAL"}],
+    "ai_language_issues": [{"bullet": "text", "issue": "what sounds AI", "fix": "rewrite", "severity": "MODERATE"}]
   },
-  "top_3_actions": [
-    "Most impactful fix with exact instructions",
-    "Second most impactful fix",
-    "Third most impactful fix"
-  ]
+  "top_3_actions": ["fix1", "fix2", "fix3"]
 }
 ` + '```';
 }
@@ -465,10 +478,9 @@ Rate each issue: CRITICAL (likely rejection), MODERATE (reduces competitiveness)
 
 
 export function buildQuestionPrompt(question, resumeData, jdText) {
-    // Reuse the existing full-resume serializer
     const fullResume = flattenResumeForAnalysis(resumeData);
 
-    return `You are an applicant answering a job application question. Your goal is to write the answer exactly as this person would — using their real background, in their voice.
+    return `You are this applicant answering a job application question. Write as them — first person, using their real background.
 
 === APPLICANT RESUME ===
 ${fullResume}
@@ -476,79 +488,55 @@ ${fullResume}
 === JOB DESCRIPTION ===
 ${jdText || 'Not provided'}
 
-=== APPLICATION QUESTION ===
+=== QUESTION ===
 "${question}"
 
 === INSTRUCTIONS ===
+Classify and answer:
 
-First, classify the question type, then answer accordingly:
+FACTUAL (stack, years, salary, visa): Answer directly using resume data. 1-3 sentences.
+BEHAVIORAL (challenge, time you...): Real resume experience. Context -> Action -> Result. 3-5 sentences.
+MOTIVATIONAL (why this role?): Connect info from JD to your background. 2-4 sentences.
+OPEN-ENDED: Highlight 1-2 non-obvious strengths. Concise.
 
-FACTUAL / DIRECT (e.g. tech stack, years of experience, location, availability, work authorization, salary expectations, notice period, LinkedIn URL):
-→ Answer directly and specifically using the resume data above.
-→ For tech preferences, list actual technologies from the applicant's skills and experience — don't generalize.
-→ For years of experience, calculate from the dates in the resume.
-→ For salary/compensation: say you're open to discussing compensation aligned with the role scope and your experience level, and ask about the budgeted range if appropriate.
-→ Keep it 1-3 sentences. No fluff.
-
-BEHAVIORAL / SITUATIONAL (e.g. "tell me about a time...", "describe a challenge...", "how do you handle..."):
-→ Pick the most relevant real experience from the resume that matches the question.
-→ Structure as: brief context → what you did → measurable result. Don't label these as "Situation/Action/Result".
-→ 3-5 sentences.
-
-MOTIVATIONAL / FIT (e.g. "why this role?", "why this company?", "what interests you?"):
-→ Connect a specific detail from the job description to a specific part of your background.
-→ Show alignment between what the role needs and what you've actually done.
-→ 2-4 sentences.
-
-OPEN-ENDED / OTHER (e.g. "anything else?", "additional information", cover letter):
-→ Highlight 1-2 strengths from the resume that aren't obvious elsewhere in the application.
-→ Tie them to something specific in the job description if available.
-→ Keep it concise unless the question explicitly asks for length.
-
-=== WRITING RULES ===
-- First person. Write as the applicant.
-- Use specific details: real company names, technologies, metrics, and outcomes from the resume.
-- Sound human. Vary sentence structure. No corporate buzzword chains.
-- If the resume doesn't contain enough info to answer well, give the best answer possible with what's available rather than making things up.
-- Output ONLY the answer text. No labels, no "Answer:", no quotes around it.`;
+Rules:
+- First person. Sound like a real person, not a press release.
+- Use specific details (companies, tools, metrics) from resume.
+- Vary sentence length. Mix short direct sentences with longer ones.
+- NEVER use: "passionate about", "proven track record", "innovative solutions", "diverse stakeholders", "leverage/utilize", "spearheaded", "orchestrated".
+- Prefer the candidate's own vocabulary from their resume over formal synonyms.
+- Match voice to experience level: junior = enthusiastic, specific about technical work. Senior = confident, focused on impact/strategy.
+- If resume lacks info, give best answer possible without fabricating.
+- Output ONLY the answer text — no labels, no "Answer:", no quotes.`;
 }
 
 
 // ---------- 6. EXTRACT PROFILE FROM RESUME TEXT ----------
 
 export function buildExtractProfilePrompt(resumeText) {
-    // Technique: Role priming, specific edge case handling, schema anchoring
-    return `You are an expert resume parser. Extract structured data from this resume text. The text may be jumbled from PDF column merging.
+    return `You are an expert resume parser. Extract structured data from this resume text.
 
 === RESUME TEXT ===
 ${resumeText}
 
 === EXTRACTION RULES ===
+Rule 1: NAME is usually the first prominent text.
+Rule 2: CONTACT: email, phone, city/state, URLs (look for [Extracted Link]).
+Rule 3: Map headers to standard sections (Professional Experience -> experience, etc).
+Rule 4: BULLETS: Split where new action verbs start.
+Rule 5: DATES: Normalize to "Mon YYYY - Mon YYYY".
+Rule 6: SKILLS: Group by type (tools, languages).
+Rule 7: PRESERVE all metrics, numbers, exact wording. Keep GPAs in their original scale (4.0, 10.0, percentage, letter grade) — do NOT convert between scales.
+Rule 8: section_order = order they appear. Only include sections with content.
+Rule 9: Do NOT rephrase or summarize.
 
-Rule 1 — NAME: Usually the first prominent text. Do NOT confuse with company names or headers.
-Rule 2 — CONTACT: Look for email (x@y.z), phone (xxx-xxx-xxxx), city/state, URLs. Check for "[Extracted Link: ...]" patterns for LinkedIn/portfolio.
-Rule 3 — SECTION MAPPING: Map non-standard headers to standard sections:
-  "Professional Experience" / "Work History" / "Employment" → experience
-  "Academic Background" / "Schooling" → education
-  "Technical Proficiencies" / "Core Competencies" / "Tech Stack" → skills
-  "Selected Projects" / "Key Projects" → projects
-  "Activities" / "Extracurriculars" → leadership
-  "Publications" / "Papers" → research
-Rule 4 — BULLETS: Each bullet = one accomplishment. If text runs together, split where a new action verb starts.
-Rule 5 — DATES: Normalize to "Mon YYYY - Mon YYYY" or "Mon YYYY - Present". Keep original if ambiguous.
-Rule 6 — SKILLS: Group into categories. Keep original categories if present. If flat list, group by type (e.g. tools, methods, platforms, languages, certifications — adapt to the role's domain).
-Rule 7 — PRESERVE all metrics, numbers, percentages, dollar amounts EXACTLY as written.
-Rule 8 — section_order: List sections in the ORDER they appear in the original resume (top to bottom).
-Rule 9 — Only include sections that have actual content. Skip empty sections.
-Rule 10 — Do NOT rephrase, summarize, or reword bullets. Preserve EXACT original wording.
-
-` + 'Return in ```json``` format:\n```json\n' + `{
+` + 'Return ONLY JSON in ```json``` block:\n```json\n' + `{
   "name": "Full Name",
   "contact": {"location":"","phone":"","email":"","linkedin_url":"","portfolio_url":""},
-  "summary": "professional summary or empty string if none",
+  "summary": "content or empty",
   "education": [{"institution":"","degree":"","gpa":"","dates":"","location":"","bullets":[]}],
-  "skills": {"Category Name": "skill1, skill2, skill3"},
-  "experience": [{"company":"","role":"","dates":"","location":"","bullets":["exact bullet text"]}],
+  "skills": {"Category": "skill1, skill2"},
+  "experience": [{"company":"","role":"","dates":"","location":"","bullets":["exact text"]}],
   "projects": [{"name":"","tech":"","dates":"","bullets":[]}],
   "leadership": [{"organization":"","role":"","dates":"","location":"","bullets":[]}],
   "research": [{"title":"","conference":"","dates":"","link":"","bullets":[]}],
@@ -556,7 +544,7 @@ Rule 10 — Do NOT rephrase, summarize, or reword bullets. Preserve EXACT origin
   "awards": [{"name":"","organization":"","dates":""}],
   "volunteering": [{"organization":"","role":"","dates":"","location":"","bullets":[]}],
   "languages": "",
-  "section_order": ["sections in order they appear"]
+  "section_order": ["summary", "skills", ...]
 }
 ` + '```';
 }
@@ -565,7 +553,6 @@ Rule 10 — Do NOT rephrase, summarize, or reword bullets. Preserve EXACT origin
 // ============================================================
 // POST-PROCESSING HELPERS
 // ============================================================
-
 export function convert_markdown_to_html(text) {
     if (!text) return text;
     text = text.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
@@ -1120,6 +1107,70 @@ export function clean_keyword_stuffing(resume_data, jdAnalysis = null) {
         const sentences = resume_data.summary.split(/(?<=\.)\s+/);
         resume_data.summary = sentences.map(s => cleanBullet(s)).join(' ');
     }
+
+    return resume_data;
+}
+
+/**
+ * Remove common AI-generated language patterns from resume text.
+ * Safety net for when models ignore anti-AI prompt instructions.
+ * Call AFTER clean_keyword_stuffing, BEFORE ensure_keyword_coverage.
+ */
+export function clean_ai_language(resume_data) {
+    const REPLACEMENTS = [
+        [/\bspearheaded\b/gi, 'led'],
+        [/\borchestrated\b/gi, 'coordinated'],
+        [/\bsynergized\b/gi, 'combined'],
+        [/\bpioneered\b/gi, 'introduced'],
+        [/\brevolutionized\b/gi, 'redesigned'],
+        [/\bharnessing\b/gi, 'using'],
+        [/\butilizing\b/gi, 'using'],
+        [/\bleveraging\b/gi, 'using'],
+        [/\bfacilitated\b/gi, 'led'],
+        [/\bauthored\b/gi, 'wrote'],
+        [/\bsignificantly improved\b/gi, 'improved'],
+        [/\beffectively managed\b/gi, 'managed'],
+        [/\bsuccessfully delivered\b/gi, 'delivered'],
+        [/\bsuccessfully\s+/gi, ''],
+        [/\beffectively\s+/gi, ''],
+        [/\binnovative solutions?\b/gi, 'tools'],
+        [/\bcutting-edge\b/gi, 'modern'],
+        [/\bbest-in-class\b/gi, 'top-performing'],
+        [/\bworld-class\b/gi, 'high-quality'],
+        [/\bdiverse stakeholders\b/gi, 'stakeholders'],
+        [/\bvarious stakeholders\b/gi, 'stakeholders'],
+        [/,?\s*ensuring alignment with business objectives\.?/gi, '.'],
+        [/,?\s*in alignment with [\w\s]+\.?/gi, '.'],
+        [/\bproven track record\b/gi, 'experience'],
+        [/\bthought leader(ship)?\b/gi, 'expert$1'],
+        [/\bvalue-add\b/gi, 'value'],
+    ];
+
+    const cleanText = (text) => {
+        if (!text || typeof text !== 'string') return text;
+        let c = text;
+        for (const [pattern, replacement] of REPLACEMENTS) {
+            c = c.replace(pattern, replacement);
+        }
+        c = c.replace(/\s{2,}/g, ' ').trim();
+        c = c.replace(/^\w/, ch => ch.toUpperCase());
+        c = c.replace(/\.\./g, '.').replace(/\s+\./g, '.');
+        return c;
+    };
+
+    if (resume_data.summary) {
+        resume_data.summary = cleanText(resume_data.summary);
+    }
+
+    ['experience', 'projects', 'leadership', 'research', 'volunteering'].forEach(sec => {
+        if (resume_data[sec]) {
+            resume_data[sec].forEach(item => {
+                if (item.bullets) {
+                    item.bullets = item.bullets.map(b => cleanText(b));
+                }
+            });
+        }
+    });
 
     return resume_data;
 }

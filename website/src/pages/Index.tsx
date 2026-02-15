@@ -1,4 +1,4 @@
-import { Github, Linkedin, Download, Shield, Sparkles, GripVertical, Globe, Lock, DollarSign, Terminal, ExternalLink, ChevronDown, Chrome } from "lucide-react";
+import { Github, Linkedin, Download, Shield, Sparkles, GripVertical, Globe, Lock, DollarSign, Terminal, ExternalLink, ChevronDown, Chrome, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -200,6 +200,56 @@ const Index = () => {
               <SkillRow label="Platform" value="Chrome Extension (Manifest V3)" />
               <SkillRow label="PDF Engine" value="pdf.js (input), jsPDF (output)" />
               <SkillRow label="Architecture" value="Hybrid (Client/Server), Google Auth, ES6 Modules" />
+            </div>
+          </ResumeSection>
+
+          <SectionDivider />
+
+          {/* ===== COMING SOON ===== */}
+          <ResumeSection title="Coming Soon">
+            <div className="bg-muted/30 border border-border/50 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-500">
+              <div className="p-6 sm:p-10 flex flex-col lg:flex-row gap-10 items-center">
+                <div className="flex-1 space-y-5">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider border border-primary/20">
+                    <Rocket size={14} />
+                    In Development
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">Split-Screen Real-Time Editor</h3>
+                  <p className="text-muted-foreground leading-relaxed text-base">
+                    This is what you've been waiting for. We're building a powerful <strong>split-screen interface</strong> that lets you see your resume changes in real-time.
+                  </p>
+                  <ul className="space-y-2 text-sm text-card-foreground/90">
+                    <li className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                      Live PDF preview as you type
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                      Drag & Drop sections instantly
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                      Pixel-perfect precision control
+                    </li>
+                  </ul>
+                  <div className="pt-2 flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                    <span>Coming in v1.1.0</span>
+                  </div>
+                </div>
+                <div className="flex-1 w-full max-w-md lg:max-w-lg">
+                  <div className="relative rounded-xl overflow-hidden shadow-2xl border border-border/50 bg-background group ring-1 ring-border/50">
+                    <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                    <img
+                      src="/screenshots/upcoming_screenshot.jpeg"
+                      alt="Preview of the upcoming split-screen editor interface"
+                      className="w-full h-auto object-cover transform group-hover:scale-[1.02] transition-transform duration-700 ease-out"
+                    />
+                  </div>
+                  <p className="text-center text-xs text-muted-foreground mt-3 italic">
+                    Sneak peek of the upcoming UI (Work in Progress)
+                  </p>
+                </div>
+              </div>
             </div>
           </ResumeSection>
 

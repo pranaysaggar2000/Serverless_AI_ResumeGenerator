@@ -26,17 +26,58 @@ export default async function handler(req, res) {
     try {
         const parsedUrl = new URL(url);
         if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-            return res.status(400).json({ error: 'Invalid protocol. Only http and https are allowed.' });
+            return res.status(400).json({ error: 'Invalid protocol. Only http and https are allowed.' }, corsHeaders);
         }
 
         // Block private IP ranges (basic check)
         const hostname = parsedUrl.hostname;
         if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
-            return res.status(403).json({ error: 'Access to private networks is denied.' });
+            return res.status(403).json({ error: 'Access to private networks is denied.' }, corsHeaders);
         }
 
     } catch (e) {
-        return res.status(400).json({ error: 'Invalid URL format' });
+        return res.status(400).json({ error: 'Invalid URL format' }, corsHeaders);
+    }
+
+
+    // Check for Workday URLs to use their JSON API directly (better than scraping raw HTML for SPAs)
+    if (hostname.endsWith('myworkdayjobs.com')) {
+        try {
+            const company = hostname.split('.')[0];
+            const pathParts = parsedUrl.pathname.split('/').filter(p => p);
+
+            if (pathParts.length >= 2) {
+                const tenant = pathParts[0];
+                const jobPath = pathParts.slice(1).join('/'); // Includes 'job/' and the ID
+                const apiUrl = `https://${hostname}/wday/cxs/${company}/${tenant}/${jobPath}`;
+
+                const apiResponse = await fetch(apiUrl, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    },
+                    signal: AbortSignal.timeout(8000)
+                });
+
+                if (apiResponse.ok) {
+                    const data = await apiResponse.json();
+                    if (data.jobPostingInfo) {
+                        const job = data.jobPostingInfo;
+                        // Strip HTML tags from the description
+                        const rawText = (job.jobDescription || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
+                        return res.status(200).json({
+                            text: rawText.substring(0, 15000),
+                            title: job.title || '',
+                            company: job.hiringOrganization || company,
+                            url: url
+                        }, corsHeaders);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Workday API specific fetch failed, falling back to generic fetch:', e);
+        }
     }
 
 
@@ -54,7 +95,7 @@ export default async function handler(req, res) {
         if (!response.ok) {
             return res.status(response.status).json({
                 error: `Failed to fetch page: ${response.status} ${response.statusText}`
-            });
+            }, corsHeaders);
         }
 
         const html = await response.text();
@@ -85,13 +126,13 @@ export default async function handler(req, res) {
             title,
             company,
             url
-        });
+        }, corsHeaders);
 
     } catch (error) {
         console.error('Fetch error:', error);
         return res.status(500).json({
             error: 'Failed to extract content',
             details: error.message
-        });
+        }, corsHeaders);
     }
 }

@@ -18,6 +18,8 @@ let currentEditorZoom = 1.0;
 let userDeletedItems = {};
 let undoSnapshot = null; // Step 36
 const EDITOR_ID = 'full-editor-' + Date.now(); // Step 57
+const DEFAULT_SECTIONS = ['summary', 'education', 'experience', 'projects', 'skills', 'leadership', 'certifications', 'awards', 'volunteering', 'languages', 'interests', 'research'];
+
 
 // --- Utility Helpers ---
 const escapeHtml = (str) => {
@@ -427,6 +429,8 @@ function setupToolbar() {
     });
 
     document.getElementById('copyTextBtn')?.addEventListener('click', () => {
+        if (!currentResume) return;
+        const sectionsOrder = currentResume.section_order || DEFAULT_SECTIONS;
         const text = [currentResume.name, ...Object.values(currentResume.contact || {}), currentResume.summary].filter(Boolean).join('\n') + '\n\n' + sectionsOrder.map(s => currentResume[s] ? `${s.toUpperCase()}\n${JSON.stringify(currentResume[s], null, 2)}` : '').join('\n\n');
         navigator.clipboard.writeText(text);
         showSuccessToast("Text copied!");
@@ -454,9 +458,8 @@ function setupReorderModal() {
 
 function openReorderModal() {
     const list = document.getElementById('sortableList'); list.innerHTML = '';
-    const def = ['summary', 'education', 'experience', 'projects', 'skills', 'leadership', 'certifications', 'awards', 'volunteering', 'languages', 'interests', 'research'];
-    const order = currentResume.section_order || def;
-    const all = Array.from(new Set([...order, ...def]));
+    const order = currentResume.section_order || DEFAULT_SECTIONS;
+    const all = Array.from(new Set([...order, ...DEFAULT_SECTIONS]));
     all.forEach(s => {
         const li = document.createElement('li'); li.className = 'sortable-item'; li.draggable = true; li.dataset.section = s;
         li.innerHTML = `<span class="handle">☰</span> ${s.charAt(0).toUpperCase() + s.slice(1)}`;

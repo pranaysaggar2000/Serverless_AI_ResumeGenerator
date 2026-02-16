@@ -397,6 +397,7 @@ ${ANTI_AI_WRITING_RULES}
 
 === FINAL CHECK BEFORE OUTPUT ===
 Before output: verify NO bullet ends with "with a focus on...", "utilizing...", "with expertise in...", "leveraging...", or "ensuring...". Rewrite any that do.
+Every bullet MUST end with a period. If a bullet does not end with ".", add one.
 
 ` + 'Return ONLY JSON in ```json``` block:\n```json\n' + `{
   "name": "${baseResume.name || ''}",
@@ -597,7 +598,13 @@ export function clean_tailored_resume(resume_data) {
         if (resume_data[sec]) {
             resume_data[sec].forEach(item => {
                 if (item.bullets) {
-                    item.bullets = item.bullets.map(b => convert_markdown_to_html(deCharSpace(b)));
+                    item.bullets = item.bullets.map(b => {
+                        let cleaned = convert_markdown_to_html(deCharSpace(b));
+                        if (cleaned && !/[.!?]$/.test(cleaned.replace(/<\/[^>]+>$/g, '').trim())) {
+                            cleaned = cleaned.replace(/\s*$/, '.');
+                        }
+                        return cleaned;
+                    });
                 }
             });
         }

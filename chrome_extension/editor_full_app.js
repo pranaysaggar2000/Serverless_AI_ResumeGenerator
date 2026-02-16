@@ -614,10 +614,17 @@ function renderEditor() {
     applyZoom(currentEditorZoom);
 }
 
+const PRESET_FORMATS = {
+    compact: { font: 'times', density: 'compact', margins: 'narrow', nameSize: 18, bodySize: 9.5, headerSize: 11, subheaderSize: 10, headerStyle: 'uppercase_line', bulletChar: '•', showLinks: true },
+    standard: { font: 'times', density: 'normal', margins: 'normal', nameSize: 21, bodySize: 10, headerSize: 12, subheaderSize: 11, headerStyle: 'uppercase_line', bulletChar: '•', showLinks: true },
+    spacious: { font: 'helvetica', density: 'spacious', margins: 'wide', nameSize: 24, bodySize: 11, headerSize: 14, subheaderSize: 12, headerStyle: 'bold_line', bulletChar: '–', showLinks: true }
+};
+
 function setupLinkPopup() {
     const popup = document.getElementById('linkEditorPopup');
     const input = document.getElementById('linkEditorInput');
     const save = document.getElementById('linkEditorSave');
+    const cancel = document.getElementById('linkEditorCancel');
     let target = null;
     document.getElementById('resumeEditorContainer').onclick = (e) => {
         const link = e.target.closest('.interactive-link');
@@ -637,6 +644,7 @@ function setupLinkPopup() {
         } else { popup.style.display = 'none'; }
     };
     save.onclick = () => { if (target) { target.dataset.url = input.value; saveChanges(true); } popup.style.display = 'none'; };
+    if (cancel) cancel.onclick = () => { popup.style.display = 'none'; };
 }
 
 function scrapeResumeFromEditor() {
@@ -884,6 +892,9 @@ function setupFormatPanel() {
     function syncFormatUI() {
         strip.querySelectorAll('.format-chip[data-setting]').forEach(b => b.classList.toggle('active', String(currentFormat[b.dataset.setting]) === String(b.dataset.value)));
         ['nameSize', 'bodySize', 'headerSize', 'subheaderSize'].forEach(k => { const s = document.getElementById(k), v = document.getElementById(k + 'Val'); if (s) { s.value = currentFormat[k]; v.textContent = currentFormat[k] + 'pt'; } });
+
+        const hs = document.getElementById('headerStyleSelect'); if (hs) hs.value = currentFormat.headerStyle || 'uppercase_line';
+        const sl = document.getElementById('showLinksCheck'); if (sl) sl.checked = currentFormat.showLinks !== false;
     }
 
     function apply(upd) {
@@ -893,6 +904,15 @@ function setupFormatPanel() {
     }
 
     strip.querySelectorAll('.format-chip[data-setting]').forEach(b => b.onclick = () => apply({ [b.dataset.setting]: b.dataset.value }));
+
+    // Preset chips
+    strip.querySelectorAll('.preset-chip').forEach(b => {
+        b.onclick = () => {
+            const preset = b.dataset.preset;
+            if (PRESET_FORMATS[preset]) apply(PRESET_FORMATS[preset]);
+        };
+    });
+
     ['nameSize', 'bodySize', 'headerSize', 'subheaderSize'].forEach(k => {
         const el = document.getElementById(k);
         if (el) el.oninput = (e) => {
@@ -900,6 +920,9 @@ function setupFormatPanel() {
             clearTimeout(el._tm); el._tm = setTimeout(() => apply({ [k]: v }), 150);
         };
     });
+
+    document.getElementById('headerStyleSelect')?.addEventListener('change', (e) => apply({ headerStyle: e.target.value }));
+    document.getElementById('showLinksCheck')?.addEventListener('change', (e) => apply({ showLinks: e.target.checked }));
 }
 
 function applyFormatStylesToEditor(fmt) {
@@ -966,6 +989,7 @@ function setupPreviewControls() {
     document.getElementById('fitWidthBtn')?.addEventListener('click', autoFitEditor);
 
     document.getElementById('bottomPrintBtn')?.addEventListener('click', () => pdfPreview?.print(currentResume, currentFormat));
+    document.getElementById('bottomDownloadBtn')?.addEventListener('click', () => pdfPreview?.download(currentResume, currentFormat));
     document.getElementById('zoomIn')?.addEventListener('click', () => applyZoom(currentEditorZoom + 0.1));
     document.getElementById('zoomOut')?.addEventListener('click', () => applyZoom(currentEditorZoom - 0.1));
 

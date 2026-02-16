@@ -3,17 +3,9 @@ import { debugLog } from './utils.js';
 import { logWarn } from './logger.js';
 
 export async function callAI(prompt, provider, apiKey, options = {}) {
-    debugLog('🤖 callAI invoked:', {
-        provider,
-        hasApiKey: !!apiKey,
-        authMode: state.authMode,
-        isLoggedIn: state.isLoggedIn,
-        taskType: options.taskType
-    });
 
     // 1. Handle Free Tier (Server-side)
     if (state.authMode === 'free') {
-        debugLog('✅ Using FREE tier (server-side AI)');
         if (!state.isLoggedIn) {
             const { showStatus } = await import('./ui.js');
             showStatus('Please sign in with Google to use the free tier.', 'error');
@@ -30,7 +22,6 @@ export async function callAI(prompt, provider, apiKey, options = {}) {
             const hasActualByokKey = !!(state.currentApiKey || state.currentGroqKey || state.currentOpenRouterKey);
             if (error.message === 'SERVER_ERROR' && hasActualByokKey) {
                 showStatus('Free tier server unavailable. Using your own API key instead.', 'warning');
-                debugLog('Fallback to BYOK due to server error');
                 // Fall through to BYOK logic below
             } else if (error.message === 'SERVER_ERROR' && !hasActualByokKey) {
                 showStatus(
@@ -52,7 +43,6 @@ export async function callAI(prompt, provider, apiKey, options = {}) {
     }
 
     // 2. Handle BYOK (Direct API calls)
-    debugLog('🔑 Using BYOK mode (Bring Your Own Key)');
     if (!apiKey) {
         throw new Error(`Please configure your ${provider.toUpperCase()} API key in settings.`);
     }
@@ -359,8 +349,6 @@ async function callOpenRouter(prompt, apiKey, options) {
                     const data = await response.json();
                     const content = data.choices[0].message.content;
 
-                    // Log successful model for debugging
-                    debugLog(`✓ OpenRouter: Used ${modelId} for ${options.taskType || 'default'} task`);
 
                     clearTimeout(totalTimeout); // Clear total timeout on success
                     return content;

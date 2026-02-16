@@ -83,7 +83,6 @@ export function updateState(updates) {
         // 2. AND it's different from the cached version
         // This prevents invalidation when just loading from storage or when setting the same value
         if (newJdText !== currentJdText && newJdText !== cachedJdText) {
-            if (DEBUG) console.log('🔄 JD text changed - invalidating cached JD analysis');
             updates.currentJdAnalysis = null;
             updates.lastParsedJdText = "";
         }

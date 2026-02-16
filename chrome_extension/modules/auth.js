@@ -169,6 +169,7 @@ export async function logout() {
             isLoggedIn: false,
             freeUsage: { used: 0, remaining: 15, limit: 15, resetsAt: null }
         });
+        await chrome.storage.local.remove('free_usage');
 
         if (state.currentApiKey || state.currentGroqKey || state.currentOpenRouterKey) {
             updateState({ authMode: 'byok' });
@@ -263,6 +264,14 @@ export async function fetchUsageStatus() {
                 resetsAt: data.resetsAt
             }
         });
+        await chrome.storage.local.set({
+            free_usage: {
+                used: data.used,
+                remaining: data.remaining,
+                limit: data.limit,
+                resetsAt: data.resetsAt
+            }
+        });
         return data;
     } catch (error) {
         console.error('Failed to fetch usage status:', error);
@@ -315,6 +324,13 @@ export async function callServerAI(prompt, taskType = 'default', expectJson = fa
                     remaining: data.usage.remaining,
                     limit: data.usage.limit,
                     used: data.usage.limit - data.usage.remaining
+                }
+            });
+            await chrome.storage.local.set({
+                free_usage: {
+                    used: data.usage.limit - data.usage.remaining,
+                    remaining: data.usage.remaining,
+                    limit: data.usage.limit
                 }
             });
             const { updateUsageDisplay } = await import('./ui.js');

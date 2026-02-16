@@ -3,10 +3,6 @@ import { hasData, formatSectionName } from './utils.js';
 import { showStatus } from './ui.js';
 import { saveProfileChanges, updateEditorResume } from './editor.js';
 
-// Local helper to invalidate PDF cache (drag and drop removed)
-function invalidatePdfCache() {
-    updateState({ latestPdfBlob: null });
-}
 
 let dragSrcEl = null;
 
@@ -134,7 +130,7 @@ export function setupReorderUI(generateAndCachePDFCallback) {
 
     if (saveOrderBtn) {
         saveOrderBtn.addEventListener('click', async () => {
-            invalidatePdfCache();
+            updateState({ latestPdfBlob: null });
             const newOrder = [];
             sortableSections.querySelectorAll('li').forEach(li => {
                 newOrder.push(li.getAttribute('data-section'));

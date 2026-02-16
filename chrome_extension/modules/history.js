@@ -135,6 +135,8 @@ export async function renderHistoryList() {
 
         list.querySelectorAll('.delete-btn').forEach(btn => {
             btn.onclick = async () => {
+                const confirmed = await showConfirmDialog("Delete this version from history?");
+                if (!confirmed) return;
                 const id = parseInt(btn.dataset.id);
                 const currentData = await chrome.storage.local.get('resume_versions');
                 const newVersions = (currentData.resume_versions || []).filter(v => v.id !== id);

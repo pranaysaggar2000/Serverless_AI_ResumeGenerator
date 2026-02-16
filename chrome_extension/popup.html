@@ -420,10 +420,8 @@
     <div id="actions" class="hidden">
       <!-- Primary Actions — always visible, large -->
       <div class="actions-primary">
-        <button id="previewBtn" class="action-btn action-primary">
-          <span class="action-icon">🔍</span>
-          <span class="action-label">Preview</span>
-          <span class="action-desc">Open PDF in new tab</span>
+        <button id="livePreviewBtn" class="btn btn-secondary">
+          <span class="live-dot" title="Editor Disconnected"></span> Open Editor
         </button>
         <button id="downloadBtn" class="action-btn action-primary">
           <span class="action-icon">⬇️</span>
@@ -644,7 +642,13 @@
 
       <!-- Footer Actions -->
       <div class="format-footer">
-        <button id="previewFormatBtn" class="format-preview-btn">👁 Preview</button>
+        <button id="previewBtn" class="secondary-btn">👁 Preview</button>
+        <button id="livePreviewBtn" class="secondary-btn" title="Open live PDF preview in new tab"
+          style="font-size: 11px; padding: 0 8px;">
+          <span class="live-dot"
+            style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#94a3b8;margin-right:4px;"></span>
+          Live
+        </button>
         <button id="resetFormatBtn" class="format-reset-btn">↩ Reset</button>
       </div>
     </div>
@@ -668,7 +672,7 @@
         </div>
         <div class="editor-header-actions">
           <button id="reorderBtn" class="editor-icon-btn" title="Reorder sections">⇅</button>
-          <button id="popoutEditorBtn" class="editor-icon-btn" title="Open in full editor">↗</button>
+          <button id="popoutEditorBtn" class="editor-icon-btn" title="Open Full Editor">↗</button>
         </div>
       </div>
 

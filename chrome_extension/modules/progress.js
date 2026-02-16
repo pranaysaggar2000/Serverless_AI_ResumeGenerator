@@ -5,7 +5,7 @@ export function showProgress(step, detail = '') {
     const detailEl = document.getElementById('progressDetail');
     const spinner = document.getElementById('progressSpinner');
 
-    if (!container || !stepText || !fill || !detailEl) return;
+    if (!container || !stepText || !fill || !detailEl || !spinner) return;
 
     container.classList.remove('hidden');
     container.style.display = 'block';

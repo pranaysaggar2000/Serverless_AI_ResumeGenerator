@@ -5,14 +5,15 @@ import { state } from './state.js';
  * Uses cached JD keywords from the last tailor/analysis step.
  * Returns a quick score without API calls.
  */
-export function calculateLiveAtsScore(resumeData) {
-    // Get keywords from either the JD analysis or the last ATS analysis
-    const jdAnalysis = state.currentJdAnalysis;
-    if (!jdAnalysis) return null;
-
-    const mandatoryKeywords = (jdAnalysis.mandatory_keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
-    const preferredKeywords = (jdAnalysis.preferred_keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
-    const industryTerms = (jdAnalysis.industry_terms || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+export function calculateLiveAtsScore(resumeData, jdAnalysisOverride = null) {
+    // 1. Get JD Analysis from storage OR override
+    // Note: In live editor, we might need to pass this in because async storage read is too slow for sync render
+    const analysisFull = jdAnalysisOverride || state.currentJdAnalysis;
+    if (!analysisFull) return null;
+    const keywords = analysisFull.keywords || analysisFull;
+    const mandatoryKeywords = (keywords.mandatory_keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+    const preferredKeywords = (keywords.preferred_keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+    const industryTerms = (keywords.industry_terms || []).map(k => k.toLowerCase().trim()).filter(Boolean);
 
     if (mandatoryKeywords.length === 0 && preferredKeywords.length === 0) return null;
 
@@ -38,7 +39,7 @@ export function calculateLiveAtsScore(resumeData) {
         score: percentage,
         mandatory: { matched: mandatoryMatches, total: mandatoryKeywords, missing: mandatoryKeywords.filter(k => !mandatoryMatches.includes(k)) },
         preferred: { matched: preferredMatches, total: preferredKeywords, missing: preferredKeywords.filter(k => !preferredMatches.includes(k)) },
-        industry: { matched: industryMatches, total: industryTerms }
+        industry: { matched: industryMatches, total: industryTerms, missing: industryTerms.filter(k => !industryMatches.includes(k)) }
     };
 }
 
@@ -162,51 +163,116 @@ export function renderLiveAtsBadge(containerId = 'formContainer', resumeData = n
     badge.appendChild(content);
 
     // Click to expand missing keywords
-    badge.onclick = () => {
-        let details = document.getElementById('liveAtsDetails');
-        if (details) {
-            details.remove();
-            return;
-        }
-        details = document.createElement('div');
-        details.id = 'liveAtsDetails';
-        details.style.cssText = 'padding:10px; margin-bottom:10px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; font-size:10px;';
+    badge.innerHTML = '';
+    badge.appendChild(content);
 
-        const title = document.createElement('div');
-        title.style.cssText = "font-weight:bold; margin-bottom:6px;";
-        title.textContent = "🔍 Keyword Presence Check";
-
-        const subtitle = document.createElement('div');
-        subtitle.style.cssText = "color:#6b7280; font-size:9px; margin-bottom:6px;";
-        subtitle.textContent = "Checks if keywords EXIST in your resume. Does NOT evaluate placement quality — a keyword only in Skills scores lower on real ATS than one used in a bullet point with context.";
-
-        details.appendChild(title);
-        details.appendChild(subtitle);
-
-        if (result.mandatory.missing.length > 0) {
-            const missingReq = document.createElement('div');
-            missingReq.style.cssText = "color:#dc2626; margin-bottom:4px;";
-            const b = document.createElement('strong');
-            b.textContent = "Missing Required: ";
-            missingReq.appendChild(b);
-            missingReq.appendChild(document.createTextNode(result.mandatory.missing.join(', ')));
-            details.appendChild(missingReq);
-        }
-
-        if (result.preferred.missing.length > 0) {
-            const missingPref = document.createElement('div');
-            missingPref.style.cssText = "color:#d97706; margin-bottom:4px;";
-            const b = document.createElement('strong');
-            b.textContent = "Missing Preferred: ";
-            missingPref.appendChild(b);
-            const text = result.preferred.missing.slice(0, 8).join(', ') + (result.preferred.missing.length > 8 ? '...' : '');
-            missingPref.appendChild(document.createTextNode(text));
-            details.appendChild(missingPref);
-        }
-
-        const tip = document.createElement('div');
-        tip.style.cssText = "color:#6b7280; margin-top:6px; font-style:italic;";
-        tip.textContent = "💡 Tip: Don't just add keywords to Skills — use them in bullet points with context for higher ATS scores.";
-        details.appendChild(tip);
+    // Click to expand missing keywords
+    badge.onclick = (e) => {
+        // Prevent conflict if button inside badge is clicked (though none currently)
+        e.stopPropagation();
+        showAtsDetailsPopup(result);
     };
+}
+
+export function showAtsDetailsPopup(result) {
+    let details = document.getElementById('liveAtsDetails');
+    if (details) {
+        details.remove();
+        return;
+    }
+    details = document.createElement('div');
+    details.id = 'liveAtsDetails';
+    details.style.cssText = 'position:fixed; top:60px; right:20px; width:300px; padding:15px; background:white; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.1); z-index:100; font-size:12px; animation: fadeIn 0.2s ease;';
+
+    const header = document.createElement('div');
+    header.style.cssText = "display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid #f3f4f6; padding-bottom:8px;";
+
+    const title = document.createElement('div');
+    title.style.cssText = "font-weight:bold; font-size:14px; color:#111827;";
+    title.textContent = "🔍 Keyword Match Analysis";
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = "×";
+    closeBtn.style.cssText = "background:none; border:none; font-size:18px; cursor:pointer; color:#6b7280;";
+    closeBtn.onclick = () => details.remove();
+
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    details.appendChild(header);
+
+    const subtitle = document.createElement('div');
+    // Helper to render section
+    const renderSection = (title, items, color, isEmptyMessage = null) => {
+        const div = document.createElement('div');
+        div.style.cssText = `margin-bottom:10px; padding:8px; background:${color}10; border-radius:6px; border-left:3px solid ${color};`;
+
+        const t = document.createElement('div');
+        t.style.fontWeight = '600';
+        t.style.color = color;
+        t.style.marginBottom = '4px';
+        t.textContent = title;
+
+        const list = document.createElement('div');
+        list.style.lineHeight = '1.4';
+        list.style.color = '#374151';
+
+        if (items && items.length > 0) {
+            list.textContent = items.join(', ');
+        } else if (isEmptyMessage) {
+            list.textContent = isEmptyMessage;
+            list.style.fontStyle = 'italic';
+            list.style.opacity = '0.8';
+        } else {
+            return; // Don't render empty section without message
+        }
+
+        div.appendChild(t);
+        div.appendChild(list);
+        details.appendChild(div);
+    };
+
+    if (result.mandatory.missing.length > 0) {
+        renderSection("❌ Missing Required", result.mandatory.missing, '#dc2626');
+    } else {
+        renderSection("✅ Required Keywords", [], '#059669', "All required keywords are present! Great job.");
+    }
+
+    if (result.preferred.missing.length > 0) {
+        renderSection("⚠️ Missing Preferred", result.preferred.missing.slice(0, 15), '#d97706');
+    }
+
+    if (result.industry.missing.length > 0) {
+        renderSection("ℹ️ Missing Industry Terms", result.industry.missing.slice(0, 15), '#4b5563');
+    }
+
+    // Also show what IS matched so it's not empty
+    const allMatched = [...result.mandatory.matched, ...result.preferred.matched];
+    if (allMatched.length > 0) {
+        renderSection("🎉 Matched Keywords", allMatched.slice(0, 20).concat(allMatched.length > 20 ? ['...'] : []), '#2563eb');
+    } else if (result.mandatory.missing.length === 0 && result.preferred.missing.length === 0) {
+        // Edge case: No keywords defined at all?
+        const noKeysDiv = document.createElement('div');
+        noKeysDiv.style.padding = "10px";
+        noKeysDiv.style.textAlign = "center";
+        noKeysDiv.style.color = "#6b7280";
+        noKeysDiv.textContent = "No specific keywords found in Job Description to analyze.";
+        details.appendChild(noKeysDiv);
+    }
+
+    const tip = document.createElement('div');
+    tip.style.cssText = "color:#6b7280; margin-top:10px; font-style:italic; font-size:10px; border-top:1px solid #f3f4f6; padding-top:8px;";
+    tip.textContent = "💡 Pro Tip: Prioritize using 'Missing Required' keywords in your Bullet Points for maximum impact.";
+    details.appendChild(tip);
+
+    document.body.appendChild(details);
+
+    // Auto-close on outside click
+    const closeListener = (e) => {
+        if (!details.contains(e.target) && e.target.id !== 'atsBadge' && e.target.id !== 'liveAtsBadge') {
+            details.remove();
+            document.removeEventListener('click', closeListener);
+        }
+    };
+    // Delay to prevent immediate closing from the trigger click
+    setTimeout(() => document.addEventListener('click', closeListener), 0);
 }

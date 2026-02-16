@@ -1,6 +1,6 @@
 import { state, API_BASE_URL } from './state.js';
 
-const APP_VERSION = 'v1.0.1';
+const APP_VERSION = `v${chrome.runtime.getManifest().version}`;
 
 let logQueue = [];
 let flushTimeout = null;

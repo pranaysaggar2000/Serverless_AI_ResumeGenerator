@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ForgeCV - Full Editor</title>
+    <link rel="stylesheet" href="editor_full.css">
+</head>
+
+<body>
+    <!-- UNIFIED TOP TOOLBAR -->
+    <div id="mainToolbar" class="main-toolbar">
+        <!-- LEFT: Brand + Primary Actions -->
+        <div class="toolbar-left">
+            <div class="brand">
+                <span class="brand-icon">⚒</span>
+                <span class="brand-name">ForgeCV</span>
+            </div>
+            <div class="toolbar-divider"></div>
+            <button class="tb-btn tb-primary" id="saveBtn">
+                💾 Save
+            </button>
+            <button class="tb-btn tb-accent" id="reforgeBtn">
+                ⚡ Reforge
+            </button>
+            <button id="restoreDeletedBtn" class="tb-btn tb-ghost" style="display: none;"
+                title="Restore previously deleted items">
+                ♻️ Restore
+            </button>
+        </div>
+
+        <!-- CENTER: Section Navigation -->
+        <div class="toolbar-center">
+            <div class="section-nav-scroll" id="sectionNav"></div>
+        </div>
+
+        <!-- RIGHT: Tools + View Controls -->
+        <div class="toolbar-right">
+            <button class="tb-btn" id="formatToggle">
+                🎨 Style <span class="tb-chevron">▾</span>
+            </button>
+            <button class="tb-btn" id="reorderToggle">
+                ⇅ Reorder
+            </button>
+            <div class="toolbar-divider"></div>
+            <span id="atsBadge" class="ats-pill" title="Live Keyword Match">ATS: --</span>
+            <div class="toolbar-divider"></div>
+            <div class="zoom-group">
+                <button class="tb-btn tb-sm" id="zoomOut" title="Zoom Editor View Out" aria-label="Zoom out">−</button>
+                <span id="zoomLevel" class="zoom-text" title="Editor zoom level">100%</span>
+                <button class="tb-btn tb-sm" id="zoomIn" title="Zoom Editor View In" aria-label="Zoom in">+</button>
+            </div>
+            <button class="tb-btn tb-sm" id="shortcutHelpBtn" title="Keyboard Shortcuts"
+                aria-label="Keyboard shortcuts">?</button>
+            <button class="tb-btn tb-sm" id="closeTabBtn" title="Close Editor" aria-label="Close editor">✕</button>
+        </div>
+    </div>
+
+    <!-- SPLIT PANELS -->
+    <div id="splitContainer">
+        <!-- LEFT: Editor -->
+        <div id="editorPanel">
+            <div id="resumeEditorContainer">
+                <!-- Content injected by JS -->
+                <div id="editorLoading" class="editor-loading">
+                    <div class="spinner"></div>
+                    <p>Loading Resume...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- DIVIDER -->
+        <div id="panelDivider"></div>
+
+        <!-- RIGHT: Preview -->
+        <div id="previewPanel">
+            <div id="pdfContainer"></div>
+        </div>
+    </div>
+
+    <!-- BOTTOM ACTION BAR -->
+    <div id="bottomBar" class="bottom-bar">
+        <div class="bottom-left">
+            <span id="pageIndicator" class="page-indicator">📄 1 page</span>
+            <span id="fitWarning" class="fit-warning" style="display:none">
+                ⚠️ Exceeds 1 page
+            </span>
+            <button class="bb-btn bb-sm" id="fitWidthBtn" title="Fit editor to width">↔ Fit</button>
+        </div>
+        <div class="bottom-center">
+            <button class="bb-btn" id="fitToOnePageBtn">
+                🔍 Fit to 1 Page
+            </button>
+        </div>
+        <div class="bottom-right">
+            <button class="bb-btn bb-secondary" id="copyTextBtn">
+                📋 Copy Text
+            </button>
+            <button class="bb-btn bb-secondary" id="bottomPrintBtn">
+                🖨️ Print
+            </button>
+            <button class="bb-btn bb-primary" id="bottomDownloadBtn">
+                📥 Download PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- FORMAT DROPDOWN (Floating) -->
+    <div id="formatStrip" class="format-dropdown" style="display:none;">
+        <div class="format-dropdown-inner">
+            <!-- Close header -->
+            <div class="fd-header">
+                <span class="fd-title">Formatting</span>
+                <button class="fd-close" id="formatCloseBtn" title="Close">&times;</button>
+            </div>
+            <!-- Row 1: Presets -->
+            <div class="fd-row">
+                <span class="fd-label">Preset</span>
+                <div class="fd-chips">
+                    <button class="preset-chip" data-preset="compact">📐 Compact</button>
+                    <button class="preset-chip" data-preset="standard">📄 Standard</button>
+                    <button class="preset-chip" data-preset="spacious">📰 Spacious</button>
+                </div>
+            </div>
+            <!-- Row 2: Font -->
+            <div class="fd-row">
+                <span class="fd-label">Font</span>
+                <div class="fd-chips">
+                    <button class="format-chip" data-setting="font" data-value="times"
+                        style="font-family:serif">Times</button>
+                    <button class="format-chip" data-setting="font" data-value="helvetica"
+                        style="font-family:sans-serif">Helv</button>
+                    <button class="format-chip" data-setting="font" data-value="courier"
+                        style="font-family:monospace">Courier</button>
+                </div>
+            </div>
+            <!-- Row 3: Density -->
+            <div class="fd-row">
+                <span class="fd-label">Density</span>
+                <div class="fd-chips">
+                    <button class="format-chip" data-setting="density" data-value="compact">Tight</button>
+                    <button class="format-chip" data-setting="density" data-value="normal">Normal</button>
+                    <button class="format-chip" data-setting="density" data-value="spacious">Airy</button>
+                </div>
+            </div>
+            <!-- Row 4: Margins -->
+            <div class="fd-row">
+                <span class="fd-label">Margins</span>
+                <div class="fd-chips">
+                    <button class="format-chip" data-setting="margins" data-value="narrow">Narrow</button>
+                    <button class="format-chip" data-setting="margins" data-value="normal">Normal</button>
+                    <button class="format-chip" data-setting="margins" data-value="wide">Wide</button>
+                </div>
+            </div>
+            <!-- Row 5: Bullets -->
+            <div class="fd-row">
+                <span class="fd-label">Bullet</span>
+                <div class="fd-chips">
+                    <button class="format-chip" data-setting="bulletChar" data-value="•">•</button>
+                    <button class="format-chip" data-setting="bulletChar" data-value="–">–</button>
+                    <button class="format-chip" data-setting="bulletChar" data-value="▪">▪</button>
+                </div>
+            </div>
+            <!-- Row 6a: Name Size -->
+            <div class="fd-row">
+                <span class="fd-label">Name</span>
+                <input type="range" id="nameSize" min="16" max="32" value="21" style="flex:1; max-width:120px">
+                <span id="nameSizeVal" class="fd-val">21pt</span>
+            </div>
+            <!-- Row 6b: Body Size -->
+            <div class="fd-row">
+                <span class="fd-label">Body</span>
+                <input type="range" id="bodySize" min="8" max="14" value="10" step="0.5"
+                    style="flex:1; max-width:120px">
+                <span id="bodySizeVal" class="fd-val">10pt</span>
+            </div>
+            <!-- Row 7a: Header Size + Style -->
+            <div class="fd-row">
+                <span class="fd-label">Header</span>
+                <input type="range" id="headerSize" min="10" max="24" value="12" style="flex:1; max-width:100px">
+                <span id="headerSizeVal" class="fd-val">12pt</span>
+                <select id="headerStyleSelect"
+                    style="font-size:11px;padding:2px 4px;border:1px solid #d1d5db;border-radius:4px;margin-left:4px;">
+                    <option value="uppercase_line">UPPER + Line</option>
+                    <option value="uppercase_noline">UPPER Only</option>
+                    <option value="bold_line">Bold + Line</option>
+                    <option value="bold_noline">Bold Only</option>
+                </select>
+            </div>
+            <!-- Row 7b: Sub-header Size + Links -->
+            <div class="fd-row">
+                <span class="fd-label">Sub</span>
+                <input type="range" id="subheaderSize" min="8" max="16" value="10" step="0.5"
+                    style="flex:1; max-width:100px">
+                <span id="subheaderSizeVal" class="fd-val">10pt</span>
+                <label style="font-size:11px;margin-left:12px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+                    <input type="checkbox" id="showLinksCheck" checked> Show Links
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals & Toasts -->
+    <div id="reorderModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Reorder Sections</h3>
+                <button id="closeReorderBtn" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:13px; color:#6b7280; margin-bottom:12px;">Drag and drop to rearrange sections.</p>
+                <ul id="sortableList" class="sortable-list"></ul>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="cancelReorderBtn">Cancel</button>
+                <button class="btn btn-primary" id="saveReorderBtn">Save Order</button>
+            </div>
+        </div>
+    </div>
+    <div id="errorToast" class="error-toast"></div>
+    <div id="successToast" class="success-toast"></div>
+
+    <!-- Link Editor Popup -->
+    <div id="linkEditorPopup" class="link-popup" style="display: none;">
+        <div class="link-popup-arrow"></div>
+        <div class="link-popup-content">
+            <input type="text" id="linkEditorInput" placeholder="https://..." />
+            <div class="link-popup-actions">
+                <button id="linkEditorSave" class="lp-btn lp-save">Save</button>
+                <button id="linkEditorCancel" class="lp-btn lp-cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="jspdf.umd.min.js"></script>
+    <script type="module" src="editor_full_app.js"></script>
+</body>
+
+</html>

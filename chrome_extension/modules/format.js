@@ -9,27 +9,18 @@ function invalidatePdfCache() {
     updateState({ latestPdfBlob: null });
 }
 
-export const DEFAULT_FORMAT = {
-    font: "times",
-    density: "normal",
-    margins: "normal",
-    nameSize: 21,
-    bodySize: 10,
-    headerSize: 12,
-    subheaderSize: 11,
-    headerStyle: "uppercase_line",
-    bulletChar: "•",
-    showLinks: true,
-    dateAlign: "right",
-    pageSize: "letter"
-};
+import { DEFAULT_FORMAT } from './defaults.js';
+export { DEFAULT_FORMAT };
 
 let formatSaveTimer = null;
 export function debouncedSaveFormat(settings) {
-    // Update state immediately so subsequent slider moves see newest values
+    // Optimistic UI updates are handled by the sliders
     updateState({ formatSettings: settings });
     clearTimeout(formatSaveTimer);
     formatSaveTimer = setTimeout(() => saveFormatSettings(settings), 300);
+
+    // Broadcast immediately (debounced/throttled separately or just send)
+    sendFormatUpdate();
 }
 
 export async function loadFormatSettings() {
@@ -189,26 +180,7 @@ export function setupFormatUI() {
     const previewFormatBtn = document.getElementById('previewFormatBtn');
     if (previewFormatBtn) {
         previewFormatBtn.addEventListener('click', async () => {
-            if (!state.tailoredResume && !state.baseResume) {
-                showStatus("No resume to preview", "error");
-                return;
-            }
-
-            const resume = getCurrentEditingResume('formContainer') || state.tailoredResume || state.baseResume;
-            // Show loading
-            previewFormatBtn.textContent = "Generating...";
-            try {
-                const result = await generatePdf(resume);
-                if (result instanceof Blob) {
-                    const url = URL.createObjectURL(result);
-                    chrome.tabs.create({ url });
-                    setTimeout(() => URL.revokeObjectURL(url), 120000);
-                }
-            } catch (e) {
-                showStatus(e.message, "error");
-            } finally {
-                previewFormatBtn.textContent = "👁 Preview";
-            }
+            chrome.tabs.create({ url: 'preview_live.html' });
         });
     }
 

@@ -32,6 +32,10 @@ import { setupFormatUI, loadFormatSettings, debouncedSaveFormat } from './module
 import { setupReorderUI } from './modules/reorder.js';
 import { logError, logWarn, sendFeedback } from './modules/logger.js';
 
+// --- Live Preview Connection ---
+import { initLivePreview, openLivePreview, sendPreviewUpdate, onLiveStateUpdate } from './modules/live_preview.js';
+// Initialize immediately
+initLivePreview();
 // CSP COMPLIANCE: Delegate clicks for dynamically injected links
 document.addEventListener('click', (e) => {
     if (e.target && (e.target.classList.contains('settings-redirect') || e.target.classList.contains('settings-link'))) {
@@ -354,10 +358,18 @@ async function init() {
         setupProfileManagement();
         setupFormatUI();
 
+        // Listen for real-time updates from Full Editor
+        onLiveStateUpdate((newResume) => {
+            const copyUI = document.getElementById('copyUI');
+            if (copyUI && copyUI.style.display === 'block') {
+                renderCopyList(newResume);
+            }
+        });
+
         // Refresh usage if logged in
         if (state.isLoggedIn && state.authMode === 'free') {
             const { fetchUsageStatus } = await import('./modules/auth.js');
-            fetchUsageStatus().catch(e => debugLog("Silent usage refresh fail:", e));
+            fetchUsageStatus().catch(e => { });
         }
 
         renderQuickStatus();
@@ -479,12 +491,6 @@ async function loadState() {
             finalAuthMode = 'free'; // Default to free tier (user will need to login)
         }
     }
-    debugLog('🔐 Auth Mode Initialized:', {
-        authMode: finalAuthMode,
-        isLoggedIn: state.isLoggedIn,
-        hasStoredMode: !!data.auth_mode,
-        hasByokKeys: !!(data.gemini_api_key || data.groq_api_key || data.openrouter_api_key)
-    });
     updateState({ authMode: finalAuthMode });
 
     // Restore page mode
@@ -548,7 +554,7 @@ async function loadState() {
                 updateState({ latestPdfBlob: blob });
                 // Drag and drop removed
             }
-        }).catch(e => debugLog("Pre-cache PDF failed (non-critical):", e));
+        }).catch(e => { });
     }
     updateJdStatus();
 
@@ -854,7 +860,6 @@ function setupEventListeners() {
 
                 const result = await detectJobDescription();
 
-                debugLog('Detection result:', result);
 
                 // If detectJobDescription actually found something new
                 if (result && result.currentJdText && result.currentJdText.length > 50) {
@@ -1079,7 +1084,10 @@ function setupEventListeners() {
         // Close profile section and return to main UI
         showMainUI();
     });
-    document.getElementById('cancelProfileEditBtn').addEventListener('click', showMainUI);
+    document.getElementById('cancelProfileEditBtn').addEventListener('click', () => {
+        showMainUI();
+        sendPreviewUpdate(); // Revert preview to saved state
+    });
 
     // Save Settings
     saveSettingsBtn.addEventListener('click', async () => {
@@ -1307,7 +1315,6 @@ function setupEventListeners() {
     // Generate Base Resume (No AI)
     if (generateBaseBtn) {
         generateBaseBtn.addEventListener('click', async () => {
-            debugLog("Generate Base Resume clicked");
             if (!state.baseResume) {
                 showStatus("No base resume profile loaded.", "error");
                 return;
@@ -1348,7 +1355,6 @@ function setupEventListeners() {
     generateBtn.addEventListener('click', async () => {
         if (isForging) return;
         isForging = true;
-        debugLog("Generate (AI) clicked");
         // Drag and drop removed
 
         if (!checkCurrentProviderKey()) {
@@ -1363,7 +1369,6 @@ function setupEventListeners() {
         }
 
         if (!state.currentJdText || state.currentJdText.length < 50) {
-            console.warn("No JD detected");
             showStatus("No valid job description detected. Navigate to a job post.", "error");
             return;
         }
@@ -1384,12 +1389,10 @@ function setupEventListeners() {
             showProgress('analyzing', `Using ${state.currentProvider === 'groq' ? 'Groq' : 'Gemini'}...`);
             showProgress('tailoring', 'This may take 10-15 seconds...');
 
-            debugLog("Calling tailorResume...");
             const result = await tailorResume(state.baseResume, state.currentJdText, activeKey, state.currentProvider, state.tailoringStrategy);
             if (result.error) throw new Error(result.error);
 
             showProgress('processing');
-            debugLog("Tailoring success", result);
 
             const { tailored_resume, jd_analysis, excluded_items } = result;
             const newResume = tailored_resume;
@@ -1530,35 +1533,24 @@ function setupEventListeners() {
 
     if (previewBtn) {
         previewBtn.addEventListener('click', async () => {
-            debugLog("Preview clicked");
-            if (!state.tailoredResume) {
-                showStatus("Nothing to preview yet. Forge a resume first! 🔥", "error");
+            openLivePreview();
+        });
+    }
+
+    const livePreviewBtn = document.getElementById('livePreviewBtn');
+    if (livePreviewBtn) {
+        livePreviewBtn.addEventListener('click', () => {
+            // If we have no resume, warn
+            if (!state.tailoredResume && !state.baseResume) {
+                showStatus("No resume loaded.", "error");
                 return;
             }
-            setButtonLoading(previewBtn, true);
-            showStatus("Generating Preview...", "info");
-            try {
-                const result = await generatePdf(state.tailoredResume);
-                if (result instanceof Blob) {
-                    const url = URL.createObjectURL(result);
-                    chrome.tabs.create({ url: url });
-                    setTimeout(() => URL.revokeObjectURL(url), 300000); // 5 mins
-                    showStatus("Preview opened in new tab", "success");
-                } else if (result.error) {
-                    throw new Error(result.error);
-                }
-            } catch (e) {
-                console.error("Preview Error:", e);
-                showStatus(`Error: ${e.message}`, "error");
-            } finally {
-                setButtonLoading(previewBtn, false, "👁 Preview");
-            }
+            openLivePreview();
         });
     }
 
     if (askBtn) {
         askBtn.addEventListener('click', async () => {
-            debugLog("Ask clicked");
             const question = questionInput.value.trim();
             if (!question) {
                 showStatus("Please enter a question.", "error");
@@ -1606,7 +1598,7 @@ function setupEventListeners() {
     const popoutBtn = document.getElementById('popoutEditorBtn');
     if (popoutBtn) {
         popoutBtn.addEventListener('click', () => {
-            chrome.tabs.create({ url: chrome.runtime.getURL('popup.html?mode=editor') });
+            openLivePreview();
         });
     }
 
@@ -1618,13 +1610,11 @@ function setupEventListeners() {
         // Ctrl+S or Cmd+S to Save
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
             e.preventDefault();
-            debugLog("Shortcut: Save");
             const saveBtn = document.getElementById('saveManualBtn');
             if (saveBtn) saveBtn.click();
         }
         // Escape to Cancel
         if (e.key === 'Escape') {
-            debugLog("Shortcut: Cancel");
             const cancelBtn = document.getElementById('cancelEditBtn');
             if (cancelBtn) cancelBtn.click();
         }
@@ -1633,7 +1623,6 @@ function setupEventListeners() {
     // Edit Tailored Resume
     if (editBtn) {
         editBtn.addEventListener('click', () => {
-            debugLog("Edit clicked");
             if (!state.tailoredResume) return;
             resetEditorState(); // Clear any stale editor state
             document.getElementById('editorUI').style.display = 'block';
@@ -1662,6 +1651,7 @@ function setupEventListeners() {
             if (confirmed) {
                 document.getElementById('editorUI').style.display = 'none';
                 document.getElementById('actions').style.display = 'block';
+                sendPreviewUpdate(); // Revert preview to saved state
             }
         });
     }
@@ -1669,13 +1659,13 @@ function setupEventListeners() {
     // Save Manual Changes (Tailored)
     if (saveManualBtn) {
         saveManualBtn.addEventListener('click', async () => {
-            debugLog("Save Manual clicked");
             // Drag and drop removed
             setButtonLoading(saveManualBtn, true);
             try {
                 const activeSection = document.getElementById('sectionSelect').value;
                 // parse current DOM to update object
                 await saveProfileChanges(activeSection, 'formContainer');
+                sendPreviewUpdate();
 
                 // === NEW: Merge must-include items directly into tailored resume ===
                 if (state.mustIncludeItems && state.baseResume) {
@@ -1757,7 +1747,6 @@ function setupEventListeners() {
     // Save & Regenerate (Tailored)
     if (saveRegenBtn) {
         saveRegenBtn.addEventListener('click', async () => {
-            debugLog("Save & Regenerate clicked");
             if (state.authMode === 'free' && state.freeUsage.remaining <= 0) {
                 showStatus("Daily limit reached! Switch to your own API key or try again tomorrow.", "error");
                 return;
@@ -2023,7 +2012,6 @@ async function detectJobDescription() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
     // Debug: Log which tab we're scanning
-    debugLog('🔍 Scanning tab:', tab?.url || 'No tab found');
 
     if (!tab || !tab.id) return null;
 
@@ -2095,7 +2083,6 @@ async function detectJobDescription() {
         // Step 2: Client-side extraction weak? Try Server-Side Fetch
         // This is safer and more robust than injecting scripts
         if (bestText.length < 200) {
-            debugLog("Client-side extraction weak. Trying Server-Side Fetch...");
             try {
                 // Use the API endpoint we just created
                 const API_BASE = 'https://serverless-ai-resume-generator-api.vercel.app/api';
@@ -2107,7 +2094,6 @@ async function detectJobDescription() {
                 if (response.ok) {
                     const data = await response.json();
                     if (data.text && data.text.length > 200) {
-                        debugLog("✅ Server-side fetch successful");
                         const updates = {
                             currentJdText: data.text,
                             detectedJobTitle: data.title || bestTitle, // Use server title if better
@@ -2158,7 +2144,6 @@ async function detectJobDescription() {
             return null;
         }
 
-        debugLog("Client-side extraction insufficient. Trying AI fallback...");
 
         const rawResults = await chrome.scripting.executeScript({
             target: { tabId: tab.id },
@@ -2172,7 +2157,6 @@ async function detectJobDescription() {
         const aiResult = await extractJDWithAI(rawText, activeKey, state.currentProvider);
 
         if (aiResult.error) {
-            debugLog("AI JD extraction failed:", aiResult.error);
             if (bestText.length > 50) {
                 const updates = {
                     currentJdText: bestText,
@@ -2216,7 +2200,6 @@ async function detectJobDescription() {
         return updates;
 
     } catch (e) {
-        debugLog("JD scan failed:", e.message);
         if (e.message === 'SERVER_UNAVAILABLE') throw e;
         return null;
     } finally {

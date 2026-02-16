@@ -1,8 +1,11 @@
 import { state, updateState } from './state.js';
+import { escapeHtml } from './security.js';
+
 import { showStatus, showMainUI, refreshProfileName } from './ui.js';
 import { showConfirmDialog, debugLog } from './utils.js';
 import * as Prompts from './ai_prompts.js';
 import { renderLiveAtsBadge } from './ats_live.js';
+import { sendPreviewUpdate, broadcastResumePreview } from './live_preview.js';
 
 // Separate editing state for base profile vs tailored resume
 let editingState = {
@@ -102,14 +105,7 @@ export function updateEditorResume(resumeData, containerId = 'formContainer') {
     }
 }
 
-function escapeHtml(unsafe) {
-    return (unsafe || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
+
 
 function renderHighlightedPreview(text, container) {
     if (!container) return;
@@ -215,6 +211,44 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
     // Store containerId on the container for save operations to find later if needed
     container.dataset.editorMode = containerId;
 
+    // Remove existing listener to prevent duplicates if re-rendering? 
+    // Actually, re-rendering clears innerHTML but the container element persists? 
+    // renderProfileEditor is usually called on an existing container.
+    // Let's attach safely.
+    if (!container.dataset.hasPreviewListener) {
+        container.addEventListener('input', (e) => {
+            // trigger broadcast
+            if (e.target.matches('input, textarea, select')) {
+                // Use the same debounce logic as handleInput but more generic
+                if (inputTimeout) clearTimeout(inputTimeout); // reuse or separate? 
+                // actually handleInput uses inputTimeout for HIGHLIGHTING. 
+                // We need a separate one for PREVIEW.
+
+                if (container.dataset.previewTimer) clearTimeout(Number(container.dataset.previewTimer));
+                container.dataset.previewTimer = setTimeout(() => {
+                    // Re-scrape and broadcast
+                    const sectionSelect = document.getElementById('sectionSelect');
+                    const profileSelect = document.getElementById('profileSectionSelect');
+                    // If we are in profile editor, section is passed in arg but might be stale closure?
+                    // Actually, if we use the container's current state...
+
+                    // We need to know WHICH section this container is editing.
+                    // renderProfileEditor cleans container, so we can store section on it.
+                    const currentSection = container.dataset.currentSection;
+
+                    if (currentSection) {
+                        const updatedResume = scrapeSectionFromDOM(currentSection, containerId);
+                        if (updatedResume) {
+                            sendPreviewUpdate(updatedResume);
+                        }
+                    }
+                }, 500);
+            }
+        });
+        container.dataset.hasPreviewListener = "true";
+    }
+    container.dataset.currentSection = section;
+
     if (!es.resume) {
         console.warn("renderProfileEditor: No editing resume found.");
         container.innerHTML = '<p style="font-size: 11px; color: #999;">No profile data loaded.</p>';
@@ -243,8 +277,8 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
 
         const currentTitle = (data.section_titles && data.section_titles[section]) || formatDefaultSectionTitle(section);
 
-        titleDiv.innerHTML = `<label>Section Title (vs "${formatDefaultSectionTitle(section)}")</label>
-                              <input type="text" id="sectionTitleInput" value="${currentTitle}" placeholder="${formatDefaultSectionTitle(section)}">`;
+        titleDiv.innerHTML = `<label>Section Title (vs "${escapeHtml(formatDefaultSectionTitle(section))}")</label>
+                              <input type="text" id="sectionTitleInput" value="${escapeHtml(currentTitle)}" placeholder="${escapeHtml(formatDefaultSectionTitle(section))}">`;
         container.appendChild(titleDiv);
     }
 
@@ -255,7 +289,7 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
         const nameDiv = document.createElement('div');
         nameDiv.className = 'edit-field';
         nameDiv.innerHTML = `<label>Full Name</label>
-                              <input type="text" id="edit_name_field" value="${data.name || ''}" placeholder="Your Name">`;
+                              <input type="text" id="edit_name_field" value="${escapeHtml(data.name || '')}" placeholder="Your Name">`;
         container.appendChild(nameDiv);
 
         const fields = [
@@ -271,7 +305,7 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
             const div = document.createElement('div');
             div.className = 'edit-field';
             div.innerHTML = `<label>${f.label}</label>
-                              <input type="text" data-key="${f.key}" class="contact-input" value="${val}" placeholder="${f.label}">`;
+                              <input type="text" data-key="${f.key}" class="contact-input" value="${escapeHtml(val)}" placeholder="${f.label}">`;
             container.appendChild(div);
         });
 
@@ -283,7 +317,7 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
         const div = document.createElement('div');
         div.className = 'edit-field';
         div.innerHTML = `<label>Summary Text</label>
-                         <textarea id="edit_summary_text" style="height: 100px;">${summaryText}</textarea>`;
+                         <textarea id="edit_summary_text" style="height: 100px;">${escapeHtml(summaryText)}</textarea>`;
         container.appendChild(div);
 
         const removeSummaryBtn = document.createElement('button');
@@ -305,7 +339,7 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
         const div = document.createElement('div');
         div.className = 'edit-field';
         div.innerHTML = `<label>Languages (Comma separated)</label>
-                         <textarea id="edit_languages_text" style="height: 60px;">${langText}</textarea>`;
+                         <textarea id="edit_languages_text" style="height: 60px;">${escapeHtml(langText)}</textarea>`;
         container.appendChild(div);
 
         const removeLangBtn = document.createElement('button');
@@ -583,7 +617,7 @@ function renderItemBlock(container, item, section) {
 
     // Header Inputs based on section type
     let headerHtml = '';
-    const val = (k) => String(item[k] || '').replace(/"/g, '&quot;');
+    const val = (k) => escapeHtml(String(item[k] || ''));
 
     if (section === 'experience') {
         headerHtml = `
@@ -831,6 +865,26 @@ function handleInput(field) {
             if (preview) renderHighlightedPreview(field.value, preview);
         }, 200);
     }
+
+    // Live Preview Broadcast
+    // Debounce this slightly more to avoid flooding channel
+    if (field.dataset.previewTimer) clearTimeout(Number(field.dataset.previewTimer));
+    field.dataset.previewTimer = setTimeout(() => {
+        const formContainer = field.closest('.editor-form-scroll, #formContainer, #profileFormContainer, #profileUI');
+        // Find section from container or select
+        const sectionSelect = document.getElementById('sectionSelect');
+        const profileSelect = document.getElementById('profileSectionSelect');
+        const section = (sectionSelect && sectionSelect.offsetParent !== null) ? sectionSelect.value :
+            (profileSelect && profileSelect.offsetParent !== null) ? profileSelect.value : null;
+
+        if (formContainer && section) {
+            const containerId = formContainer.id || (formContainer.classList.contains('editor-form-scroll') ? 'formContainer' : 'profileFormContainer');
+            const updatedResume = scrapeSectionFromDOM(section, containerId);
+            if (updatedResume) {
+                broadcastResumePreview(updatedResume, state.formatSettings);
+            }
+        }
+    }, 500);
 }
 
 function updateCharCount(field) {
@@ -874,7 +928,7 @@ function renderSkillBlock(container, category, skills) {
     div.className = 'item-block';
     div.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-            <input type="text" class="skill-category-input" value="${category}" style="font-weight: bold; width: 50%;" placeholder="Category Name">
+            <input type="text" class="skill-category-input" value="${escapeHtml(category)}" style="font-weight: bold; width: 50%;" placeholder="Category Name">
             
             <div style="display:flex; gap:10px; align-items:center;">
                 <div style="display:flex; gap:2px;">
@@ -884,7 +938,7 @@ function renderSkillBlock(container, category, skills) {
                 <button class="remove-btn remove-category-btn">🗑️ Remove</button>
             </div>
         </div>
-        <textarea class="skill-values-input" style="height: 60px;">${skills}</textarea>
+        <textarea class="skill-values-input" style="height: 60px;">${escapeHtml(skills)}</textarea>
     `;
 
     div.querySelector('.remove-category-btn').onclick = () => {
@@ -921,11 +975,7 @@ function renderSkillBlock(container, category, skills) {
 
 function createBulletRow(text) {
     // Escape quotes for value attribute
-    const safeText = text ? text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;') : '';
+    const safeText = escapeHtml(text);
     // Use textarea value property instead of innerHTML to avoid XSS issues
     return `<div class="bullet-item" style="display: grid; grid-template-columns: 1fr auto; gap: 5px; margin-bottom: 5px; width: 100%;">
                 <div style="width:100%">
@@ -947,27 +997,22 @@ function updateArrowVisibility(container) {
     });
 }
 
-export async function saveProfileChanges(section, containerId = 'profileFormContainer') {
+export function scrapeSectionFromDOM(section, containerId = 'profileFormContainer') {
     const container = document.getElementById(containerId);
     if (!container) return null;
 
     const es = getEditState(containerId);
-
-    if (!es.resume) {
-        // Fallback: pick the right source based on container
-        const source = containerId === 'profileFormContainer'
-            ? state.baseResume
-            : (state.tailoredResume || state.baseResume);
-        es.resume = source ? JSON.parse(JSON.stringify(source)) : null;
-        es.source = source;
+    // Ensure we have a working copy
+    if (!es.resume && es.source) {
+        es.resume = JSON.parse(JSON.stringify(es.source));
     }
+    if (!es.resume) return null;
 
-    // Safety check: profile editor must never use tailored data
-    if (containerId === 'profileFormContainer' && es.source === state.tailoredResume) {
-        debugLog("saveProfileChanges: Rectifying source mismatch. Cloning from baseResume.");
-        es.resume = JSON.parse(JSON.stringify(state.baseResume));
-        es.source = state.baseResume;
-    }
+    // ... scraping logic copied from saveProfileChanges but operating on es.resume ...
+    // Note: We are mutating es.resume in place, which is what saveProfileChanges did too.
+    // This is fine as distinct 'save' action commits it to storage.
+
+    // Logic extracted from saveProfileChanges:
 
     if (!es.resume.section_titles) es.resume.section_titles = {};
     const titleInput = document.getElementById('sectionTitleInput');
@@ -980,17 +1025,14 @@ export async function saveProfileChanges(section, containerId = 'profileFormCont
         if (el) es.resume.summary = el.value;
     } else if (section === 'languages') {
         const el = document.getElementById('edit_languages_text');
-        // Return string, can split if needed by consumer
         if (el) es.resume.languages = el.value.split(',').map(s => s.trim());
     } else if (section === 'contact') {
-        // Save name (stored on root)
         const nameField = document.getElementById('edit_name_field');
         if (nameField) es.resume.name = nameField.value;
 
         const inputs = container.querySelectorAll('.contact-input');
         const data = {};
         inputs.forEach(i => { if (i.value) data[i.dataset.key] = i.value; });
-        // Merge with existing
         es.resume.contact = { ...es.resume.contact, ...data };
     } else if (section === 'skills') {
         const blocks = container.querySelectorAll('.item-block');
@@ -1060,7 +1102,21 @@ export async function saveProfileChanges(section, containerId = 'profileFormCont
         es.resume[section] = list;
     }
 
-    // Persist
+    return es.resume;
+}
+
+export async function saveProfileChanges(section, containerId = 'profileFormContainer') {
+    const container = document.getElementById(containerId);
+    if (!container) return null;
+
+    // Use scraper to update es.resume from DOM
+    const updatedResume = scrapeSectionFromDOM(section, containerId);
+    if (!updatedResume) return null; // Error or empty
+
+    const es = getEditState(containerId);
+    // es.resume is already updated by scrapeSectionFromDOM (it mutates in place)
+
+    // Persist logic remains same...
     if (containerId === 'profileFormContainer') {
         // Base resume
         const snapshot = JSON.parse(JSON.stringify(es.resume));
@@ -1107,8 +1163,24 @@ export function collectBulletCounts(section, containerId = 'profileFormContainer
             const itemBlocks = container.querySelectorAll('.item-block');
             itemBlocks.forEach(block => {
                 const countInput = block.querySelector('.bullet-count-input');
+
+                // NEW: Check if this item block has actual content
+                const textareas = block.querySelectorAll('textarea');
+                let hasContent = false;
+                textareas.forEach(ta => {
+                    if (ta.value && ta.value.trim().length > 0) hasContent = true;
+                });
+                // Also check header inputs (company name, role, etc.)
+                const headerInputs = block.querySelectorAll(
+                    'input[type="text"]:not(.bullet-count-input)'
+                );
+                headerInputs.forEach(inp => {
+                    if (inp.value && inp.value.trim().length > 0) hasContent = true;
+                });
+
                 if (countInput) {
-                    bulletCounts[section].push(parseInt(countInput.value) || 0);
+                    const count = parseInt(countInput.value) || 0;
+                    bulletCounts[section].push(hasContent ? count : 0);
                 }
             });
         }
@@ -1120,9 +1192,18 @@ export function collectBulletCounts(section, containerId = 'profileFormContainer
             const es = getEditState(containerId);
             const data = es.resume ? es.resume[sec] : [];
             if (data) {
-                bulletCounts[sec] = data.map(item =>
-                    item.bullet_count_preference !== undefined ? item.bullet_count_preference : (item.bullets || []).length
-                );
+                bulletCounts[sec] = data.map(item => {
+                    // NEW: Same empty-item check
+                    const id = (item.company || item.role || item.name ||
+                        item.title || item.organization || '').trim();
+                    const hasBullets = (item.bullets || [])
+                        .some(b => b && b.trim().length > 0);
+                    if (!id && !hasBullets) return 0;
+
+                    return item.bullet_count_preference !== undefined
+                        ? item.bullet_count_preference
+                        : (item.bullets || []).length;
+                });
             }
         }
     });

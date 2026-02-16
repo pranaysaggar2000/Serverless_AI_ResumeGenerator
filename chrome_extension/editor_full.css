@@ -1,0 +1,1548 @@
+/* Global Layout */
+:root {
+    --primary: #6366f1;
+    --text-main: #1f2937;
+    --bg-color: #e5e7eb;
+    --toolbar-bg: #ffffff;
+    --toolbar-border: #e2e8f0;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: #e5e7eb;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    /* Vertical stack: Toolbar -> Split -> Bottom */
+    overflow: hidden;
+    color: #374151;
+}
+
+/* Issue 2: Prevent Selection While Resizing */
+body.resizing {
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: col-resize !important;
+}
+
+/* UNIFIED TOP TOOLBAR */
+.main-toolbar {
+    height: 48px;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 8px;
+    flex-shrink: 0;
+    z-index: 50;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.toolbar-left,
+.toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.toolbar-center {
+    flex: 1;
+    overflow-x: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Center nav */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.toolbar-center::-webkit-scrollbar {
+    display: none;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    font-size: 14px;
+    color: #1f2937;
+    margin-right: 8px;
+}
+
+.brand-icon {
+    font-size: 18px;
+}
+
+.toolbar-divider {
+    width: 1px;
+    height: 20px;
+    background: #e5e7eb;
+    margin: 0 6px;
+}
+
+.tb-btn {
+    padding: 6px 10px;
+    border: 1px solid #e5e7eb;
+    background: white;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s;
+    color: #4b5563;
+    white-space: nowrap;
+}
+
+.tb-btn:hover {
+    border-color: #6366f1;
+    color: #6366f1;
+    background: #f8fafc;
+}
+
+.tb-btn.tb-primary {
+    background: #6366f1;
+    color: white;
+    border-color: #6366f1;
+}
+
+.tb-btn.tb-primary:hover {
+    background: #4f46e5;
+    box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}
+
+.tb-btn.tb-sm {
+    padding: 5px 8px;
+    min-width: 28px;
+    justify-content: center;
+}
+
+.ats-pill {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid #10b981;
+    color: #059669;
+    background: #ecfdf5;
+    cursor: default;
+}
+
+.tb-btn.tb-accent {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    border: none;
+}
+
+.tb-btn.tb-accent:hover {
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+    filter: brightness(1.05);
+}
+
+.tb-btn.tb-ghost {
+    background: transparent;
+    border: 1px dashed #d1d5db;
+    color: #6b7280;
+    font-size: 12px;
+    padding: 5px 10px;
+}
+
+.tb-btn.tb-ghost:hover {
+    border-color: #6366f1;
+    color: #6366f1;
+    border-style: solid;
+}
+
+.zoom-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 2px;
+}
+
+.zoom-group .tb-btn.tb-sm {
+    border: none;
+    background: transparent;
+}
+
+.zoom-group .tb-btn.tb-sm:hover {
+    background: #e5e7eb;
+}
+
+.zoom-text {
+    font-size: 11px;
+    font-family: monospace;
+    color: #6b7280;
+    min-width: 40px;
+    text-align: center;
+}
+
+/* SECTION NAV (Inside Toolbar) */
+.section-nav-scroll {
+    display: flex;
+    gap: 4px;
+    padding: 0 4px;
+}
+
+.section-nav-btn {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.section-nav-btn:hover {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.section-nav-btn.active {
+    background: #eef2ff;
+    color: #4f46e5;
+    font-weight: 600;
+}
+
+/* SPLIT CONTAINER */
+#splitContainer {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    min-height: 0;
+    position: relative;
+}
+
+/* EDITOR PANEL */
+#editorPanel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #6b7280;
+    /* Darker gray background for paper contrast */
+    position: relative;
+    min-width: 320px;
+}
+
+#resumeEditorContainer {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+/* Divider Override */
+#panelDivider {
+    width: 6px;
+    background: #d1d5db;
+    cursor: col-resize;
+    flex-shrink: 0;
+    transition: background 0.2s;
+    position: relative;
+    z-index: 20;
+}
+
+#panelDivider:hover,
+#panelDivider.dragging {
+    background: #6366f1;
+}
+
+/* Larger hit area for easier grabbing */
+#panelDivider::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -4px;
+    right: -4px;
+}
+
+/* PDF PREVIEW PANEL */
+#previewPanel {
+    flex: 1;
+    background: #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* Prevent double scrollbars */
+}
+
+#pdfContainer {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+    display: flex;
+    /* Center if zoomed out */
+    justify-content: center;
+    align-items: flex-start;
+    padding: 24px;
+    box-sizing: border-box;
+    min-height: 0;
+    /* Important for flex children scrolling */
+}
+
+/* Ensure iframe/embed fills the container or respects zoom */
+#pdfContainer iframe,
+#pdfContainer embed {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: white;
+    min-height: 800px;
+    /* Fallback height */
+}
+
+/* Format Dropdown - Floating Overlay */
+.format-dropdown {
+    position: fixed;
+    top: 56px;
+    right: 16px;
+    /* Align to right side near the Style button */
+    left: auto;
+    transform: none;
+    z-index: 100;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.08);
+    max-width: 90vw;
+    width: max-content;
+    min-width: 420px;
+    animation: fdIn 0.15s ease-out;
+}
+
+@keyframes fdIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
+.fd-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #f3f4f6;
+    margin-bottom: 4px;
+}
+
+.fd-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.fd-close {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.fd-close:hover {
+    color: #ef4444;
+}
+
+.format-dropdown-inner {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.fd-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.fd-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    min-width: 48px;
+    flex-shrink: 0;
+}
+
+.fd-val {
+    font-size: 11px;
+    color: #6b7280;
+    min-width: 32px;
+}
+
+.fd-chips {
+    display: flex;
+    gap: 2px;
+    background: #f3f4f6;
+    padding: 2px;
+    border-radius: 6px;
+}
+
+.format-chip,
+.preset-chip {
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.12s;
+    color: #4b5563;
+    white-space: nowrap;
+}
+
+.format-chip:hover,
+.preset-chip:hover {
+    background: rgba(255, 255, 255, 0.7);
+}
+
+.format-chip.active,
+.preset-chip.active {
+    background: white;
+    color: #6366f1;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.format-dropdown input[type="range"] {
+    height: 4px;
+    accent-color: #6366f1;
+    cursor: pointer;
+}
+
+.format-dropdown select {
+    font-size: 11px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    border: 1px solid #d1d5db;
+    background: white;
+}
+
+/* Mobile / Small Screen */
+@media (max-width: 768px) {
+    body {
+        flex-direction: column;
+    }
+
+    #panelDivider {
+        width: 100%;
+        height: 6px;
+        cursor: row-resize;
+        border-top: 1px solid #d1d5db;
+        border-bottom: 1px solid #d1d5db;
+        border-left: none;
+        border-right: none;
+    }
+
+    #editorPanel,
+    #previewPanel {
+        min-width: 100%;
+        min-height: 200px;
+    }
+}
+
+/* ... existing toolbar group ... */
+
+/* Loading State */
+.editor-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #6b7280;
+    gap: 16px;
+}
+
+.spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #e5e7eb;
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Error Toast */
+.error-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #ef4444;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    font-size: 14px;
+    display: none;
+    animation: slideUp 0.3s ease-out;
+}
+
+.success-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #10b981;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    font-size: 14px;
+    display: none;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ats-badge-toolbar {
+    font-size: 11px;
+    font-weight: 600;
+    color: #059669;
+    background: #d1fae5;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid #10b981;
+    cursor: default;
+}
+
+/* Resume Styling (Matches PDF) */
+
+.section-nav-btn {
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.section-nav-btn:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.section-nav-btn.active {
+    background: #e0e7ff;
+    color: #4f46e5;
+    border-color: #c7d2fe;
+    font-weight: 600;
+}
+
+/* Resume Styling (Matches PDF) */
+#resumeEditorContainer {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    background: #525659;
+}
+
+/* Resume page — matches PDF dimensions in points */
+.resume-page {
+    width: 8.5in;
+    min-height: 11in;
+    box-sizing: border-box;
+    background: white;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+    margin: 0 auto;
+    position: relative;
+    overflow-wrap: break-word;
+    /* Ensure compatibility */
+    flex-shrink: 0;
+    /* Don't compress */
+    /* Issue 13: Adjust margins slightly to match PDF view density better in editor */
+    transition: transform 0.2s ease-out;
+}
+
+/* Issue 12/13: Page Break Visualization */
+.resume-page.multipage {
+    /* Create a visual gap simulation using gradient */
+    /* Gradient: 
+       0-10.9in: White (Page 1)
+       10.9-11.1in: Gray Gap
+       11.1in-21.9in: White (Page 2)
+       ... repeat
+    */
+    background-image: repeating-linear-gradient(to bottom,
+            white 0in,
+            white 10.9in,
+            #e5e7eb 10.9in,
+            #e5e7eb 11.1in);
+    /* Allow height to grow */
+    height: auto;
+    min-height: 22in;
+    /* At least 2 pages if class is present */
+    padding-bottom: 50pt;
+}
+
+/* Add a marker label for Page Break */
+.resume-page.multipage::after {
+    content: "--- PAGE BREAK ---";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 11in;
+    /* Exact break point */
+    text-align: center;
+    font-size: 10px;
+    color: #9ca3af;
+    background: transparent;
+    pointer-events: none;
+    transform: translateY(-50%);
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+/* Issue 5: Empty Contact Field Placeholder */
+.resume-contact span.empty-field {
+    color: #9ca3af;
+    font-style: italic;
+    cursor: pointer;
+    background: rgba(0, 0, 0, 0.03);
+    padding: 0 4px;
+    border-radius: 2px;
+}
+
+.resume-contact span.empty-field:hover {
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+}
+
+/* Aligned rows (Company — Dates) matching pdf_builder addAlignedRow */
+.item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    width: 100%;
+}
+
+.item-row .item-left {
+    flex: 1;
+    min-width: 0;
+    margin-right: 8pt;
+}
+
+.item-row .item-right {
+    flex-shrink: 0;
+    text-align: right;
+}
+
+/* Bold row (company/school name) */
+.item-row.bold-row [contenteditable] {
+    font-weight: bold;
+}
+
+/* Italic row (role/degree) */
+.item-row.italic-row [contenteditable] {
+    font-style: italic;
+}
+
+/* Bullet list — exact match to PDF */
+.bullet-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.bullet-list li {
+    position: relative;
+    padding-left: 14pt;
+    padding-right: 48px;
+    /* Step 39: Safe zone for actions */
+}
+
+.bullet-list li::before {
+    content: var(--bullet-char, "•");
+    position: absolute;
+    left: 5pt;
+    /* Matches pdf_builder bullet position: MARGIN_SIDE + 5 */
+}
+
+/* Skills row (Category: values) — matches pdf_builder skills rendering */
+.skill-row {
+    padding-left: 14pt;
+    position: relative;
+    margin-bottom: 2pt;
+}
+
+.skill-row::before {
+    content: var(--bullet-char, "•");
+    position: absolute;
+    left: 5pt;
+}
+
+.skill-row .skill-category {
+    font-weight: bold;
+}
+
+.section-item {
+    position: relative;
+    padding-right: 36px;
+    /* Space for action buttons */
+}
+
+.item-actions {
+    position: absolute;
+    right: -4px;
+    top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+    z-index: 10;
+    transform: scale(var(--zoom-inverse, 1));
+    transform-origin: top right;
+}
+
+.section-item:hover>.item-actions {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.ia-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    background: white;
+    color: #6b7280;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    padding: 0;
+    line-height: 1;
+}
+
+.ia-btn:hover {
+    border-color: #6366f1;
+    color: #6366f1;
+    background: #eef2ff;
+    transform: scale(1.1);
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.2);
+}
+
+.ia-btn.ia-danger:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+    background: #fef2f2;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.2);
+}
+
+/* --- Per-Bullet Action Buttons (✨ ×) --- */
+.bullet-actions {
+    position: absolute;
+    right: 4px;
+    /* Step 39: Move inside the li padding area */
+    top: 50%;
+    transform: translateY(-50%) scale(var(--zoom-inverse, 1));
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+    z-index: 10;
+    transform-origin: center right;
+}
+
+.bullet-list li {
+    position: relative;
+}
+
+.bullet-list li:hover .bullet-actions {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.ba-btn {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: #9ca3af;
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: all 0.15s;
+}
+
+.ba-btn:hover {
+    background: #f3f4f6;
+    color: #6366f1;
+}
+
+.ba-btn.ba-danger:hover {
+    color: #ef4444;
+    background: #fef2f2;
+}
+
+/* --- Section Header Actions (+ Add item) --- */
+.section-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.section-add-btn {
+    opacity: 0;
+    transition: opacity 0.15s;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px dashed #d1d5db;
+    background: transparent;
+    color: #9ca3af;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.resume-section:hover .section-add-btn {
+    opacity: 1;
+}
+
+.section-add-btn:hover {
+    border-color: #6366f1;
+    color: #6366f1;
+    background: #eef2ff;
+    border-style: solid;
+}
+
+
+/* Editable Behavior */
+[contenteditable] {
+    outline: none;
+    border-radius: 2px;
+    transition: background 0.15s, box-shadow 0.15s;
+    cursor: text;
+    border: 1px solid transparent;
+}
+
+[contenteditable]:hover {
+    background: rgba(99, 102, 241, 0.05);
+    border-color: rgba(99, 102, 241, 0.1);
+}
+
+[contenteditable]:focus {
+    background: rgba(99, 102, 241, 0.05);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+/* --- UI Elements --- */
+
+/* UI Elements */
+
+/* --- Add Bullet Button --- */
+.add-bullet-btn {
+    font-size: 11px;
+    color: #9ca3af;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    margin-left: 14pt;
+    margin-top: 2px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    border-radius: 4px;
+}
+
+.section-item:hover .add-bullet-btn {
+    opacity: 1;
+}
+
+.add-bullet-btn:hover {
+    color: #6366f1;
+    background: #eef2ff;
+}
+
+/* Details/Summary for Sections */
+
+.panel-content {
+    padding: 16px;
+    overflow-y: auto;
+}
+
+.control-group {
+    margin-bottom: 20px;
+}
+
+.control-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #374151;
+}
+
+/* Format Presets */
+.preset-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.preset-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    background: #f9fafb;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.preset-btn:hover {
+    border-color: var(--primary);
+    background: #eff6ff;
+}
+
+.preset-btn.preset-active {
+    border-color: var(--primary);
+    background: #e0e7ff;
+    color: var(--primary);
+    font-weight: 600;
+    box-shadow: 0 0 0 1px var(--primary);
+}
+
+.preset-icon {
+    font-size: 18px;
+    margin-bottom: 4px;
+}
+
+.preset-name {
+    font-size: 11px;
+    margin-bottom: 2px;
+}
+
+.preset-desc {
+    font-size: 9px;
+    color: #6b7280;
+    line-height: 1.2;
+}
+
+/* Fine-tune Controls */
+.finetune-group {
+    margin-bottom: 16px;
+}
+
+.finetune-btn-row {
+    display: flex;
+    background: #f3f4f6;
+    padding: 2px;
+    border-radius: 6px;
+}
+
+.format-option {
+    flex: 1;
+    padding: 6px;
+    font-size: 11px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 4px;
+    color: #4b5563;
+}
+
+.format-option.active {
+    background: white;
+    color: var(--primary);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    font-weight: 600;
+}
+
+.slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.slider-row input[type=range] {
+    flex: 1;
+}
+
+.slider-value {
+    min-width: 32px;
+    text-align: right;
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.finetune-select {
+    width: 100%;
+    padding: 6px;
+    font-size: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+}
+
+.finetune-row-split {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.finetune-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* Details/Summary for Sections */
+details summary {
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 10px;
+    outline: none;
+}
+
+details summary::-webkit-details-marker {
+    display: none;
+}
+
+
+.control-group select,
+.control-group input[type="range"] {
+    width: 100%;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    width: 400px;
+    max-width: 90%;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    border: 1px solid #d1d5db;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.modal-body {
+    padding: 16px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.modal-footer {
+    padding: 16px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* Sortable List */
+.sortable-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sortable-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    cursor: grab;
+    transition: background 0.2s;
+}
+
+.sortable-item:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.sortable-item.dragging {
+    opacity: 0.5;
+    background: #e5e7eb;
+}
+
+.sortable-item.over {
+    border-color: #6366f1;
+    background: #eef2ff;
+}
+
+.sortable-item .handle {
+    margin-right: 12px;
+    color: #9ca3af;
+    cursor: grab;
+}
+
+.sortable-item .item-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+/* --- Bottom Bar --- */
+.bottom-bar {
+    height: 48px;
+    background: white;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    flex-shrink: 0;
+    box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.04);
+    z-index: 30;
+}
+
+.bottom-left,
+.bottom-center,
+.bottom-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.bb-btn {
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+    border: 1px solid #d1d5db;
+    background: white;
+    color: #374151;
+    font-family: system-ui, sans-serif;
+}
+
+.bb-btn:hover {
+    border-color: #6366f1;
+    color: #6366f1;
+    background: #fafafe;
+}
+
+.bb-btn.bb-sm {
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+/* Step 31: Hide unimplemented AI rewrite buttons */
+.ia-btn[data-action="ai-rewrite"],
+.ba-btn[data-action="rewrite-bullet"] {
+    display: none;
+}
+
+/* Step 37: PDF Regeneration Pulse */
+#pdfContainer.regenerating {
+    position: relative;
+    pointer-events: none;
+}
+
+#pdfContainer.regenerating::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(1px);
+    z-index: 10;
+    animation: pdfPulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pdfPulse {
+    0% {
+        opacity: 0.3;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+
+    100% {
+        opacity: 0.3;
+    }
+}
+
+/* Step 38: Shortcut Help Button */
+#shortcutHelpBtn {
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    color: #6b7280;
+    margin-right: 8px;
+}
+
+#shortcutHelpBtn:hover {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+/* Step 31: Reorder States */
+.sortable-item.dragging {
+    opacity: 0.4;
+    background: #fdf2f2 !important;
+}
+
+.sortable-item.over {
+    border-top: 2px solid #6366f1;
+}
+
+.sortable-item.over {
+    border-color: #6366f1;
+    background: #eef2ff;
+}
+
+.bb-btn.bb-primary {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.bb-btn.bb-primary:hover {
+    box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4);
+    transform: translateY(-1px);
+}
+
+.bb-btn.bb-secondary {
+    background: white;
+    color: #4b5563;
+}
+
+.page-indicator {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.fit-warning {
+    font-size: 11px;
+    color: #ef4444;
+    font-weight: 600;
+    background: #fef2f2;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #fee2e2;
+}
+
+/* --- Page Break Line --- */
+.resume-page::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 11in;
+    border-top: 2px dashed #ef4444;
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 50;
+    display: none;
+    /* Hidden by default */
+}
+
+.resume-page.multipage::after {
+    display: block;
+}
+
+/* Link Editor Popup */
+.interactive-link {
+    cursor: pointer;
+    border-bottom: 1px dashed #6366f1;
+    color: #4f46e5;
+    position: relative;
+    transition: all 0.2s;
+}
+
+.interactive-link:hover {
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.link-popup {
+    position: absolute;
+    z-index: 1000;
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e5e7eb;
+    padding: 8px;
+    width: 260px;
+    font-family: 'Inter', sans-serif;
+    animation: fadeIn 0.15s ease-out;
+}
+
+.link-popup-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.link-popup input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 12px;
+    box-sizing: border-box;
+}
+
+.link-popup input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.link-popup-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.lp-btn {
+    padding: 4px 10px;
+    font-size: 11px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: none;
+    font-weight: 500;
+}
+
+.lp-save {
+    background: #6366f1;
+    color: white;
+}
+
+.lp-save:hover {
+    background: #4f46e5;
+}
+
+.lp-cancel {
+    background: #f3f4f6;
+    color: #4b5563;
+}
+
+
+/* Bullet Count Controls (Bug 29) */
+.bullet-count-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 2pt 0 2pt 14pt;
+    font-size: 9pt;
+    color: #9ca3af;
+    opacity: 0;
+    transition: opacity 0.15s;
+    user-select: none;
+}
+
+.section-item:hover .bullet-count-row {
+    opacity: 1 !important;
+}
+
+.bc-btn {
+    width: 18px;
+    height: 18px;
+    border: 1px solid #d1d5db;
+    border-radius: 3px;
+    background: #f9fafb;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4b5563;
+}
+
+.bc-btn:hover {
+    border-color: #6366f1;
+    color: #6366f1;
+    background: #eef2ff;
+}
+
+.bullet-count-display {
+    min-width: 14px;
+    text-align: center;
+    font-weight: 600;
+    color: #374151;
+}
+
+/* Step 39: Skill Delete Button Styles */
+.skill-del-btn {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: opacity 0.2s;
+    cursor: pointer;
+    font-size: 16px;
+    color: #ef4444;
+    background: none;
+    border: none;
+    padding: 0 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.skill-row:hover .skill-del-btn {
+    opacity: 1;
+}
+
+/* Placeholders for empty editable fields */
+[contenteditable]:empty:before {
+    content: attr(data-placeholder);
+    color: #9ca3af;
+    pointer-events: none;
+    font-style: italic;
+    opacity: 0.6;
+}
+
+/* Ensure empty spans have minimum width to be clickable */
+.item-left:empty,
+.item-right:empty {
+    min-width: 80px;
+    display: inline-block;
+    padding-right: 4px;
+}
+
+/* Restore Dialog Item Styles */
+.restore-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px;
+    margin: 4px 0;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+
+.restore-item:hover {
+    border-color: #6366f1;
+}
+
+.bb-btn.bb-sm {
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+}

@@ -41,20 +41,9 @@ export async function extractText(file) {
 }
 
 export async function extractBaseProfile(text, apiKey, provider) {
-    // OLD: Call Backend
-    /*
-    response = await fetch(`${API_BASE_URL}/extract_base_profile`, ...);
-    */
 
     // NEW: Direct AI Call
     try {
-        debugLog('📄 extractBaseProfile called with:', {
-            provider,
-            hasApiKey: !!apiKey,
-            apiKeyLength: apiKey?.length || 0,
-            authMode: state.authMode,
-            isLoggedIn: state.isLoggedIn
-        });
 
         const prompt = Prompts.buildExtractProfilePrompt(text);
 
@@ -63,15 +52,6 @@ export async function extractBaseProfile(text, apiKey, provider) {
         try {
             responseText = await callAI(prompt, provider, apiKey, { expectJson: true, actionId });
         } catch (e) {
-            const DEBUG_MODE = false; // Set to true only for local testing
-            if (DEBUG_MODE && window.location.hostname === 'localhost') {
-                console.warn("Mocking extractBaseProfile failure for local testing fallback");
-                return {
-                    name: "Mock User",
-                    email: "mock@example.com",
-                    experience: [{ company: "Mock Co", role: "Dev", dates: "2020", bullets: ["Code things"] }]
-                };
-            }
             throw e;
         }
 
@@ -133,22 +113,12 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
         const cachedJdAnalysis = state.currentJdAnalysis;
         const cachedJdText = state.lastParsedJdText;
 
-        debugLog('🔍 JD Cache Check:', {
-            hasCachedAnalysis: !!cachedJdAnalysis,
-            cachedJdTextLength: cachedJdText?.length || 0,
-            currentJdTextLength: jdText?.length || 0,
-            textsMatch: cachedJdText === jdText,
-            cachedJdPreview: cachedJdText?.substring(0, 100),
-            currentJdPreview: jdText?.substring(0, 100)
-        });
 
         if (cachedJdAnalysis && cachedJdText?.trim() === jdText?.trim()) {
             // Reuse cached JD analysis - saves 1 API call!
-            debugLog('✅ Reusing cached JD analysis (saving 1 API call)');
             jdAnalysis = cachedJdAnalysis;
         } else {
             // Parse JD (only if JD changed or no cache)
-            debugLog('🔍 Parsing JD (first time or JD changed)');
             const jdPrompt = Prompts.buildParseJobDescriptionPrompt(jdText);
             const jdResponse = await callAI(jdPrompt, provider, apiKey, { expectJson: true, taskType: 'jdParse', actionId });
             jdAnalysis = extractJSON(jdResponse) || {
@@ -157,7 +127,6 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
             };
 
             // Cache the JD analysis and the JD text it was parsed from
-            debugLog('💾 Caching JD analysis for future use');
             updateState({
                 currentJdAnalysis: jdAnalysis,
                 lastParsedJdText: jdText
@@ -246,11 +215,110 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
 
 export async function generatePdf(resumeData) {
     try {
-        return generateResumePdf(resumeData, state.formatSettings || {});
+        const doc = generateResumePdf(resumeData, state.formatSettings || {});
+        return doc.output('blob');
     } catch (e) {
         console.error("PDF Generation failed", e);
         return { error: e.message };
     }
+}
+
+// ─── HALLUCINATION PREVENTION ───
+
+/**
+ * Find the index in sourceItems that best matches an editor item.
+ * Uses name/company/org matching.
+ */
+function findMatchingSourceIndex(editorItem, sourceItems) {
+    const editorId = (
+        editorItem.company || editorItem.name ||
+        editorItem.organization || editorItem.title || ''
+    ).toLowerCase().trim();
+
+    if (!editorId) return -1;
+
+    for (let i = 0; i < sourceItems.length; i++) {
+        const srcId = (
+            sourceItems[i].company || sourceItems[i].name ||
+            sourceItems[i].organization || sourceItems[i].title || ''
+        ).toLowerCase().trim();
+
+        if (srcId === editorId ||
+            srcId.includes(editorId) ||
+            editorId.includes(srcId)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/**
+ * Sanitize bullet counts to prevent hallucination.
+ * Ensures bullet counts only apply to items the AI has real content for.
+ */
+function sanitizeBulletCounts(sourceResume, editorResume, bulletCounts) {
+    if (!bulletCounts) return null;
+
+    const sanitized = {};
+    const trackedSections = ['experience', 'projects', 'leadership', 'research'];
+
+    trackedSections.forEach(sec => {
+        if (!bulletCounts[sec]) {
+            sanitized[sec] = [];
+            return;
+        }
+
+        const sourceItems = sourceResume[sec] || [];
+        const editorItems = editorResume[sec] || [];
+        sanitized[sec] = [];
+
+        // Build a map: for each editor item, find its matching source item index
+        editorItems.forEach((editorItem, editorIdx) => {
+            const requestedCount = bulletCounts[sec][editorIdx];
+            if (requestedCount === undefined) return;
+
+            // Check if this editor item has any meaningful content
+            const itemName = (
+                editorItem.company || editorItem.role || editorItem.name ||
+                editorItem.title || editorItem.organization || ''
+            ).trim();
+
+            const hasNonEmptyBullets = (editorItem.bullets || [])
+                .some(b => b && b.trim().length > 0);
+
+            const hasAnyContent = itemName.length > 0 || hasNonEmptyBullets;
+
+            // Find matching item in source (base) resume
+            const sourceIdx = findMatchingSourceIndex(editorItem, sourceItems);
+
+            if (sourceIdx >= 0) {
+                // Item exists in base resume — safe to use requested count
+                const sourceItem = sourceItems[sourceIdx];
+                const sourceBulletCount = (sourceItem.bullets || []).length;
+
+                // But cap at reasonable maximum relative to source content
+                // If source has 3 bullets, requesting 10 would likely hallucinate
+                const maxSafe = Math.max(sourceBulletCount + 2, 3); // Allow +2 expansion
+                sanitized[sec][sourceIdx] = Math.min(requestedCount, maxSafe);
+            } else if (hasAnyContent) {
+                // New item with content — editor index position is used
+                // but cap conservatively
+                sanitized[sec][editorIdx] = Math.min(requestedCount, 3);
+            } else {
+                // Empty item with no base match — SKIP (would hallucinate)
+            }
+        });
+
+        // Fill remaining source items that weren't matched (use their existing count)
+        sourceItems.forEach((item, srcIdx) => {
+            if (sanitized[sec][srcIdx] === undefined) {
+                // Not overridden by editor — use natural count
+                sanitized[sec][srcIdx] = (item.bullets || []).length;
+            }
+        });
+    });
+
+    return sanitized;
 }
 
 export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis, apiKey, provider, tailoringStrategy, pageMode = '1page', mustIncludeItems = null) {
@@ -285,7 +353,15 @@ export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis,
         }
 
         const actionId = `regen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const tailorPrompt = Prompts.buildTailorPrompt(sourceResume, jdAnalysis, tailoringStrategy, bulletCounts, pageMode, mustIncludeItems, state.formatSettings);
+
+        // Sanitize bullet counts to prevent hallucination
+        const safeBulletCounts = sanitizeBulletCounts(
+            state.baseResume || base, // source resume AI sees
+            tailoredResume,           // editor's current state
+            bulletCounts
+        );
+
+        const tailorPrompt = Prompts.buildTailorPrompt(sourceResume, jdAnalysis, tailoringStrategy, safeBulletCounts, pageMode, mustIncludeItems, state.formatSettings);
         const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true, taskType: 'tailor', actionId });
         let newTailoredData = extractJSON(tailorResponse);
 

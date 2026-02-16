@@ -87,6 +87,10 @@ export function generateResumePdf(data, fmt = {}) {
     doc.setFontSize(BODY);
 
     let contactStr = "";
+    // Normalize data
+    let linkedInUrl = "";
+    let portfolioUrl = "";
+
     if (typeof data.contact === 'string') {
         contactStr = data.contact;
     } else if (data.contact) {
@@ -96,9 +100,20 @@ export function generateResumePdf(data, fmt = {}) {
         if (c.phone) parts.push(c.phone);
         if (c.email) parts.push(c.email);
 
-        // Add LinkedIn and Portfolio as text placeholders
-        if (c.linkedin_url) parts.push("LinkedIn");
-        if (c.portfolio_url) parts.push("Portfolio");
+        // Normalize URLs (check both fields, but ignore static labels)
+        const isUrl = (val) => {
+            if (!val) return false;
+            const v = val.trim().toLowerCase();
+            if (v === 'linkedin' || v === 'portfolio') return false;
+            return v.includes('.') || v.startsWith('http') || v.startsWith('www');
+        };
+
+        linkedInUrl = c.linkedin_url || (isUrl(c.linkedin) ? c.linkedin : "");
+        portfolioUrl = c.portfolio_url || (isUrl(c.portfolio) ? c.portfolio : (isUrl(c.website) ? c.website : ""));
+
+        // Only add if non-empty
+        if (linkedInUrl.trim()) parts.push("LinkedIn");
+        if (portfolioUrl.trim()) parts.push("Portfolio");
         contactStr = parts.join(" | ");
     }
 
@@ -110,13 +125,12 @@ export function generateResumePdf(data, fmt = {}) {
     if (data.contact && typeof data.contact !== 'string' && settings.showLinks) {
         const c = data.contact;
 
-        // Calculate positions for each part to place links accurately
+        // Re-calculate positions to match the joined string
         const parts = [];
         if (c.location) parts.push(c.location);
         if (c.phone) parts.push(c.phone);
         if (c.email) parts.push(c.email);
 
-        // Build the text before LinkedIn/Portfolio to calculate offset
         const beforeLinkedIn = parts.join(" | ");
         const separator = parts.length > 0 ? " | " : "";
 
@@ -127,24 +141,24 @@ export function generateResumePdf(data, fmt = {}) {
         const fullWidth = doc.getTextWidth(contactStr);
         const startX = (PAGE_WIDTH - fullWidth) / 2;
 
-        let currentX = startX + doc.getTextWidth(beforeLinkedIn + separator);
+        let currentX = startX + (parts.length > 0 ? doc.getTextWidth(beforeLinkedIn + separator) : 0);
 
         // Add LinkedIn link
-        if (c.linkedin_url) {
+        if (linkedInUrl.trim()) {
             const linkedInText = "LinkedIn";
             const linkedInWidth = doc.getTextWidth(linkedInText);
 
-            doc.link(currentX, contactY - BODY + 2, linkedInWidth, BODY + 2, { url: c.linkedin_url });
+            doc.link(currentX, contactY - BODY + 2, linkedInWidth, BODY + 2, { url: linkedInUrl });
 
             currentX += linkedInWidth + doc.getTextWidth(" | ");
         }
 
         // Add Portfolio link
-        if (c.portfolio_url) {
+        if (portfolioUrl.trim()) {
             const portfolioText = "Portfolio";
             const portfolioWidth = doc.getTextWidth(portfolioText);
 
-            doc.link(currentX, contactY - BODY + 2, portfolioWidth, BODY + 2, { url: c.portfolio_url });
+            doc.link(currentX, contactY - BODY + 2, portfolioWidth, BODY + 2, { url: portfolioUrl });
         }
     }
 
@@ -165,7 +179,8 @@ export function generateResumePdf(data, fmt = {}) {
         certifications: "Certifications",
         awards: "Awards & Honors",
         volunteering: "Volunteering",
-        languages: "Languages"
+        languages: "Languages",
+        interests: "Interests"
     };
 
     const titles = { ...defaultTitles, ...(data.section_titles || {}) };
@@ -174,6 +189,18 @@ export function generateResumePdf(data, fmt = {}) {
         "summary", "education", "skills", "experience", "projects",
         "research", "leadership", "certifications", "awards", "volunteering", "languages"
     ]).filter(s => !NON_SECTION_KEYS.includes(s));
+
+    // Helper: Strip HTML and decode common entities for clean PDF rendering
+    function stripHtml(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/<[^>]+>/g, '')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#039;/g, "'");
+    }
 
     // Helper for aligned row (Left | Right)
     function addAlignedRow(leftText, rightText, isBold = false, isItalic = false) {
@@ -186,11 +213,11 @@ export function generateResumePdf(data, fmt = {}) {
         doc.setFontSize(size);
 
         // Left text
-        doc.text(String(leftText), MARGIN_SIDE, cursorY, { charSpace: 0 });
+        doc.text(stripHtml(leftText), MARGIN_SIDE, cursorY, { charSpace: 0 });
 
         // Right text
         if (rightText) {
-            doc.text(String(rightText), PAGE_WIDTH - MARGIN_SIDE, cursorY, { align: 'right', charSpace: 0 });
+            doc.text(stripHtml(rightText), PAGE_WIDTH - MARGIN_SIDE, cursorY, { align: 'right', charSpace: 0 });
         }
 
         cursorY += LEADING;
@@ -198,8 +225,11 @@ export function generateResumePdf(data, fmt = {}) {
 
     // Helper for bullets
     function addBullet(text) {
-        // Strip HTML tags for clean text
-        const cleanText = text.replace(/<[^>]+>/g, '');
+        if (!text) return;
+
+        const cleanText = stripHtml(text).trim(); // Step 48: Use consolidated stripHtml
+        if (!cleanText) return; // Step 63: Skip empty bullets
+
         const bulletIndent = 14;
         const maxWidth = CONTENT_WIDTH - bulletIndent;
 
@@ -244,7 +274,7 @@ export function generateResumePdf(data, fmt = {}) {
 
     // Helper for Summary/Text Block
     function addTextBlock(text) {
-        const cleanText = text.replace(/<[^>]+>/g, '');
+        const cleanText = stripHtml(text); // Step 48: Use consolidated stripHtml
         doc.setFont(settings.font, 'normal');
         doc.setFontSize(BODY);
         const lines = doc.splitTextToSize(cleanText, CONTENT_WIDTH);
@@ -387,14 +417,14 @@ export function generateResumePdf(data, fmt = {}) {
             });
         }
 
-        else if (section === 'languages') {
-            const lang = data.languages;
-            const langStr = Array.isArray(lang) ? lang.join(', ') : String(lang || '');
-            if (langStr.trim()) {
-                addTextBlock(langStr);
+        else if (section === 'languages' || section === 'interests') {
+            const list = data[section];
+            const str = Array.isArray(list) ? list.join(', ') : String(list || '');
+            if (str.trim()) {
+                addTextBlock(str);
             }
         }
     });
 
-    return doc.output('blob');
+    return doc; // Return the doc object, let caller handle output (blob/save)
 }

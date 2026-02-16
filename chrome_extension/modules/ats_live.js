@@ -5,14 +5,15 @@ import { state } from './state.js';
  * Uses cached JD keywords from the last tailor/analysis step.
  * Returns a quick score without API calls.
  */
-export function calculateLiveAtsScore(resumeData) {
-    // Get keywords from either the JD analysis or the last ATS analysis
-    const jdAnalysis = state.currentJdAnalysis;
-    if (!jdAnalysis) return null;
-
-    const mandatoryKeywords = (jdAnalysis.mandatory_keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
-    const preferredKeywords = (jdAnalysis.preferred_keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
-    const industryTerms = (jdAnalysis.industry_terms || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+export function calculateLiveAtsScore(resumeData, jdAnalysisOverride = null) {
+    // 1. Get JD Analysis from storage OR override
+    // Note: In live editor, we might need to pass this in because async storage read is too slow for sync render
+    const analysisFull = jdAnalysisOverride || state.currentJdAnalysis;
+    if (!analysisFull) return null;
+    const keywords = analysisFull.keywords || analysisFull;
+    const mandatoryKeywords = (keywords.mandatory_keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+    const preferredKeywords = (keywords.preferred_keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+    const industryTerms = (keywords.industry_terms || []).map(k => k.toLowerCase().trim()).filter(Boolean);
 
     if (mandatoryKeywords.length === 0 && preferredKeywords.length === 0) return null;
 

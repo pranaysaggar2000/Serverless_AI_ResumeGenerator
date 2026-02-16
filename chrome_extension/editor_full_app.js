@@ -1,7 +1,7 @@
 import { DEFAULT_FORMAT } from './modules/defaults.js';
 import { renderFullResumeEditor } from './modules/editor_full_renderer.js';
 import { createPdfPreview } from './modules/pdf_preview_core.js';
-import { calculateLiveAtsScore } from './modules/ats_live.js';
+import { calculateLiveAtsScore, showAtsDetailsPopup } from './modules/ats_live.js';
 import { regenerateResume } from './modules/api.js';
 import { updateState, state } from './modules/state.js';
 import { getApiKeyForProvider } from './modules/utils.js';
@@ -110,6 +110,7 @@ function showRestoreDeletedDialog() {
     overlay.querySelector('#confirmRestore').onclick = async () => {
         const checked = overlay.querySelectorAll('input:checked');
         const toRestore = {};
+        undoSnapshot = JSON.parse(JSON.stringify(currentResume)); // Capture state before restore
         checked.forEach(cb => {
             const sec = cb.dataset.section;
             if (!toRestore[sec]) toRestore[sec] = [];
@@ -264,9 +265,21 @@ function setupKeyboardShortcuts() {
         if ((e.ctrlKey || e.metaKey) && e.key === 'p') { e.preventDefault(); pdfPreview?.print(currentResume, currentFormat); }
         if ((e.ctrlKey || e.metaKey) && e.key === 'd') { e.preventDefault(); pdfPreview?.download(currentResume, currentFormat); }
         if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-            if (!document.activeElement?.isContentEditable && undoSnapshot) {
-                e.preventDefault(); currentResume = JSON.parse(JSON.stringify(undoSnapshot)); undoSnapshot = null;
-                renderEditor(); broadcastToSidePanel(currentResume, currentFormat); safelyGeneratePdf(); showSuccessToast('Undone!');
+            if (undoSnapshot) {
+                e.preventDefault();
+                currentResume = JSON.parse(JSON.stringify(undoSnapshot));
+                // Don't clear undoSnapshot immediately to allow multipleundos? 
+                // For now, simpler to leave receiving single-step undo as requested or just standard toggle.
+                // Actually, if we just set currentResume, we might lose the "redo" state if we don't handle it, 
+                // but for a simple "undo last destructive action", this is fine. 
+                // Note: user asked for "undo", usually implies stack. 
+                // But existing code was single-slot. Let's stick to single-slot for now but enable it.
+
+                undoSnapshot = null;
+                renderEditor();
+                broadcastToSidePanel(currentResume, currentFormat);
+                safelyGeneratePdf();
+                showSuccessToast('Undone!');
             }
         }
     });
@@ -392,7 +405,8 @@ function setupToolbar() {
             updateState({
                 baseResume: data.base_resume, currentJdAnalysis: data.jd_analysis,
                 currentApiKey: data.gemini_api_key, currentGroqKey: data.groq_api_key, currentOpenRouterKey: data.openrouter_api_key,
-                currentProvider: data.provider_settings?.provider || 'gemini', authMode: data.auth_mode, accessToken: data.access_token
+                currentProvider: data.provider_settings?.provider || 'gemini', authMode: data.auth_mode, accessToken: data.access_token,
+                isLoggedIn: !!data.access_token
             });
 
             const newResume = await regenerateResume(data.base_resume || currentResume, collectBulletCountsFromFullEditor(), data.jd_analysis, getApiKeyForProvider(), state.currentProvider, 'balanced', '1page', null);
@@ -501,10 +515,13 @@ function updateAtsBadge() {
     if (!res) { badge.textContent = "ATS: --"; return; }
     badge.textContent = `ATS Match: ${res.score}%`;
     badge.style.background = res.score >= 80 ? "#d1fae5" : res.score >= 50 ? "#fef3c7" : "#fee2e2";
+    badge.style.cursor = 'pointer';
+    badge.title = "Click to see missing keywords";
+    badge.onclick = (e) => { e.stopPropagation(); showAtsDetailsPopup(res); };
 }
 
 async function applyStructuralChange(forceStorage = false) {
-    undoSnapshot = JSON.parse(JSON.stringify(currentResume)); // Step 36
+    // undoSnapshot handled by caller before mutation
     renderEditor(); broadcastToSidePanel(currentResume, currentFormat); safelyGeneratePdf();
     if (forceStorage) await saveToStorage(currentResume);
     updateAtsBadge?.();
@@ -753,12 +770,19 @@ function setupGlobalListeners() {
         const target = e.target;
         if (target.classList.contains('add-bullet-btn')) {
             currentResume = scrapeResumeFromEditor();
+            undoSnapshot = JSON.parse(JSON.stringify(currentResume)); // Capture state before change
             const item = target.closest('.section-item');
             const sec = target.closest('.resume-section')?.dataset.section;
             const idx = item ? parseInt(item.dataset.index) : -1;
             if (sec && idx >= 0 && currentResume[sec]?.[idx]) {
-                if (!currentResume[sec][idx].bullets) currentResume[sec][idx].bullets = [];
-                currentResume[sec][idx].bullets.push(''); await applyStructuralChange(false);
+                const it = currentResume[sec][idx];
+                if (!it.bullets) it.bullets = [];
+                it.bullets.push('');
+                // Auto-update preference
+                if (typeof it.bullet_count_preference === 'number') {
+                    it.bullet_count_preference++;
+                }
+                await applyStructuralChange(false);
             }
             return;
         }
@@ -766,6 +790,11 @@ function setupGlobalListeners() {
         const btn = target.closest('button');
         if (!btn) return;
         const action = btn.dataset.action; if (!action) return;
+
+        // Capture state before any structural change
+        currentResume = scrapeResumeFromEditor();
+        undoSnapshot = JSON.parse(JSON.stringify(currentResume));
+
         const item = btn.closest('.section-item');
         const sec = btn.closest('.resume-section')?.dataset.section || btn.dataset.section;
         const idx = item ? parseInt(item.dataset.index) : -1;
@@ -817,7 +846,15 @@ function setupGlobalListeners() {
             if (li && item && currentResume[sec]?.[idx]?.bullets) {
                 const bLis = Array.from(li.parentNode.children).filter(c => !c.hasAttribute('data-key'));
                 const bIdx = bLis.indexOf(li);
-                if (bIdx >= 0) { currentResume[sec][idx].bullets.splice(bIdx, 1); await applyStructuralChange(false); }
+                if (bIdx >= 0) {
+                    const it = currentResume[sec][idx];
+                    it.bullets.splice(bIdx, 1);
+                    // Auto-update preference
+                    if (typeof it.bullet_count_preference === 'number' && it.bullet_count_preference > 0) {
+                        it.bullet_count_preference--;
+                    }
+                    await applyStructuralChange(false);
+                }
             }
         }
         else if (action === 'bullet-count-decrease' || action === 'bullet-count-increase') {
@@ -924,6 +961,10 @@ function setupPreviewControls() {
         const h = list.map(s => `<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>${s[0]}</span><kbd>${s[1]}</kbd></div>`).join('');
         showInfoPopup('Shortcuts', h);
     });
+
+    // Wire up "Fit Width" button - Step Fix
+    document.getElementById('fitWidthBtn')?.addEventListener('click', autoFitEditor);
+
     document.getElementById('bottomPrintBtn')?.addEventListener('click', () => pdfPreview?.print(currentResume, currentFormat));
     document.getElementById('zoomIn')?.addEventListener('click', () => applyZoom(currentEditorZoom + 0.1));
     document.getElementById('zoomOut')?.addEventListener('click', () => applyZoom(currentEditorZoom - 0.1));

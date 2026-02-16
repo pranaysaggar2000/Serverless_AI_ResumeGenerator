@@ -84,7 +84,7 @@ export function renderFullResumeEditor(container, data, fmt = {}) {
                 contactDiv.innerText = data.contact;
             } else {
                 const c = data.contact;
-                const orderedKeys = ['email', 'phone', 'location', 'linkedin', 'portfolio'];
+                const orderedKeys = ['location', 'phone', 'email', 'linkedin', 'portfolio'];
                 const valMap = {
                     email: c.email || '',
                     phone: c.phone || '',
@@ -350,7 +350,7 @@ function renderListItems(container, section, items, f, density) {
             item.bullets.forEach((b, bIndex) => {
                 html += `
                 <li contenteditable="true" data-bindex="${bIndex}">
-                    ${escapeHtml(b.replace(/✨|×/g, '').trim())}
+                    ${val(b.replace(/✨|×/g, '').trim(), 'New Bullet')}
                     <!-- Bullet Actions Structure -->
                     <div class="bullet-actions" contenteditable="false">
                         <button class="ba-btn" data-action="rewrite-bullet" title="Rewrite">✨</button>

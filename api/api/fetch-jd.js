@@ -23,14 +23,17 @@ export default async function handler(req, res) {
     }
 
     // SSRF Prevention: Basic URL Validation
+    let parsedUrl;
+    let hostname;
     try {
-        const parsedUrl = new URL(url);
+        parsedUrl = new URL(url);
+        hostname = parsedUrl.hostname;
+
         if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
             return res.status(400).json({ error: 'Invalid protocol. Only http and https are allowed.' }, corsHeaders);
         }
 
         // Block private IP ranges (basic check)
-        const hostname = parsedUrl.hostname;
         if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
             return res.status(403).json({ error: 'Access to private networks is denied.' }, corsHeaders);
         }

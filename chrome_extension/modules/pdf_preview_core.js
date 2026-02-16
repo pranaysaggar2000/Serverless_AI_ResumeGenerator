@@ -121,7 +121,7 @@ export function createPdfPreview(containerEl, statusEl, pageCountEl) {
             containerEl.style.justifyContent = "center";
             // Set explicit height to prevent collapse
             const h = containerEl.clientHeight > 0 ? containerEl.clientHeight : 800;
-            iframe.style.width = `${currentZoom}% `;
+            iframe.style.width = `${currentZoom}%`;
             iframe.style.height = (h - 40) + 'px';
         } else {
             containerEl.style.display = "block";
@@ -139,7 +139,7 @@ export function createPdfPreview(containerEl, statusEl, pageCountEl) {
 
         if (pageCountEl && doc) {
             const pages = doc.getNumberOfPages();
-            pageCountEl.textContent = `${pages} page${pages !== 1 ? 's' : ''} `;
+            pageCountEl.textContent = `${pages} page${pages !== 1 ? 's' : ''}`;
             pageCountEl.style.color = pages > 1 ? '#d97706' : '#6b7280';
         }
     }
@@ -151,7 +151,7 @@ export function createPdfPreview(containerEl, statusEl, pageCountEl) {
 
         const iframe = containerEl.querySelector('iframe');
         if (iframe) {
-            iframe.style.width = `${currentZoom}% `;
+            iframe.style.width = `${currentZoom}%`;
             if (currentZoom < 100) {
                 iframe.style.margin = "0 auto";
                 containerEl.style.display = "flex";

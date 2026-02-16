@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { checkCurrentProviderKey } from './utils.js';
+import { escapeHtml } from './security.js';
 
 // Elements helper - lazily get elements or pass them in?
 // Let's assume we can get them by ID since they are static.
@@ -23,7 +24,7 @@ export function showStatus(message, type = 'info', elementId = 'status') {
             'warning': '⚠️'
         }[type] || 'ℹ️';
 
-        toast.innerHTML = `<span style="flex-shrink:0;">${icon}</span> <span style="line-height:1.4;">${message}</span>`;
+        toast.innerHTML = `<span style="flex-shrink:0;">${icon}</span> <span style="line-height:1.4;">${escapeHtml(message)}</span>`;
 
         // Limit to 3 visible toasts
         while (container.children.length >= 3) {
@@ -52,7 +53,7 @@ export function showStatus(message, type = 'info', elementId = 'status') {
         return;
     }
 
-    statusEl.innerHTML = message;
+    statusEl.textContent = message;
     statusEl.className = type;
     statusEl.style.display = 'block';
 }
@@ -78,13 +79,18 @@ export function toggleProviderUI(provider) {
 }
 
 export function showMainUI() {
-    getEl('setupUI').style.display = 'none';
-    getEl('settingsUI').style.display = 'none';
-    getEl('profileUI').style.display = 'none';
-    getEl('editorUI').style.display = 'none'; // Ensure editor is hidden
-    getEl('mainUI').style.display = 'block';
+    const setupUI = getEl('setupUI');
+    const settingsUI = getEl('settingsUI');
+    const profileUI = getEl('profileUI');
+    const editorUI = getEl('editorUI');
+    const mainUI = getEl('mainUI');
 
-    if (getEl('editorUI')) getEl('editorUI').style.display = 'none';
+    if (setupUI) setupUI.style.display = 'none';
+    if (settingsUI) settingsUI.style.display = 'none';
+    if (profileUI) profileUI.style.display = 'none';
+    if (editorUI) editorUI.style.display = 'none';
+    if (mainUI) mainUI.style.display = 'block';
+
     if (getEl('copyUI')) getEl('copyUI').style.display = 'none';
     if (getEl('formatUI')) getEl('formatUI').style.display = 'none';
     if (getEl('historyUI')) getEl('historyUI').style.display = 'none';
@@ -167,7 +173,7 @@ export function renderAuthSection() {
 
         container.innerHTML = `
             <div class="user-profile">
-                <img src="${avatarUrl}" class="user-avatar" alt="User">
+                <img src="${escapeHtml(avatarUrl)}" class="user-avatar" alt="User">
                 <div class="user-details">
                     <div class="user-email" id="userEmailDisplay"></div>
                     <button id="logoutBtn" class="logout-link">Sign out</button>
@@ -387,7 +393,7 @@ export function renderAnalysis(analysis) {
             html += `<div style="margin-bottom: 15px; background: #eef2ff; padding: 10px; border-radius: 6px; border-left: 4px solid #4f46e5;">
                 <strong style="color: #3730a3; display: block; margin-bottom: 5px;">🚀 Top 3 Fixes</strong>
                 <ol style="margin: 0; padding-left: 20px;">`;
-            analysis.top_3_actions.forEach(action => html += `<li style="margin-bottom: 4px;">${action}</li>`);
+            analysis.top_3_actions.forEach(action => html += `<li style="margin-bottom: 4px;">${escapeHtml(action)}</li>`);
             html += `</ol></div>`;
         }
 
@@ -396,7 +402,7 @@ export function renderAnalysis(analysis) {
             html += `<div style="margin-bottom: 10px;">
                 <strong>✅ Strong Matches:</strong>
                 <ul style="margin: 5px 0; padding-left: 20px;">`;
-            analysis.matching_areas.forEach(area => html += `<li style="color: #28a745;">${area}</li>`);
+            analysis.matching_areas.forEach(area => html += `<li style="color: #28a745;">${escapeHtml(area)}</li>`);
             html += `</ul></div>`;
         }
 
@@ -404,7 +410,7 @@ export function renderAnalysis(analysis) {
         if (analysis.missing_keywords && analysis.missing_keywords.length) {
             html += `<div style="margin-bottom: 10px;">
                 <strong>⚠️ Missing Keywords:</strong> 
-                <span style="color: #d63384;">${analysis.missing_keywords.join(', ')}</span>
+                <span style="color: #d63384;">${escapeHtml(analysis.missing_keywords.join(', '))}</span>
             </div>`;
         }
 
@@ -417,7 +423,7 @@ export function renderAnalysis(analysis) {
                     <ul style="margin: 5px 0; padding-left: 15px;">`;
                 analysis.audit.stuffing_found.forEach(item => {
                     html += `<li style="font-size: 11px; margin-bottom: 4px;">
-                        "${item.stuffed_phrase}" in bullet: <em>"${item.bullet.substring(0, 60)}..."</em>
+                        "${escapeHtml(item.stuffed_phrase)}" in bullet: <em>"${escapeHtml(item.bullet.substring(0, 60))}..."</em>
                     </li>`;
                 });
                 html += `</ul></div>`;
@@ -430,8 +436,8 @@ export function renderAnalysis(analysis) {
                     <ul style="margin: 5px 0; padding-left: 20px;">`;
                 analysis.audit.content_gaps.forEach(gap => {
                     html += `<li style="margin-bottom: 3px;">
-                        <strong>${gap.requirement}:</strong> ${gap.suggestion}
-                        <span style="font-size: 9px; padding: 1px 4px; background: #fee2e2; color: #991b1b; border-radius: 4px;">${gap.severity}</span>
+                        <strong>${escapeHtml(gap.requirement)}:</strong> ${escapeHtml(gap.suggestion)}
+                        <span style="font-size: 9px; padding: 1px 4px; background: #fee2e2; color: #991b1b; border-radius: 4px;">${escapeHtml(gap.severity)}</span>
                     </li>`;
                 });
                 html += `</ul></div>`;
@@ -452,7 +458,7 @@ export function renderAnalysis(analysis) {
                     const desc = issue.issue || (issue.bullet ? `Bullet: ${issue.issue}` : '');
                     const sevColor = issue.severity === 'CRITICAL' ? '#dc2626' : issue.severity === 'MODERATE' ? '#d97706' : '#4b5563';
                     html += `<li style="margin-bottom: 3px; color: ${sevColor};">
-                        ${desc} <span style="font-size: 9px; opacity: 0.8;">[${issue.severity || 'MINOR'}]</span>
+                        ${escapeHtml(desc)} <span style="font-size: 9px; opacity: 0.8;">[${escapeHtml(issue.severity || 'MINOR')}]</span>
                      </li>`;
                 });
                 html += `</ul></div>`;
@@ -464,7 +470,7 @@ export function renderAnalysis(analysis) {
             html += `<div style="margin-bottom: 8px;">
                 <strong>💡 Recommendations:</strong>
                 <ul style="margin: 5px 0; padding-left: 20px;">`;
-            analysis.recommendations.forEach(rec => html += `<li>${rec}</li>`);
+            analysis.recommendations.forEach(rec => html += `<li>${escapeHtml(rec)}</li>`);
             html += `</ul></div>`;
         }
 
@@ -590,8 +596,8 @@ export function renderCopyList(data) {
         div.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 5px;">
                 <div>
-                    <div style="font-weight: bold; font-size: 12px;">${title}</div>
-                    <div style="font-size: 11px; color: #666;">${subtitle}</div>
+                    <div style="font-weight: bold; font-size: 12px;">${escapeHtml(title)}</div>
+                    <div style="font-size: 11px; color: #666;">${escapeHtml(subtitle)}</div>
                 </div>
                 <button class="copy-btn" data-type="${type}" data-index="${index}" 
                     style="width: auto; padding: 4px 8px; font-size: 11px; background: #e9ecef; color: #333; border: 1px solid #ccc; cursor: pointer;">

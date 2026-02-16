@@ -9,6 +9,5 @@ export const DEFAULT_FORMAT = {
     headerStyle: "uppercase_line",
     bulletChar: "•",
     showLinks: true,
-    dateAlign: "right",
     pageSize: "letter"
 };

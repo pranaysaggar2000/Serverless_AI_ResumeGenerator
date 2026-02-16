@@ -7,12 +7,6 @@ export function renderFullResumeEditor(container, data, fmt = {}) {
     container.innerHTML = '';
 
     const f = { ...fmt };
-    // ... (rest of the file content remains the same until the end)
-
-    /* Helper for placeholders (Bug 41) */
-    function val(text, placeholder) {
-        return (text && text.trim()) ? escapeHtml(text) : `<span class="empty-placeholder">[${placeholder}]</span>`;
-    }
 
     // Font map (matches CSS and PDF Builder)
     const fontMap = {
@@ -83,7 +77,6 @@ export function renderFullResumeEditor(container, data, fmt = {}) {
                 contactDiv.dataset.type = 'raw';
                 contactDiv.innerText = data.contact;
             } else {
-                const c = data.contact;
                 const orderedKeys = ['location', 'phone', 'email', 'linkedin', 'portfolio'];
                 const valMap = {
                     email: c.email || '',

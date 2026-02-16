@@ -2,12 +2,9 @@ import { state, updateState } from './state.js';
 import { generatePdf } from './api.js';
 import { showStatus, showMainUI, showSetupUI, showSettings } from './ui.js';
 import { checkCurrentProviderKey } from './utils.js';
+import { sendFormatUpdate } from './live_preview.js';
 import { getCurrentEditingResume } from './editor.js';
 
-// Local helper to invalidate PDF cache (drag and drop removed)
-function invalidatePdfCache() {
-    updateState({ latestPdfBlob: null });
-}
 
 import { DEFAULT_FORMAT } from './defaults.js';
 export { DEFAULT_FORMAT };
@@ -19,8 +16,8 @@ export function debouncedSaveFormat(settings) {
     clearTimeout(formatSaveTimer);
     formatSaveTimer = setTimeout(() => saveFormatSettings(settings), 300);
 
-    // Broadcast immediately (debounced/throttled separately or just send)
-    sendFormatUpdate();
+    // Broadcast format change to live preview
+    try { sendFormatUpdate(); } catch (_) { /* preview not available */ }
 }
 
 export async function loadFormatSettings() {
@@ -34,7 +31,7 @@ export async function loadFormatSettings() {
 export async function saveFormatSettings(settings) {
     updateState({ formatSettings: settings });
     await chrome.storage.local.set({ format_settings: settings });
-    invalidatePdfCache();
+    updateState({ latestPdfBlob: null });
 }
 
 export function refreshFormatUI(settings) {

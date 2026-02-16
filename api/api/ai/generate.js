@@ -52,23 +52,25 @@ module.exports = withCors(async (req, res) => {
         // buildExtractProfilePrompt, buildQuestionPrompt, and buildExtractJDFromPagePrompt
         // all contain distinctive structural markers. Check for at least one.
         const FORGECV_MARKERS = [
-            'return only valid json',           // Present in all JSON-expecting prompts
-            'section_order',                     // Present in tailor and extract prompts
-            'ats',                               // Present in analysis prompts  
-            'job description',                   // Present in JD parse and tailor prompts
-            'resume',                            // Present in almost all ForgeCV prompts
+            'resume',                            // Present in all ForgeCV prompts
+            'job description',                   // Present in tailor/analysis prompts
+            'section_order',                     // Present in tailor prompt output format
+            'return only valid json',            // Present in most prompts
             'bullet',                            // Present in tailor prompts
             'mandatory_keywords',                // Present in JD parse output format
             'excluded_items',                    // Present in tailor prompt output format
             'extract structured data',           // Present in profile extraction prompt
             'applicant',                         // Present in question prompt
+            'instructions',                      // Present in question/tailor prompts
+            'answer',                            // Present in question prompt
+            'ats',                               // Present in analysis prompts
         ];
 
-        // Require at least 3 markers to be present — normal ForgeCV prompts hit 5+
+        // Require at least 2 markers to be present — normal ForgeCV prompts hit 5+
         const markerHits = FORGECV_MARKERS.filter(m => promptLower.includes(m)).length;
 
         // Log low-marker prompts for monitoring (don't block the request flow)
-        if (markerHits < 5) {
+        if (markerHits < 4) {
             try {
                 const { supabaseAdmin } = require('../../lib/supabase');
                 await supabaseAdmin.from('prompt_audit').insert({
@@ -76,13 +78,13 @@ module.exports = withCors(async (req, res) => {
                     marker_hits: markerHits,
                     prompt_preview: prompt.substring(0, 200).replace(/\0/g, ''),
                     task_type: taskType || 'default',
-                    flagged: markerHits < 3,
+                    flagged: markerHits < 2,
                     created_at: new Date().toISOString()
                 }).catch(() => { }); // Silent fail — don't break the request
             } catch (_) { }
         }
 
-        if (markerHits < 3) {
+        if (markerHits < 2) {
             console.warn(`Prompt abuse suspected: only ${markerHits} ForgeCV markers found. User: ${user.id}`);
             return res.status(400).json({
                 error: 'Invalid prompt format. This API only accepts ForgeCV resume prompts.'

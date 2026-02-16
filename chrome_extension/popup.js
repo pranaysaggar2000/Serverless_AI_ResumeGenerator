@@ -2041,10 +2041,9 @@ async function detectJobDescription() {
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
             ]);
         } catch (scriptError) {
-            // Content script injection failed - likely because tab was already loaded
-            // when popup opened, or we don't have permission for this page.
-            // Proceed to server-side fetch fallback.
-            console.warn('Content script injection failed:', scriptError);
+            // Content script injection failed (likely no permission due to Side Panel navigation).
+            // Silently proceed to server-side fetch fallback.
+            // console.debug('Content script injection failed, falling back:', scriptError.message);
         }
 
         let bestText = '';

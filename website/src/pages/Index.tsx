@@ -28,12 +28,12 @@ const Index = () => {
                   ForgeCV
                 </h1>
                 <p className="mt-1 text-sm sm:text-base font-medium text-muted-foreground">
-                  Senior Resume Optimizer &nbsp;|&nbsp; Chrome Extension &nbsp;|&nbsp; v1.0.0
+                  Senior Resume Optimizer &nbsp;|&nbsp; Chrome Extension &nbsp;|&nbsp; v1.1.0
                 </p>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs font-semibold border border-border rounded px-2 py-1 text-muted-foreground">
-                  v1.0.0
+                  v1.1.0
                 </span>
                 <a
                   href={GITHUB_URL}
@@ -66,7 +66,7 @@ const Index = () => {
                 >
                   <a href={DOWNLOAD_URL}>
                     <Download size={18} className="mr-2" />
-                    Download .zip (v1.0.0)
+                    Download .zip (v1.1.0)
                   </a>
                 </Button>
 
@@ -233,7 +233,7 @@ const Index = () => {
                     </li>
                   </ul>
                   <div className="pt-2 flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                    <span>Coming in v1.1.0</span>
+                    <span>Released in v1.1.0</span>
                   </div>
                 </div>
                 <div className="flex-1 w-full max-w-md lg:max-w-lg">

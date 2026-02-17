@@ -440,7 +440,8 @@ async function loadState() {
         'page_mode',
         'excluded_items',
         'must_include_items',
-        'jd_keywords'
+        'jd_keywords',
+        'merge_research_projects'
     ]);
 
     // Backward compatibility: use last_analysis as fallback for jd_analysis
@@ -470,7 +471,8 @@ async function loadState() {
         detectedCompany: data.detected_company || null,
         detectedPageUrl: data.detected_page_url || "",
         jdExtractionMethod: data.jd_extraction_method || 'none',
-        detectedCompanyDescription: data.detected_company_description || ""
+        detectedCompanyDescription: data.detected_company_description || "",
+        mergeResearchIntoProjects: data.merge_research_projects || false
         // DO NOT set authMode here - wait until after loadAuthState()
     });
 
@@ -502,6 +504,8 @@ async function loadState() {
             b.classList.toggle('active', b.dataset.mode === pageMode);
         });
     }, 100);
+
+    updateMergeResearchVisibility();
 
     updateActiveProfileLabel(state.activeProfile);
 
@@ -764,6 +768,19 @@ function setupEventListeners() {
     }
     if (modeByokBtn) {
         modeByokBtn.addEventListener('click', () => updateModeUI('byok'));
+    }
+
+    // Merge Research Toggle
+    const mergeToggle = document.getElementById('mergeResearchToggle');
+    if (mergeToggle) {
+        mergeToggle.addEventListener('change', async (e) => {
+            updateState({ mergeResearchIntoProjects: e.target.checked });
+            await chrome.storage.local.set({ merge_research_projects: e.target.checked });
+
+            if (state.tailoredResume) {
+                showStatus(`🔄 ${e.target.checked ? 'Sections will be merged' : 'Sections will be separate'} on next Forge.`, 'info');
+            }
+        });
     }
 
     // Google Login — use delegation because renderAuthSection() recreates this button dynamically
@@ -1050,11 +1067,16 @@ function setupEventListeners() {
     document.getElementById('backFromSetup').addEventListener('click', () => {
         if (state.baseResume) showMainUI();
     });
-    document.getElementById('backFromProfile').addEventListener('click', showMainUI);
+    document.getElementById('backFromProfile').addEventListener('click', () => {
+        showMainUI();
+        if (state.tailoredResume) {
+            sendPreviewUpdate(state.tailoredResume);
+        }
+    });
 
     // Profile Toggle
     document.getElementById('profileToggle').addEventListener('click', async () => {
-        resetEditorState(); // Clear any stale editor state
+        resetEditorState('profile'); // Clear only profile editor state, keep tailored edits
         showProfileUI();
         const profiles = await loadProfiles();
         renderProfileList(profiles, state.activeProfile);
@@ -1086,7 +1108,10 @@ function setupEventListeners() {
     });
     document.getElementById('cancelProfileEditBtn').addEventListener('click', () => {
         showMainUI();
-        sendPreviewUpdate(); // Revert preview to saved state
+        // Only revert preview if we DON'T have a tailored resume to show
+        if (!state.tailoredResume) {
+            sendPreviewUpdate();
+        }
     });
 
     // Save Settings
@@ -1326,7 +1351,13 @@ function setupEventListeners() {
             try {
                 // Set the current 'active' result to a DEEP CLONE of the base resume
                 // This prevents edits to the "tailored" resume from contaminating the base state
-                const baseClone = JSON.parse(JSON.stringify(state.baseResume));
+                let baseClone = JSON.parse(JSON.stringify(state.baseResume));
+
+                // Apply merge if toggle is on (consistent with AI forge behavior)
+                if (state.mergeResearchIntoProjects) {
+                    const { mergeResearchIntoProjects } = await import('./modules/ai_prompts.js');
+                    baseClone = mergeResearchIntoProjects(baseClone);
+                }
 
                 updateState({ tailoredResume: baseClone });
 
@@ -1624,7 +1655,7 @@ function setupEventListeners() {
     if (editBtn) {
         editBtn.addEventListener('click', () => {
             if (!state.tailoredResume) return;
-            resetEditorState(); // Clear any stale editor state
+            resetEditorState('tailored'); // Clear only tailored editor state
             document.getElementById('editorUI').style.display = 'block';
             document.getElementById('actions').style.display = 'none';
             // Default to summary or first available
@@ -1651,7 +1682,10 @@ function setupEventListeners() {
             if (confirmed) {
                 document.getElementById('editorUI').style.display = 'none';
                 document.getElementById('actions').style.display = 'block';
-                sendPreviewUpdate(); // Revert preview to saved state
+                // Only revert preview if we DON'T have a tailored resume to show
+                if (!state.tailoredResume) {
+                    sendPreviewUpdate();
+                }
             }
         });
     }
@@ -2311,3 +2345,18 @@ function updateJdStatus() {
 }
 
 
+function updateMergeResearchVisibility() {
+    const opt = document.getElementById('mergeResearchOption');
+    const toggle = document.getElementById('mergeResearchToggle');
+    if (!opt || !toggle) return;
+
+    const base = state.baseResume;
+    const hasResearch = base?.research?.length > 0;
+    const hasProjects = base?.projects?.length > 0;
+
+    // Only show when BOTH sections have content
+    opt.style.display = (hasResearch && hasProjects) ? 'block' : 'none';
+    toggle.checked = state.mergeResearchIntoProjects || false;
+}
+
+// ... existing code ...

@@ -252,6 +252,57 @@ const STRATEGY_INSTRUCTIONS = {
 - Preserve all original metrics and substance.`
 };
 
+/**
+ * Structured flattener for prose-oriented prompts.
+ * Converts bullets to a paragraph and adds _relevance scores.
+ */
+function flattenResumeForTailoring(data, jdAnalysis = null) {
+    const jdKeywords = new Set([
+        ...(jdAnalysis?.mandatory_keywords || []),
+        ...(jdAnalysis?.preferred_keywords || []),
+        ...(jdAnalysis?.tech_stack_nuances || []),
+        ...(jdAnalysis?.industry_terms || [])
+    ].map(k => k.toLowerCase()));
+
+    const calculateRelevance = (text) => {
+        if (!text || jdKeywords.size === 0) return 0;
+        const lower = text.toLowerCase();
+        let matches = 0;
+        jdKeywords.forEach(kw => {
+            if (kw.length > 2 && lower.includes(kw)) matches++;
+        });
+        return Math.min(10, matches);
+    };
+
+    const proseItem = (item) => {
+        const title = item.company || item.organization || item.name || item.title || '';
+        const role = item.role || item.degree || '';
+        const bulletsText = (item.bullets || []).join(' ');
+        return {
+            item: `${title}${role ? ' - ' + role : ''}`,
+            dates: item.dates || '',
+            details: bulletsText,
+            _relevance: calculateRelevance(`${title} ${role} ${bulletsText}`)
+        };
+    };
+
+    return {
+        name: data.name || '',
+        summary: data.summary || '',
+        skills: data.skills || {},
+        experience: (data.experience || []).map(proseItem),
+        projects: (data.projects || []).map(proseItem),
+        leadership: (data.leadership || []).map(proseItem),
+        research: (data.research || []).map(proseItem),
+        education: (data.education || []).map(e => ({
+            school: e.institution || e.school || '',
+            degree: e.degree || '',
+            gpa: e.gpa || '',
+            details: (e.bullets || []).join(' ')
+        }))
+    };
+}
+
 export function buildTailorPrompt(baseResume, jdAnalysis, tailoringStrategy, bulletCounts, pageMode = '1page', mustIncludeItems = null, formatSettings = null) {
     const strategy = STRATEGY_INSTRUCTIONS[tailoringStrategy] || STRATEGY_INSTRUCTIONS.balanced;
     const mandatory = jdAnalysis.mandatory_keywords || [];
@@ -293,8 +344,14 @@ export function buildTailorPrompt(baseResume, jdAnalysis, tailoringStrategy, bul
     // --- Page constraint ---
     let pageNote = '';
     if (pageMode === '1page') {
-        pageNote = `TARGET: One page. Write concise bullets (cut filler "in order to", "which allowed for") but KEEP all metrics/tools. Combine skill categories (max 4). Education GPA line only. Last resort: remove 0-overlap projects.
-NON-NEGOTIABLE: NEVER remove experience/education entries. NEVER remove bullets (shorten instead). NEVER drop metrics.`;
+        pageNote = `TARGET: One page. Write concise bullets (cut filler "in order to", "which allowed for") but KEEP all metrics/tools. Combine skill categories (max 4). Education GPA line only.
+        
+        CRITICAL EXCLUSION RULE:
+        If the resume is too long for 1 page, YOU MAY EXCLUDE less relevant items from [projects, volunteering, leadership, research, certifications, awards].
+        - Do NOT remove recent experience or education.
+        - If you exclude an item, you MUST add its "name" or "company" to the "excluded_items" list in the JSON output.
+        - Prioritize keeping items with strong keyword matches.
+        `;
 
         if (mustIncludeItems) {
             const includes = Object.entries(mustIncludeItems)
@@ -348,8 +405,8 @@ ${pageNote}
 
 ${bulletNote}
 
-=== CANDIDATE RESUME ===
-${JSON.stringify(baseResume)}
+=== CANDIDATE PROFILE (prose format) ===
+${JSON.stringify(flattenResumeForTailoring(baseResume, jdAnalysis), null, 0)}
 
 === REWRITING RULES ===
 
@@ -381,49 +438,68 @@ Structure: "Accomplished [X] as measured by [Y], by doing [Z]".
 BAD: "Reduced latency by 40%, with expertise in Cloud"
 GOOD: "Deployed low-latency service on AWS, reducing p95 latency by 40%"
 
+BULLET MINIMUMS:
+- Experience: minimum 2 bullets per entry (if you can't write 2 meaningful bullets, the entry should be excluded instead)
+- Projects: minimum 2 bullets for included projects (exclude rather than show with 1 weak bullet)
+- Research: 1 bullet is acceptable (the title + venue already communicates value)
+- Leadership/Volunteering: 1 bullet is acceptable
+
 TEST: If removing the keyword doesn't change what work the bullet describes, the keyword is decoration — remove it from the bullet, keep in skills only.
 
 PRESERVE architectural reasoning: phrases like "to separate X from Y", "enabling Z to scale independently", "by decoupling A from B" show system design thinking. Cut filler words around them, but KEEP these clauses — they're what hiring managers care about most.
 
 Rule 3 — SKILLS:
-Every mandatory keyword must appear. Rename categories to match JD. Max 4 categories. No parenthetical expansions (use JD form). Priority: 70% JD keywords, 30% candidate's other strengths.
-Keep up to 5 non-JD skills that demonstrate production/infrastructure breadth (Kafka, Terraform, Spark, etc.). Only drop non-JD skills that are truly irrelevant to the role's domain (e.g., drop Tableau for a pure backend role, keep Docker even if JD doesn't mention it).
+Max 4 categories. Max 16 items per category. Each item should be 1-3 words max.
+
+WHAT GOES IN SKILLS: Concrete, named tools/technologies/platforms/languages — things with version numbers, documentation pages, or that you'd install/import.
+WHAT DOES NOT GO IN SKILLS: Anything that describes an activity, process, methodology, qualification, or trait. These belong in bullets or summary where they have context.
+
+Test for each keyword: "Can I download/install/import this?" or "Does this have official documentation?"
+  YES → skills section (Python, Snowflake, Docker, Tableau, SAP)
+  NO  → weave into a bullet with context (CI/CD, data validation, Agile, mentoring, troubleshooting)
+
+Category naming: Use short technical groupings (2-3 words max).
+  GOOD: "Languages", "Cloud & Data", "DevOps", "Frameworks"
+  BAD:  Long phrases copied from JD section headers
+
+Why this matters: ATS systems score keywords found in bullet context HIGHER than isolated skills lists. "Built CI/CD pipelines using GitHub Actions reducing deploy time 40%" scores better than "CI/CD, GitHub Actions" in a comma list. So put process/methodology keywords in bullets — it's BETTER for the candidate.
 
 Rule 4 — PROJECTS & RESEARCH:
-Projects: Inject related JD keywords ONLY if tech field overlaps and era is plausible. Max 1 modified bullet per project. NEVER fabricate implausible tech.
-Research: NEVER modify research/publication bullets — published work is immutable. Do not inject keywords into paper descriptions. Keywords from research topics can appear in the skills section.
+    Projects: Inject related JD keywords ONLY if tech field overlaps and era is plausible. Max 1 modified bullet per project. NEVER fabricate implausible tech.
+    Research: NEVER modify research/publication bullets — published work is immutable. Do not inject keywords into paper descriptions. Keywords from research topics can appear in the skills section.
+    ${!baseResume.research || baseResume.research.length === 0 ? "NOTE: This resume's research items have been merged into projects. Treat bullets for these items as immutable." : ""}
 
 Rule 5 — INTEGRITY:
 NEVER invent companies, roles, dates, or metrics. NEVER change company names.
 
 Rule 6 — FORMATTING:
-NEVER insert spaces between letters ("P y t h o n"). Only renderable sections in section_order (no "name"/"contact").
+NEVER insert spaces between letters ("P y t h o n"). Only renderable sections in section_order (no "name" / "contact").
 
 ${ANTI_AI_WRITING_RULES}
 
 === FINAL CHECK BEFORE OUTPUT ===
-Before output: verify NO bullet ends with "with a focus on...", "utilizing...", "with expertise in...", "leveraging...", or "ensuring...". Rewrite any that do.
-Every bullet MUST end with a period. If a bullet does not end with ".", add one.
+        Before output: verify NO bullet ends with "with a focus on...", "utilizing...", "with expertise in...", "leveraging...", or "ensuring...".Rewrite any that do.
+Every bullet MUST end with a period.If a bullet does not end with ".", add one.
 
 
-FORMATTING: Output all text as normal continuous words. NEVER insert spaces between individual characters of a word.
+        FORMATTING: Output all text as normal continuous words.NEVER insert spaces between individual characters of a word.
 
 ` + 'Return ONLY JSON in ```json``` block:\n```json\n' + `{
-  "name": "${baseResume.name || ''}",
-  "contact": ${JSON.stringify(baseResume.contact || { location: "", phone: "", email: "", linkedin_url: "", portfolio_url: "" })},
-  "summary": "rewritten summary",
-  "education": [{"institution":"","degree":"","gpa":"","dates":"","location":"","bullets":[]}],
-  "skills": {"Category": "skill1, skill2"},
-  "experience": [{"company":"","role":"","dates":"","location":"","bullets":["bullet1"]}],
-  "projects": [{"name":"","tech":"","dates":"","bullets":[]}],
-  "leadership": [{"organization":"","role":"","dates":"","location":"","bullets":[]}],
-  "research": [{"title":"","conference":"","dates":"","link":"","bullets":[]}],
-  "certifications": [{"name":"","issuer":"","dates":""}],
-  "awards": [{"name":"","organization":"","dates":""}],
-  "volunteering": [{"organization":"","role":"","dates":"","location":"","bullets":[]}],
-  "languages": "${baseResume.languages || ''}",
-  "section_order": ${JSON.stringify(baseResume.section_order || ["summary", "skills", "experience", "projects", "education"])},
-  "excluded_items": {"projects":[],"experience":[],"leadership":[],"research":[],"certifications":[],"awards":[],"volunteering":[]}
+    "name": "${baseResume.name || ''}",
+        "contact": ${JSON.stringify(baseResume.contact || { location: "", phone: "", email: "", linkedin_url: "", portfolio_url: "" })},
+    "summary": "rewritten summary",
+        "education": [{ "institution": "", "degree": "", "gpa": "", "dates": "", "location": "", "bullets": [] }],
+            "skills": { "Category": "skill1, skill2" },
+    "experience": [{ "company": "", "role": "", "dates": "", "location": "", "bullets": ["bullet1"] }],
+        "projects": [{ "name": "", "tech": "", "dates": "", "bullets": [] }],
+            "leadership": [{ "organization": "", "role": "", "dates": "", "location": "", "bullets": [] }],
+                "research": [{ "title": "", "conference": "", "dates": "", "link": "", "bullets": [] }],
+                    "certifications": [{ "name": "", "issuer": "", "dates": "" }],
+                        "awards": [{ "name": "", "organization": "", "dates": "" }],
+                            "volunteering": [{ "organization": "", "role": "", "dates": "", "location": "", "bullets": [] }],
+                                "languages": "${baseResume.languages || ''}",
+                                    "section_order": ${JSON.stringify(baseResume.section_order || ["summary", "skills", "experience", "projects", "education"])},
+    "excluded_items": { "projects": [], "experience": [], "leadership": [], "research": [], "certifications": [], "awards": [], "volunteering": [] }
 }
 ` + '```\n' + `Use item names as string identifiers in excluded_items.`;
 }
@@ -701,59 +777,175 @@ export function clean_tailored_resume(resume_data) {
  * Safety net for when the AI drops keywords (common with free-tier models).
  */
 export function ensure_keyword_coverage(resume_data, jdAnalysis) {
-    if (!jdAnalysis || !resume_data.skills) return resume_data;
+    if (!resume_data.skills || !jdAnalysis) return resume_data;
 
     const mandatory = jdAnalysis.mandatory_keywords || [];
     const preferred = jdAnalysis.preferred_keywords || [];
-    if (mandatory.length === 0 && preferred.length === 0) return resume_data;
 
-    const NON_SKILL_TERMS = new Set([
-        'transparency', 'communication', 'leadership', 'teamwork',
-        'problem-solving', 'critical thinking', 'attention to detail',
-        'time management', 'adaptability', 'work ethic', 'initiative',
-        'collaboration', 'self-driven', 'continuously learn', 'new challenges',
-        'analytical skills', 'strong communication skills', 'communication skills',
-        'stakeholder management', 'interpersonal skills', 'organizational skills',
-        'metric alignment', 'statistical rigor',
-        'data-driven decision-making', 'data-informed decision-making',
-        'best practices', 'actionable insights', 'business strategy',
-        'startup environment', 'fast-paced environment', 'cross-functional',
-        'hybrid', 'remote', 'on-site',
-        'large-scale data', 'large datasets', 'data-driven',
-    ].map(t => t.toLowerCase()));
+    // Stringify the ENTIRE resume to check if keyword exists anywhere
+    const fullText = JSON.stringify(resume_data).toLowerCase();
 
-    const softSkills = new Set((jdAnalysis.soft_skills || []).map(s => s.toLowerCase()));
+    const toAdd = [];
 
-    // Flatten all skills text for matching
-    const allSkillsText = Object.values(resume_data.skills)
-        .map(v => (Array.isArray(v) ? v.join(', ') : String(v)).toLowerCase())
-        .join(' | ');
-
-    const missingFromSkills = [];
     for (const kw of [...mandatory, ...preferred]) {
-        const kwLower = kw.toLowerCase();
-        if (NON_SKILL_TERMS.has(kwLower) || softSkills.has(kwLower)) continue;
-        if (!allSkillsText.includes(kwLower)) {
-            missingFromSkills.push(kw);
+        const kwLower = kw.toLowerCase().trim();
+        if (!kwLower) continue;
+
+        // Already in resume somewhere (skills, bullets, summary)? Skip.
+        if (fullText.includes(kwLower)) continue;
+
+        // Missing from entire resume. Should we add to skills or is it
+        // a process/methodology that should be in bullets?
+        //
+        // GENERALIZED HEURISTIC: Word count.
+        //   1-2 words = likely a tool/tech name → add to skills
+        //   3+ words = likely a process/phrase → skip (AI should've put it in bullets)
+
+        const wordCount = kwLower.split(/[\s-]+/).filter(Boolean).length;
+        if (wordCount <= 2) {
+            toAdd.push(kw);
+        } else {
+            console.debug(`[keyword-coverage] Skipping "${kw}" (${wordCount} words — belongs in bullets, not skills)`);
         }
     }
 
-    if (missingFromSkills.length === 0) return resume_data;
+    if (toAdd.length === 0) return resume_data;
 
-    // Add to last existing category or create "Additional Skills"
-    const categories = Object.keys(resume_data.skills);
-    const target = categories.length > 0 ? categories[categories.length - 1] : 'Additional Skills';
-    const existing = resume_data.skills[target] || '';
+    // Find the category with the fewest items (balance distribution)
+    const MAX_PER_CATEGORY = 16;
+    let bestCat = null;
+    let bestSlots = 0;
+
+    for (const [cat, val] of Object.entries(resume_data.skills)) {
+        const count = (Array.isArray(val) ? val : String(val).split(',')).filter(s => s.trim()).length;
+        const slots = MAX_PER_CATEGORY - count;
+        if (slots > bestSlots) {
+            bestSlots = slots;
+            bestCat = cat;
+        }
+    }
+
+    // If all categories are full and we have < 4 categories, create a new one
+    if (bestSlots <= 0) {
+        const catCount = Object.keys(resume_data.skills).length;
+        if (catCount < 4) {
+            bestCat = 'Tools';
+            resume_data.skills[bestCat] = '';
+            bestSlots = MAX_PER_CATEGORY;
+        } else {
+            console.debug(`[keyword-coverage] All 4 skill categories full. ${toAdd.length} keywords skipped.`);
+            return resume_data;
+        }
+    }
+
+    const existing = resume_data.skills[bestCat] || '';
     const existingStr = Array.isArray(existing) ? existing.join(', ') : String(existing);
-    const toAdd = missingFromSkills.filter(kw => !existingStr.toLowerCase().includes(kw.toLowerCase()));
+    const existingLower = existingStr.toLowerCase();
 
-    if (toAdd.length > 0) {
-        resume_data.skills[target] = existingStr + (existingStr ? ', ' : '') + toAdd.join(', ');
-        console.debug(`[keyword-coverage] Added ${toAdd.length} missing keywords to "${target}": ${toAdd.join(', ')}`);
+    const finalAdd = toAdd
+        .filter(kw => !existingLower.includes(kw.toLowerCase()))
+        .slice(0, bestSlots);
+
+    if (finalAdd.length > 0) {
+        resume_data.skills[bestCat] = existingStr + (existingStr ? ', ' : '') + finalAdd.join(', ');
+        console.debug(`[keyword-coverage] Added ${finalAdd.length} keywords to "${bestCat}": ${finalAdd.join(', ')}`);
     }
 
     return resume_data;
 }
+
+export function enforce_skill_limits(resume_data, maxCategories = 4, maxPerCategory = 16) {
+    if (!resume_data.skills || typeof resume_data.skills !== 'object') return resume_data;
+
+    const globalSeen = new Set(); // cross-category dedup
+    const cleaned = {};
+
+    for (const [cat, val] of Object.entries(resume_data.skills)) {
+        const skillStr = Array.isArray(val) ? val.join(', ') : String(val);
+        const items = skillStr.split(',').map(s => s.trim()).filter(Boolean);
+
+        const unique = [];
+        for (const item of items) {
+            const key = item.toLowerCase();
+
+            // Skip if seen in another category already
+            if (globalSeen.has(key)) continue;
+
+            // Skip items that are 4+ words (likely a phrase, not a skill name)
+            const wordCount = key.split(/[\s-]+/).filter(Boolean).length;
+            if (wordCount > 3) {
+                console.debug(`[skill-limits] Dropped "${item}" (${wordCount} words — too long for skills list)`);
+                continue;
+            }
+
+            globalSeen.add(key);
+            unique.push(item);
+        }
+
+        if (unique.length > 0) {
+            cleaned[cat] = unique.slice(0, maxPerCategory).join(', ');
+        }
+    }
+
+    // Keep top N categories by item count
+    const sorted = Object.entries(cleaned)
+        .sort((a, b) => b[1].split(',').length - a[1].split(',').length);
+
+    resume_data.skills = Object.fromEntries(sorted.slice(0, maxCategories));
+
+    return resume_data;
+}
+
+/**
+ * Pre-process: merge research items into projects if toggle is on.
+ * Operates on a CLONE — never mutates the original.
+ * Research items are converted to project format, preserving conference/link as bullet prefix.
+ */
+export function mergeResearchIntoProjects(resumeData) {
+    if (!resumeData.research || resumeData.research.length === 0) return resumeData;
+
+    const merged = JSON.parse(JSON.stringify(resumeData));
+
+    if (!merged.projects) merged.projects = [];
+
+    merged.research.forEach(item => {
+        const bullets = [...(item.bullets || [])];
+        // Preserve research-specific fields as structured info in bullets
+        if (item.conference) {
+            bullets.unshift(`Published in: ${item.conference}`);
+        }
+
+        merged.projects.push({
+            name: item.title || 'Research Project',
+            tech: '',  // Research doesn't have tech, leave empty
+            dates: item.dates || '',
+            link: item.link || '',  // Preserve link at project level
+            bullets: bullets,
+            _source: 'research'  // Tag so post-processing knows origin
+        });
+    });
+
+    // Remove research section
+    merged.research = [];
+
+    // Update section_order: remove 'research', ensure 'projects' exists
+    if (merged.section_order) {
+        merged.section_order = merged.section_order.filter(s => s !== 'research');
+        if (!merged.section_order.includes('projects')) {
+            // Insert projects where research was, or after experience
+            const expIdx = merged.section_order.indexOf('experience');
+            const insertIdx = expIdx !== -1 ? expIdx + 1 : 0;
+            merged.section_order.splice(insertIdx, 0, 'projects');
+        }
+    }
+
+    // Update section title to reflect merge
+    if (!merged.section_titles) merged.section_titles = {};
+    merged.section_titles.projects = merged.section_titles.projects || 'Research & Projects';
+
+    return merged;
+}
+
 
 function find_best_match(gen_item, pool) {
     let best = null, maxScore = 0;
@@ -800,9 +992,10 @@ export function restore_immutable_fields(original, generated) {
         }
     };
 
-    restore('experience', ['role', 'company', 'duration', 'dates', 'location']);
-    restore('projects', ['name', 'link', 'dates']);
-    restore('leadership', ['role', 'organization', 'duration', 'dates', 'location']);
+    restore('education', ['school', 'degree', 'dates', 'location']);
+    restore('experience', ['company', 'role', 'dates', 'location']);
+    restore('projects', ['name', 'title', 'link', 'dates']);
+    restore('leadership', ['organization', 'role', 'dates', 'location']);
     restore('research', ['title', 'conference', 'dates', 'link']);
     restore('certifications', ['name', 'issuer', 'dates']);
     restore('awards', ['name', 'organization', 'dates']);

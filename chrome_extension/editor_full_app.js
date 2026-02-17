@@ -71,10 +71,250 @@ function detectMissingItems() {
     updateRestoreButtonVisibility();
 }
 
+function getFilteredBaseResume() {
+    // Clone base resume to avoid mutating state
+    const filtered = JSON.parse(JSON.stringify(state.baseResume || currentResume));
+
+    // 1. Remove deleted sections
+    if (deletedSections.length > 0) {
+        deletedSections.forEach(ds => {
+            delete filtered[ds.section];
+            if (filtered.section_order) {
+                filtered.section_order = filtered.section_order.filter(s => s !== ds.section);
+            }
+        });
+    }
+
+    // 2. Remove deleted items
+    // userDeletedItems is { section: [ { item: ..., originalIndex: ... } ] }
+    // We need to match items in filtered base and remove them.
+    Object.entries(userDeletedItems).forEach(([section, deletedList]) => {
+        if (!filtered[section] || !Array.isArray(filtered[section])) return;
+
+        // We filter out items that match any in the deleted list
+        filtered[section] = filtered[section].filter(baseItem => {
+            const baseId = (baseItem.company || baseItem.name || baseItem.organization || baseItem.title || '').toLowerCase().trim();
+
+            // Check if this baseItem is in the deletedList
+            const isDeleted = deletedList.some(d => {
+                const dId = (d.item.company || d.item.name || d.item.title || '').toLowerCase().trim();
+                return dId === baseId || baseId.includes(dId) || dId.includes(baseId);
+            });
+
+            return !isDeleted;
+        });
+    });
+
+    return filtered;
+}
+
+
+function showExcludedItemsDialog() {
+    const excluded = state.excludedItems || {};
+    const base = state.baseResume || {};
+
+    // Calculate total excluded items
+    let total = 0;
+    const itemsBySection = {};
+
+    Object.entries(excluded).forEach(([section, ids]) => {
+        if (!ids || ids.length === 0) return;
+        if (!base[section]) return;
+
+        // Find actual item data
+        const items = base[section].filter(item => {
+            const itemId = (item.company || item.name || item.organization || item.title || '').toLowerCase().trim();
+            return ids.some(id => {
+                const idLower = String(id).toLowerCase().trim();
+                return idLower === itemId || itemId.includes(idLower) || idLower.includes(itemId);
+            });
+        });
+
+        if (items.length > 0) {
+            itemsBySection[section] = items;
+            total += items.length;
+        }
+    });
+
+    if (total === 0) {
+        showSuccessToast("No excluded items found.");
+        return;
+    }
+
+    let html = `<div style="max-height:400px;overflow-y:auto;padding:10px;"><p style="margin:0 0 12px;color:#6b7280;font-size:13px;">Select items to restore from AI exclusion.</p>`;
+
+    Object.entries(itemsBySection).forEach(([section, items]) => {
+        const sectionLabel = section.charAt(0).toUpperCase() + section.slice(1);
+        html += `<div style="margin-bottom:12px;"><h4 style="margin:0 0 6px;font-size:13px;color:#92400e;text-transform:uppercase;">${escapeHtml(sectionLabel)}</h4>`;
+
+        items.forEach((item, i) => {
+            const name = item.company || item.name || item.organization || item.title || 'Unknown';
+            const subtitle = item.role || item.tech || '';
+            const itemId = (item.company || item.name || item.organization || item.title || '').trim();
+
+            html += `<label class="restore-item" style="display:flex;gap:10px;padding:8px;border-bottom:1px solid #fef3c7;background:#fffbeb;cursor:pointer;">
+                        <input type="checkbox" data-section="${section}" data-item-id="${escapeHtml(itemId)}">
+                        <div style="font-size:13px;">
+                            <strong>${escapeHtml(name)}</strong>
+                            ${subtitle ? `<div style="font-size:11px;color:#6b7280;">${escapeHtml(subtitle)}</div>` : ''}
+                        </div>
+                    </label>`;
+        });
+        html += `</div>`;
+    });
+    html += `</div>`;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'restoreExcludedOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = `<div style="background:white;border-radius:12px;width:420px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;">
+            <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;background:#fff7ed;">
+                <h3 style="color:#9a3412;">⚠️ Restore Excluded Items</h3>
+                <button id="closeExcludedBtn" style="background:none;border:none;cursor:pointer;font-size:18px;color:#9a3412;">&times;</button>
+            </div>
+            ${html}
+            <div style="padding:12px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:8px;">
+                <button id="cancelExcludedBtn" class="editor-cancel-btn" style="width:auto;">Cancel</button>
+                <button id="confirmExcludedRestore" style="background:#ea580c;color:white;padding:8px 16px;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Restore Selected</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector('#closeExcludedBtn').addEventListener('click', () => overlay.remove());
+    overlay.querySelector('#cancelExcludedBtn').addEventListener('click', () => overlay.remove());
+
+    overlay.querySelector('#confirmExcludedRestore').onclick = async () => {
+        const checked = overlay.querySelectorAll('input:checked');
+        if (checked.length === 0) {
+            overlay.remove();
+            return;
+        }
+
+        const toRestore = {}; // section -> [itemIds]
+
+        checked.forEach(cb => {
+            const sec = cb.dataset.section;
+            const id = cb.dataset.itemId;
+            if (!toRestore[sec]) toRestore[sec] = [];
+            toRestore[sec].push(id);
+        });
+
+        // 1. Add to currentResume
+        undoSnapshot = JSON.parse(JSON.stringify(currentResume));
+
+        let restoredCount = 0;
+        Object.entries(toRestore).forEach(([section, ids]) => {
+            if (!currentResume[section]) currentResume[section] = [];
+
+            // Get original items
+            const originalItems = itemsBySection[section].filter(item => {
+                const itemId = (item.company || item.name || item.organization || item.title || '').trim();
+                return ids.includes(itemId);
+            });
+
+            // Add to resume
+            currentResume[section].push(...JSON.parse(JSON.stringify(originalItems)));
+            restoredCount += originalItems.length;
+
+            // 2. Remove from state.excludedItems?
+            // Actually, we should PROBABLY add them to mustIncludeItems so they stick?
+            // But for now, just restoring them to current resume is enough for manual editing.
+            // However, if we re-generate, they might get excluded again unless we add to "mustIncludeItems".
+            // Let's DO add to mustIncludeItems.
+        });
+
+        // Update mustIncludeItems
+        const mustInclude = state.mustIncludeItems || {};
+        Object.entries(toRestore).forEach(([section, ids]) => {
+            if (!mustInclude[section]) mustInclude[section] = [];
+            ids.forEach(id => {
+                if (!mustInclude[section].includes(id)) mustInclude[section].push(id);
+            });
+        });
+
+        updateState({ mustIncludeItems: mustInclude });
+        await chrome.storage.local.set({ must_include_items: mustInclude });
+
+        // Remove from excludedItems state locally so badge updates
+        // (Note: This determines badge count)
+        const newExcluded = JSON.parse(JSON.stringify(state.excludedItems));
+        Object.entries(toRestore).forEach(([section, ids]) => {
+            if (newExcluded[section]) {
+                newExcluded[section] = newExcluded[section].filter(exParams => {
+                    // exParams is string ID
+                    return !ids.includes(exParams);
+                });
+                if (newExcluded[section].length === 0) delete newExcluded[section];
+            }
+        });
+        updateState({ excludedItems: newExcluded });
+
+        await saveChanges(false);
+        renderEditor();
+        renderSectionNav();
+        overlay.remove();
+        showSuccessToast(`Restored ${restoredCount} items!`);
+
+        // Update badges
+        updateExcludedItemsButtonVisibility();
+    };
+}
+
+function updateExcludedItemsButtonVisibility() {
+    const btn = document.getElementById('viewExcludedBtn');
+    if (!btn) return;
+
+    const excluded = state.excludedItems || {};
+    // Calculate REAL count based on base resume matching
+    // (sometimes excluded list has junk or items already restored manually)
+    let total = 0;
+    const base = state.baseResume || {};
+    const tailored = currentResume || {}; // Current working copy
+
+    Object.entries(excluded).forEach(([section, ids]) => {
+        if (!ids || ids.length === 0) return;
+        if (!base[section]) return;
+
+        // Count items that are in base, linked to these IDs, AND NOT in current tailored
+        const missingItems = base[section].filter(item => {
+            const itemId = (item.company || item.name || item.organization || item.title || '').toLowerCase().trim();
+
+            const isExcludedId = ids.some(id => {
+                const idLower = String(id).toLowerCase().trim();
+                return idLower === itemId || itemId.includes(idLower) || idLower.includes(itemId);
+            });
+            if (!isExcludedId) return false;
+
+            // Check if present in current resume
+            const currentSec = tailored[section] || [];
+            const isPresent = currentSec.some(t => {
+                const tId = (t.company || t.name || t.organization || t.title || '').toLowerCase().trim();
+                return tId === itemId || tId.includes(itemId) || itemId.includes(tId);
+            });
+
+            return !isPresent;
+        });
+
+        total += missingItems.length;
+    });
+
+    if (total > 0) {
+        btn.style.display = 'inline-flex';
+        btn.innerHTML = `<span style="margin-right:4px;">⚠️</span> Excluded (${total})`;
+        btn.style.background = '#fffbeb';
+        btn.style.borderColor = '#fcd34d';
+        btn.style.color = '#92400e';
+    } else {
+        btn.style.display = 'none';
+    }
+}
+
 function showRestoreDeletedDialog() {
     const itemTotal = Object.values(userDeletedItems).reduce((s, a) => s + a.length, 0);
     const total = itemTotal + deletedSections.length;
     if (total === 0) return;
+
     let html = `<div style="max-height:400px;overflow-y:auto;padding:10px;"><p style="margin:0 0 12px;color:#6b7280;font-size:13px;">Select items to restore.</p>`;
     const sectionLabels = { experience: 'Work Experience', projects: 'Projects', leadership: 'Leadership', research: 'Research', education: 'Education', certifications: 'Certifications', awards: 'Awards', volunteering: 'Volunteering', summary: 'Summary', skills: 'Skills', languages: 'Languages', interests: 'Interests' };
 
@@ -196,7 +436,7 @@ async function loadInitialData() {
         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Storage read timed out')), 10000));
 
         const data = await Promise.race([
-            chrome.storage.local.get(['tailored_resume', 'base_resume', 'format_settings', 'jd_analysis']),
+            chrome.storage.local.get(['tailored_resume', 'base_resume', 'format_settings', 'jd_analysis', 'must_include_items', 'excluded_items', 'merge_research_projects']),
             timeoutPromise
         ]);
 
@@ -209,7 +449,12 @@ async function loadInitialData() {
         }
         currentFormat = data.format_settings || DEFAULT_FORMAT;
         currentJdAnalysis = data.jd_analysis;
-        updateState({ baseResume: data.base_resume });
+        updateState({
+            baseResume: data.base_resume,
+            mustIncludeItems: data.must_include_items,
+            excludedItems: data.excluded_items,
+            mergeResearchIntoProjects: data.merge_research_projects || false
+        });
         detectMissingItems();
 
         const container = document.getElementById('pdfContainer');
@@ -223,6 +468,8 @@ async function loadInitialData() {
             renderEditor();
             renderSectionNav();
             updateAtsBadge();
+            updateExcludedItemsButtonVisibility(); // Check for excluded items
+            updateRestoreButtonVisibility();
             await safelyGeneratePdf(true);
             autoFitEditor();
         } else {
@@ -424,6 +671,30 @@ function setupKeyboardShortcuts() {
 }
 
 function setupToolbar() {
+    // Excluded Items Button (AI removed)
+    const rightActions = document.querySelector('.toolbar-right');
+    if (rightActions) {
+        const excludedBtn = document.createElement('button');
+        excludedBtn.id = 'viewExcludedBtn';
+        excludedBtn.className = 'tb-btn';
+        excludedBtn.style.display = 'none'; // Hidden by default
+        excludedBtn.style.marginRight = '8px';
+        excludedBtn.innerHTML = `⚠️ Excluded`;
+        excludedBtn.onclick = showExcludedItemsDialog;
+        // Insert before download buttons or at start of right actions
+        rightActions.insertBefore(excludedBtn, rightActions.firstChild);
+
+        // Restore Deleted Button (User removed)
+        const restoreBtn = document.createElement('button');
+        restoreBtn.id = 'restoreDeletedBtn';
+        restoreBtn.className = 'tb-btn';
+        restoreBtn.style.display = 'none';
+        restoreBtn.style.marginRight = '8px';
+        restoreBtn.innerHTML = `♻️ Restore Deleted`;
+        restoreBtn.onclick = showRestoreDeletedDialog;
+        rightActions.insertBefore(restoreBtn, rightActions.firstChild);
+    }
+
     document.getElementById('saveBtn')?.addEventListener('click', () => saveChanges(true));
     document.getElementById('restoreDeletedBtn')?.addEventListener('click', showRestoreDeletedDialog);
     document.getElementById('reforgeBtn')?.addEventListener('click', async () => {
@@ -434,7 +705,14 @@ function setupToolbar() {
             const data = await chrome.storage.local.get(['base_resume', 'jd_analysis', 'gemini_api_key', 'groq_api_key', 'openrouter_api_key', 'provider_settings', 'auth_mode', 'free_usage', 'access_token']);
             if (!data.jd_analysis) { showErrorToast('No job description found!'); return; }
             if (data.auth_mode === 'free' && data.free_usage?.remaining <= 0) { showErrorToast('Daily limit reached!'); return; }
-            if (!confirm("Regenerate resume with AI?")) return;
+
+            // Warn user about deletions
+            const deletedCount = Object.values(userDeletedItems).reduce((s, a) => s + a.length, 0) + deletedSections.length;
+            let confirmMsg = "Regenerate resume with AI?";
+            if (deletedCount > 0) {
+                confirmMsg += `\n\nNOTE: ${deletedCount} manually deleted items/sections will be EXCLUDED from the new resume.`;
+            }
+            if (!confirm(confirmMsg)) return;
 
             btn.innerHTML = '<span class="spinner"></span> Reforging...'; btn.disabled = true;
             updateState({
@@ -444,7 +722,10 @@ function setupToolbar() {
                 isLoggedIn: !!data.access_token
             });
 
-            const newResume = await regenerateResume(data.base_resume || currentResume, collectBulletCountsFromFullEditor(), data.jd_analysis, getApiKeyForProvider(), state.currentProvider, 'balanced', '1page', null);
+            // Calculate filtered base resume (respecting user deletions)
+            const filteredBase = getFilteredBaseResume();
+
+            const newResume = await regenerateResume(data.base_resume || currentResume, collectBulletCountsFromFullEditor(), data.jd_analysis, getApiKeyForProvider(), state.currentProvider, 'balanced', '1page', state.mustIncludeItems, filteredBase);
             currentResume = newResume;
             await chrome.storage.local.set({ tailored_resume: newResume });
             renderEditor(); renderSectionNav(); await safelyGeneratePdf(true); showSuccessToast('Reforged!');
@@ -686,26 +967,26 @@ function scrapeResumeFromEditor() {
     const container = document.getElementById('resumeEditorContainer');
     // Step 65: Null guard
     if (!container || !currentResume) return currentResume;
-    const state = JSON.parse(JSON.stringify(currentResume));
+    const scraped = JSON.parse(JSON.stringify(currentResume));
     const getText = el => el ? el.innerText.trim() : '';
 
     // Core info
     const nameEl = container.querySelector('.resume-name');
-    if (nameEl) state.name = getText(nameEl);
+    if (nameEl) scraped.name = getText(nameEl);
 
     const contact = container.querySelector('.resume-contact');
-    if (contact && !state.contact) state.contact = {};
+    if (contact && !scraped.contact) scraped.contact = {};
     if (contact) {
         ['email', 'phone', 'location', 'linkedin', 'portfolio'].forEach(k => {
             const el = contact.querySelector(`[data-field="${k}"]`);
             if (el) {
                 const txt = getText(el);
-                state.contact[k] = txt;
+                scraped.contact[k] = txt;
                 if (k === 'portfolio') {
-                    if (el.dataset.url) state.contact.portfolio_url = el.dataset.url;
+                    if (el.dataset.url) scraped.contact.portfolio_url = el.dataset.url;
                     // Step 41: Preserve 'website' if it was the original source
                     if (currentResume.contact?.website && !currentResume.contact?.portfolio) {
-                        state.contact.website = txt;
+                        scraped.contact.website = txt;
                     }
                 }
             }
@@ -714,39 +995,39 @@ function scrapeResumeFromEditor() {
 
     // Sections & Order (Step 25 rebuild)
     const sects = container.querySelectorAll('.resume-section');
-    state.section_order = [];
+    scraped.section_order = [];
     sects.forEach(sec => {
         const type = sec.dataset.section;
         if (!type || type === 'name' || type === 'contact') return;
-        state.section_order.push(type);
+        scraped.section_order.push(type);
 
         // Title Casing (Step 28)
         const header = sec.querySelector('.section-header');
         if (header) {
-            if (!state.section_titles) state.section_titles = {};
+            if (!scraped.section_titles) scraped.section_titles = {};
             let txt = header.textContent.trim();
             if (window.getComputedStyle(header).textTransform === 'uppercase') {
                 const orig = currentResume.section_titles?.[type] || type;
                 if (txt.toUpperCase() === orig.toUpperCase()) txt = orig;
                 else txt = txt.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
             }
-            state.section_titles[type] = txt;
+            scraped.section_titles[type] = txt;
         }
 
-        if (type === 'summary') state.summary = getText(sec.querySelector('.section-content'));
+        if (type === 'summary') scraped.summary = getText(sec.querySelector('.section-content'));
         else if (type === 'skills') {
-            state.skills = {};
+            scraped.skills = {};
             sec.querySelectorAll('.section-item').forEach(row => {
                 const k = getText(row.querySelector('[data-key="category"]'));
                 const v = getText(row.querySelector('[data-key="value"]'));
-                if (k) state.skills[k] = v;
+                if (k) scraped.skills[k] = v;
             });
         }
         else if (type === 'languages' || type === 'interests') {
-            state[type] = getText(sec.querySelector('.section-content')).split(',').map(s => s.trim()).filter(Boolean);
+            scraped[type] = getText(sec.querySelector('.section-content')).split(',').map(s => s.trim()).filter(Boolean);
         }
         else {
-            state[type] = Array.from(sec.querySelectorAll('.section-item')).map(item => {
+            scraped[type] = Array.from(sec.querySelectorAll('.section-item')).map(item => {
                 const obj = {};
                 const keys = ['company', 'school', 'name', 'title', 'role', 'degree', 'dates', 'location', 'tech', 'issuer', 'organization', 'conference', 'link'];
                 keys.forEach(k => { const el = item.querySelector(`[data-key="${k}"]`); if (el) obj[k] = getText(el); });
@@ -780,12 +1061,12 @@ function scrapeResumeFromEditor() {
 
     // Step 42: Normalize date/dates key inconsistency
     ['experience', 'education', 'projects', 'leadership', 'research', 'certifications', 'awards', 'volunteering'].forEach(sec => {
-        if (Array.isArray(state[sec])) {
-            state[sec].forEach(item => { if (item.date !== undefined && item.dates !== undefined) delete item.date; });
+        if (Array.isArray(scraped[sec])) {
+            scraped[sec].forEach(item => { if (item.date !== undefined && item.dates !== undefined) delete item.date; });
         }
     });
 
-    return state;
+    return scraped;
 }
 
 function setupGlobalListeners() {

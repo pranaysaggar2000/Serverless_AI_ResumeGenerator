@@ -158,6 +158,7 @@ export function renderFullResumeEditor(container, data, fmt = {}) {
         if (Array.isArray(sectionData) && sectionData.length === 0) return;
         if (section === 'skills' && typeof sectionData === 'object' && !Array.isArray(sectionData) && Object.keys(sectionData).length === 0) return;
 
+
         const secDiv = document.createElement('div');
         secDiv.className = 'resume-section';
         secDiv.dataset.section = section;

@@ -86,11 +86,13 @@ function escapeRegex(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export function resetEditorState() {
-    editingState = {
-        profile: { resume: null, source: null },
-        tailored: { resume: null, source: null }
-    };
+export function resetEditorState(target = 'all') {
+    if (target === 'profile' || target === 'all') {
+        editingState.profile = { resume: null, source: null };
+    }
+    if (target === 'tailored' || target === 'all') {
+        editingState.tailored = { resume: null, source: null };
+    }
 }
 
 export function getCurrentEditingResume(containerId = 'profileFormContainer') {
@@ -239,7 +241,11 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
                     if (currentSection) {
                         const updatedResume = scrapeSectionFromDOM(currentSection, containerId);
                         if (updatedResume) {
-                            sendPreviewUpdate(updatedResume);
+                            // ONLY broadcast preview for tailored resume editor, NOT base profile
+                            const isProfile = containerId === 'profileFormContainer' || container.closest('#profileUI');
+                            if (!isProfile) {
+                                sendPreviewUpdate(updatedResume);
+                            }
                         }
                     }
                 }, 500);
@@ -264,6 +270,26 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
     debugLog("Found Section Data:", sectionData);
 
     container.innerHTML = ''; // Clear existing
+
+    // 0. Info Banner for Merged Research
+    if (section === 'research' && state.mergeResearchIntoProjects) {
+        const isTailored = (containerId === 'formContainer' || containerId === 'resumeEditor');
+
+
+        // In tailoring mode, if it's merged, it WILL be empty (moved to projects)
+        if (isTailored && (!sectionData || sectionData.length === 0)) {
+            container.innerHTML = `
+                <div style="padding:30px 20px; text-align:center; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; margin-bottom:20px;">
+                    <div style="font-size:28px; margin-bottom:12px;">🔗</div>
+                    <div style="font-size:14px; font-weight:600; color:#1e293b;">Research merged into Projects</div>
+                    <div style="font-size:12px; color:#64748b; margin-top:6px; line-height:1.5;">
+                        Your research items have been combined into the <b>Projects</b> section to save space.<br>
+                        Toggle "Merge Research into Projects" OFF in Forge Options to separate them.
+                    </div>
+                </div>`;
+            return;
+        }
+    }
 
 
 
@@ -424,53 +450,10 @@ export function renderProfileEditor(section, resumeToEdit = null, containerId = 
         };
         container.appendChild(removeSectionBtn);
 
-        // Special case for Research -> Projects move
-        if (section === 'research' && sectionData.length > 0) {
-            const moveBtn = document.createElement('button');
-            moveBtn.id = 'moveResearchToProjectsBtn'; // keeping ID for possible css reference
-            moveBtn.className = "secondary-btn";
-            moveBtn.style.width = "100%";
-            moveBtn.style.marginTop = "5px";
-            moveBtn.style.backgroundColor = "#eef";
-            moveBtn.style.border = "1px solid #cce";
-            moveBtn.textContent = "Move All Research to Projects Section";
 
-            moveBtn.onclick = async () => {
-                const confirmed = await showConfirmDialog("This will move all Research items to the Projects section and clear the Research section. Continue?");
-                if (!confirmed) return;
-
-                if (!data.projects) data.projects = [];
-                const researchItems = await saveProfileChanges('research'); // Get current state from DOM
-
-                researchItems.forEach(item => {
-                    const newBullets = [...(item.bullets || [])];
-                    if (item.conference) newBullets.unshift(`Published in: ${item.conference}`);
-                    if (item.link) newBullets.push(`Link: ${item.link}`);
-
-                    data.projects.push({
-                        name: item.title || "Research Project",
-                        dates: item.dates || "",
-                        bullets: newBullets
-                    });
-                });
-
-                // Clear research in current data
-                data.research = [];
-                // Force save and re-render projects
-                const clonedData = JSON.parse(JSON.stringify(data));
-                updateState({ tailoredResume: clonedData });
-                es.resume = clonedData;
-
-                // Trigger UI update
-                // Clean up list
-                listDiv.innerHTML = '';
-                showStatus("Moved to Projects. Switch to Projects tab to view.", "success");
-            };
-        }
-
-        // --- Excluded Items Section ---
+        // --- Excluded Items Section (only in tailored resume editor, NOT base profile) ---
         const excludedSections = ['experience', 'projects', 'leadership', 'research', 'certifications', 'awards', 'volunteering'];
-        if (excludedSections.includes(section)) {
+        if (containerId !== 'profileFormContainer' && excludedSections.includes(section)) {
             const excludedForSection = getExcludedItemsForSection(section);
 
             if (excludedForSection.length > 0) {
@@ -879,6 +862,12 @@ function handleInput(field) {
 
         if (formContainer && section) {
             const containerId = formContainer.id || (formContainer.classList.contains('editor-form-scroll') ? 'formContainer' : 'profileFormContainer');
+
+            // SECURITY GUARD: Never broadcast for profile editor
+            if (containerId === 'profileFormContainer' || formContainer.closest('#profileUI')) {
+                return;
+            }
+
             const updatedResume = scrapeSectionFromDOM(section, containerId);
             if (updatedResume) {
                 broadcastResumePreview(updatedResume, state.formatSettings);

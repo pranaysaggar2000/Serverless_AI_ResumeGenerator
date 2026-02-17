@@ -47,7 +47,8 @@ const stateShape = {
     isLoggedIn: false,
     pageMode: "1page",           // "1page" | "2page"  
     excludedItems: null,          // { projects: ["Resumatrix"], leadership: ["Org Name"] } — string identifiers of items AI removed
-    mustIncludeItems: null        // { projects: ["Resumatrix"] } — string identifiers of items user wants re-included on next forge
+    mustIncludeItems: null,       // { projects: ["Resumatrix"] } — string identifiers of items user wants re-included on next forge
+    mergeResearchIntoProjects: false // default: keep separate
 };
 
 // Internal mutable state

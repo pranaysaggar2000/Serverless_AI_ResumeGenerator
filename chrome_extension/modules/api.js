@@ -199,13 +199,33 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
             jdAnalysis.company_description = state.detectedCompanyDescription;
         }
 
-        // Step 2: Tailor Resume
-        // Note: bulletCounts are typically passed in regenerate, but here for initial generation
-        // we might not have them, or we assume full keep?
-        // Python `tailor_resume` took optional `bullet_counts`. The endpoint `tailor_resume` didn't seem to pass them from UI initial call?
-        // UI `generateBtn` handler calls `tailorResume`. It doesn't pass bullet counts.
+        // Create working copy for prompt building
+        let resumeForPrompt = JSON.parse(JSON.stringify(baseResume));
+        if (state.mergeResearchIntoProjects) {
+            resumeForPrompt = Prompts.mergeResearchIntoProjects(resumeForPrompt);
+        }
 
-        const tailorPrompt = Prompts.buildTailorPrompt(baseResume, jdAnalysis, tailoringStrategy, null, state.pageMode || '1page', state.mustIncludeItems, state.formatSettings);
+        // --- EXCLUSION FILTER: Strip previously AI-excluded items (unless user re-included them) ---
+        if (state.excludedItems) {
+            const mustInclude = state.mustIncludeItems || {};
+            for (const [sec, excludedIds] of Object.entries(state.excludedItems)) {
+                if (!Array.isArray(excludedIds) || excludedIds.length === 0) continue;
+                if (!Array.isArray(resumeForPrompt[sec])) continue;
+
+                const reIncludeIds = (mustInclude[sec] || []).map(id => String(id).toLowerCase().trim());
+                resumeForPrompt[sec] = resumeForPrompt[sec].filter(item => {
+                    const itemId = (item.company || item.name || item.organization || item.title || '').toLowerCase().trim();
+                    const isExcluded = excludedIds.some(id => {
+                        const exLower = String(id).toLowerCase().trim();
+                        return exLower === itemId || itemId.includes(exLower) || exLower.includes(itemId);
+                    });
+                    if (!isExcluded) return true;
+                    return reIncludeIds.some(id => id === itemId || itemId.includes(id) || id.includes(itemId));
+                });
+            }
+        }
+
+        const tailorPrompt = Prompts.buildTailorPrompt(resumeForPrompt, jdAnalysis, tailoringStrategy, null, state.pageMode || '1page', state.mustIncludeItems, state.formatSettings);
         const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true, taskType: 'tailor', actionId });
         let tailoredData = extractJSON(tailorResponse);
 
@@ -227,6 +247,7 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
         tailoredData = Prompts.clean_keyword_stuffing(tailoredData, jdAnalysis);
         tailoredData = Prompts.remove_hallucinated_skills(tailoredData, baseResume, jdAnalysis);
         tailoredData = Prompts.ensure_keyword_coverage(tailoredData, jdAnalysis);
+        tailoredData = Prompts.enforce_skill_limits(tailoredData);
         tailoredData = Prompts.enforce_bullet_limits(tailoredData, null); // Initial generation typically has no overrides
 
         // Accept both strings (new format) and numbers (legacy), convert numbers to strings
@@ -378,13 +399,13 @@ function sanitizeBulletCounts(sourceResume, editorResume, bulletCounts) {
     return sanitized;
 }
 
-export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis, apiKey, provider, tailoringStrategy, pageMode = '1page', mustIncludeItems = null) {
+export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis, apiKey, provider, tailoringStrategy, pageMode = '1page', mustIncludeItems = null, explicitSourceResume = null) {
     // Uses the base resume (full context) as the source for re-tailoring.
     // Preserves manual edits from the tailored resume (titles, order, summary).
     try {
-        // Use baseResume as the source for regeneration — it has full original content.
+        // Use explicitSourceResume (filtered base) if provided, otherwise fallback to state.baseResume
         // The tailored resume is only used to preserve user's manual edits (section_order, titles, etc.)
-        const base = state.baseResume || tailoredResume;
+        const base = explicitSourceResume || state.baseResume || tailoredResume;
 
         if (!jdAnalysis) throw new Error("JD Analysis missing for regeneration");
 
@@ -418,7 +439,34 @@ export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis,
             bulletCounts
         );
 
-        const tailorPrompt = Prompts.buildTailorPrompt(sourceResume, jdAnalysis, tailoringStrategy, safeBulletCounts, pageMode, mustIncludeItems, state.formatSettings);
+        // Create working copy for prompt building
+        let resumeForPrompt = sourceResume;
+        if (state.mergeResearchIntoProjects) {
+            resumeForPrompt = Prompts.mergeResearchIntoProjects(sourceResume);
+        }
+
+        // --- EXCLUSION FILTER: Strip previously AI-excluded items (unless user re-included them) ---
+        if (state.excludedItems) {
+            resumeForPrompt = JSON.parse(JSON.stringify(resumeForPrompt)); // Ensure deep clone for modification
+            const mustInclude = state.mustIncludeItems || {};
+            for (const [sec, excludedIds] of Object.entries(state.excludedItems)) {
+                if (!Array.isArray(excludedIds) || excludedIds.length === 0) continue;
+                if (!Array.isArray(resumeForPrompt[sec])) continue;
+
+                const reIncludeIds = (mustInclude[sec] || []).map(id => String(id).toLowerCase().trim());
+                resumeForPrompt[sec] = resumeForPrompt[sec].filter(item => {
+                    const itemId = (item.company || item.name || item.organization || item.title || '').toLowerCase().trim();
+                    const isExcluded = excludedIds.some(id => {
+                        const exLower = String(id).toLowerCase().trim();
+                        return exLower === itemId || itemId.includes(exLower) || exLower.includes(itemId);
+                    });
+                    if (!isExcluded) return true;
+                    return reIncludeIds.some(id => id === itemId || itemId.includes(id) || id.includes(itemId));
+                });
+            }
+        }
+
+        const tailorPrompt = Prompts.buildTailorPrompt(resumeForPrompt, jdAnalysis, tailoringStrategy, safeBulletCounts, pageMode, mustIncludeItems, state.formatSettings);
         const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true, taskType: 'tailor', actionId });
         let newTailoredData = extractJSON(tailorResponse);
 
@@ -456,6 +504,7 @@ export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis,
         newTailoredData = Prompts.clean_keyword_stuffing(newTailoredData, jdAnalysis);
         newTailoredData = Prompts.remove_hallucinated_skills(newTailoredData, state.baseResume || base, jdAnalysis);
         newTailoredData = Prompts.ensure_keyword_coverage(newTailoredData, jdAnalysis);
+        newTailoredData = Prompts.enforce_skill_limits(newTailoredData);
         newTailoredData = Prompts.enforce_bullet_limits(newTailoredData, bulletCounts);
 
         // Update excluded items state

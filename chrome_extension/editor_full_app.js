@@ -1329,7 +1329,9 @@ function setupPreviewControls() {
     document.getElementById('editorPanel')?.addEventListener('wheel', (e) => {
         if (e.ctrlKey) {
             e.preventDefault();
-            const delta = e.deltaY > 0 ? -0.05 : 0.05; // Smoother steps for trackpad
+            // Smoother, proportional zoom based on delta magnitude
+            // 0.01 multiplier provides natural sensitivity for both trackpads and mouse wheels
+            const delta = -e.deltaY * 0.01;
             applyZoom(currentEditorZoom + delta);
         }
     }, { passive: false });

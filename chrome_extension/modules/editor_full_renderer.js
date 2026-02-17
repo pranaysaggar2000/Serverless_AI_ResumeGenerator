@@ -196,8 +196,16 @@ export function renderFullResumeEditor(container, data, fmt = {}) {
         addBtn.title = "Add Item";
         addBtn.textContent = "+";
 
+        const delBtn = document.createElement('button');
+        delBtn.className = 'section-del-btn';
+        delBtn.dataset.action = 'delete-section';
+        delBtn.dataset.section = section;
+        delBtn.title = "Delete Section";
+        delBtn.textContent = "🗑";
+
         headerRow.appendChild(header);
         headerRow.appendChild(addBtn);
+        headerRow.appendChild(delBtn);
         secDiv.appendChild(headerRow);
 
         renderSectionContent(secDiv, section, sectionData, f, density);

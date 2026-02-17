@@ -60,17 +60,22 @@ export async function callAI(prompt, provider, apiKey, options = {}) {
 export function extractJSON(text) {
     if (!text) return null;
 
-    // 1. Initial Cleanup: Remove character spacing hallucinations (e.g., "t e x t") 
-    // IF it looks like JSON but with spaces.
+    // 1. Import deCharSpaceDeep for post-parse cleanup
+    // (already available since ai_prompts.js exports it)
+
     let cleaned = text.trim();
 
-    // Heuristic: If there are many spaces and it looks like it's split, try to join it
-    if (cleaned.includes('{') && cleaned.split(' ').length > cleaned.length / 3) {
-        // Attempt to remove spaces that look like character spacing
-        const joined = cleaned.replace(/(.) /g, '$1');
+    // 1. Full-text character-spacing fix (before JSON parsing)
+    //    Detect if entire response is character-spaced using ratio heuristic
+    const singleCharSpaces = (cleaned.match(/(?<=\S) (?=\S)/g) || []).length;
+    const nonSpace = cleaned.replace(/\s/g, '').length;
+    if (nonSpace > 0 && singleCharSpaces / nonSpace > 0.35) {
+        const collapsed = cleaned.replace(/(\S) (?=\S)/g, '$1');
         try {
-            if (JSON.parse(joined)) cleaned = joined;
-        } catch (e) { }
+            return JSON.parse(collapsed);
+        } catch (e) {
+            cleaned = collapsed; // Use collapsed version for further attempts
+        }
     }
 
     // 2. Try direct parse
@@ -81,8 +86,6 @@ export function extractJSON(text) {
     if (blockMatch) {
         let blockContent = blockMatch[1].trim();
         try { return JSON.parse(blockContent); } catch (e) { }
-
-        // Handle trailing commas in JSON (common AI error)
         blockContent = blockContent.replace(/,\s*([\]}])/g, '$1');
         try { return JSON.parse(blockContent); } catch (e) { }
     }
@@ -90,12 +93,9 @@ export function extractJSON(text) {
     // 4. Try greedy brace matching
     const start = cleaned.indexOf('{');
     const end = cleaned.lastIndexOf('}');
-
     if (start !== -1 && end !== -1 && end > start) {
         let potentialJson = cleaned.substring(start, end + 1);
         try { return JSON.parse(potentialJson); } catch (e) { }
-
-        // Handle trailing commas
         potentialJson = potentialJson.replace(/,\s*([\]}])/g, '$1');
         try { return JSON.parse(potentialJson); } catch (e) { }
     }
@@ -118,7 +118,7 @@ async function callGemini(prompt, apiKey, options) {
             },
             body: JSON.stringify({
                 contents: [{
-                    parts: [{ text: prompt }]
+                    parts: [{ text: prompt.trimEnd() }]
                 }]
             }),
             signal: controller.signal
@@ -160,7 +160,7 @@ async function callGroq(prompt, apiKey, options) {
                 const payload = {
                     model: modelId,
                     messages: [
-                        { role: "user", content: prompt }
+                        { role: "user", content: prompt.trimEnd() }
                     ]
                 };
 
@@ -305,7 +305,7 @@ async function callOpenRouter(prompt, apiKey, options) {
                     const payload = {
                         model: modelId,
                         messages: [
-                            { role: "user", content: prompt }
+                            { role: "user", content: prompt.trimEnd() }
                         ]
                     };
 

@@ -16,6 +16,7 @@ let isTailored = false;
 const channel = new BroadcastChannel('resume-preview');
 let currentEditorZoom = 1.0;
 let userDeletedItems = {};
+let deletedSections = [];
 let undoSnapshot = null; // Step 36
 const EDITOR_ID = 'full-editor-' + Date.now(); // Step 57
 const DEFAULT_SECTIONS = ['summary', 'education', 'experience', 'projects', 'skills', 'leadership', 'certifications', 'awards', 'volunteering', 'languages', 'interests', 'research'];
@@ -41,7 +42,8 @@ function trackDeletedItem(sectionName, item, originalIndex) {
 function updateRestoreButtonVisibility() {
     const btn = document.getElementById('restoreDeletedBtn');
     if (!btn) return;
-    const count = Object.values(userDeletedItems).reduce((s, a) => s + a.length, 0);
+    const itemCount = Object.values(userDeletedItems).reduce((s, a) => s + a.length, 0);
+    const count = itemCount + deletedSections.length;
     if (count > 0) {
         btn.style.display = 'inline-flex';
         btn.textContent = `♻️ Restore Deleted (${count})`;
@@ -70,11 +72,25 @@ function detectMissingItems() {
 }
 
 function showRestoreDeletedDialog() {
-    const total = Object.values(userDeletedItems).reduce((s, a) => s + a.length, 0);
+    const itemTotal = Object.values(userDeletedItems).reduce((s, a) => s + a.length, 0);
+    const total = itemTotal + deletedSections.length;
     if (total === 0) return;
     let html = `<div style="max-height:400px;overflow-y:auto;padding:10px;"><p style="margin:0 0 12px;color:#6b7280;font-size:13px;">Select items to restore.</p>`;
-    const sectionLabels = { experience: 'Work Experience', projects: 'Projects', leadership: 'Leadership', research: 'Research', education: 'Education', certifications: 'Certifications', awards: 'Awards', volunteering: 'Volunteering' };
+    const sectionLabels = { experience: 'Work Experience', projects: 'Projects', leadership: 'Leadership', research: 'Research', education: 'Education', certifications: 'Certifications', awards: 'Awards', volunteering: 'Volunteering', summary: 'Summary', skills: 'Skills', languages: 'Languages', interests: 'Interests' };
 
+    // Deleted sections
+    if (deletedSections.length > 0) {
+        html += `<div style="margin-bottom:12px;"><h4 style="margin:0 0 6px;font-size:13px;color:#374151;text-transform:uppercase;">Deleted Sections</h4>`;
+        deletedSections.forEach((entry, i) => {
+            html += `<label class="restore-item" style="display:flex;gap:10px;padding:8px;border-bottom:1px solid #f3f4f6;cursor:pointer;">
+                        <input type="checkbox" data-restore-type="section" data-deleted-index="${i}">
+                        <div style="font-size:13px;"><strong>${escapeHtml(sectionLabels[entry.section] || entry.section)}</strong></div>
+                    </label>`;
+        });
+        html += `</div>`;
+    }
+
+    // Deleted items
     Object.entries(userDeletedItems).forEach(([section, items]) => {
         if (items.length === 0) return;
         html += `<div style="margin-bottom:12px;"><h4 style="margin:0 0 6px;font-size:13px;color:#374151;text-transform:uppercase;">${sectionLabels[section] || section}</h4>`;
@@ -110,13 +126,31 @@ function showRestoreDeletedDialog() {
     overlay.querySelector('#confirmRestore').onclick = async () => {
         const checked = overlay.querySelectorAll('input:checked');
         const toRestore = {};
-        undoSnapshot = JSON.parse(JSON.stringify(currentResume)); // Capture state before restore
+        const sectionsToRestore = [];
+        undoSnapshot = JSON.parse(JSON.stringify(currentResume));
         checked.forEach(cb => {
-            const sec = cb.dataset.section;
-            if (!toRestore[sec]) toRestore[sec] = [];
-            toRestore[sec].push(parseInt(cb.dataset.deletedIndex));
+            if (cb.dataset.restoreType === 'section') {
+                sectionsToRestore.push(parseInt(cb.dataset.deletedIndex));
+            } else {
+                const sec = cb.dataset.section;
+                if (!toRestore[sec]) toRestore[sec] = [];
+                toRestore[sec].push(parseInt(cb.dataset.deletedIndex));
+            }
         });
 
+        // Restore deleted sections
+        sectionsToRestore.sort((a, b) => b - a);
+        sectionsToRestore.forEach(idx => {
+            const entry = deletedSections[idx];
+            currentResume[entry.section] = JSON.parse(JSON.stringify(entry.data));
+            if (!currentResume.section_order) currentResume.section_order = [];
+            if (!currentResume.section_order.includes(entry.section)) {
+                currentResume.section_order.splice(entry.orderIndex, 0, entry.section);
+            }
+            deletedSections.splice(idx, 1);
+        });
+
+        // Restore deleted items
         Object.entries(toRestore).forEach(([section, indices]) => {
             indices.sort((a, b) => b - a);
             if (!currentResume[section]) currentResume[section] = [];
@@ -128,9 +162,10 @@ function showRestoreDeletedDialog() {
         });
 
         await applyStructuralChange(false);
+        renderSectionNav();
         updateRestoreButtonVisibility();
         overlay.remove();
-        showSuccessToast("Items restored!");
+        showSuccessToast("Restored!");
     };
 }
 
@@ -807,7 +842,23 @@ function setupGlobalListeners() {
         const sec = btn.closest('.resume-section')?.dataset.section || btn.dataset.section;
         const idx = item ? parseInt(item.dataset.index) : -1;
 
-        if (['delete-item', 'move-up', 'move-down', 'delete-bullet', 'add-item'].includes(action)) currentResume = scrapeResumeFromEditor();
+        if (['delete-item', 'move-up', 'move-down', 'delete-bullet', 'add-item', 'delete-section'].includes(action)) currentResume = scrapeResumeFromEditor();
+
+        if (action === 'delete-section') {
+            if (!sec || !currentResume[sec]) return;
+            const sectionLabels = { summary: 'Summary', education: 'Education', skills: 'Skills', experience: 'Experience', projects: 'Projects', leadership: 'Leadership', research: 'Research', certifications: 'Certifications', awards: 'Awards', volunteering: 'Volunteering', languages: 'Languages', interests: 'Interests' };
+            const label = sectionLabels[sec] || sec;
+            if (!confirm(`Delete the "${label}" section?`)) return;
+            const orderIndex = (currentResume.section_order || []).indexOf(sec);
+            deletedSections.push({ section: sec, data: JSON.parse(JSON.stringify(currentResume[sec])), orderIndex, deletedAt: Date.now() });
+            delete currentResume[sec];
+            if (currentResume.section_order) currentResume.section_order = currentResume.section_order.filter(s => s !== sec);
+            await applyStructuralChange(false);
+            renderSectionNav();
+            updateRestoreButtonVisibility();
+            showSuccessToast(`"${label}" section deleted.`);
+            return;
+        }
 
         if (action === 'add-item') {
             if (!sec) return;

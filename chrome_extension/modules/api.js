@@ -7,8 +7,6 @@ import { logError } from './logger.js';
 export async function extractText(file) {
     try {
         const arrayBuffer = await file.arrayBuffer();
-
-        // Wait for pdfjsLib to be available on window (it's loaded via module script)
         if (!window.pdfjsLib) {
             throw new Error("PDF Library not loaded yet.");
         }
@@ -19,9 +17,61 @@ export async function extractText(file) {
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const content = await page.getTextContent();
+            // viewport is needed for normalization if coordinate systems vary, 
+            // but usually raw transform is enough. We'll get it just in case.
+            const viewport = await page.getViewport({ scale: 1.0 });
 
-            // Join items with space, but preserve structure roughly
-            const pageText = content.items.map(item => item.str).join(' ');
+            // Position-aware text joining:
+            // pdfjsLib items have transform[4]=x, transform[5]=y positions.
+            // If two items are close horizontally and on the same line,
+            // they're part of the same word — join WITHOUT space.
+            // If there's a real gap, join WITH space.
+            let pageText = '';
+            let prevItem = null;
+
+            for (const item of content.items) {
+                if (!item.str) continue;
+
+                if (!prevItem) {
+                    pageText += item.str;
+                    prevItem = item;
+                    continue;
+                }
+
+                const prevX = prevItem.transform[4];
+                const prevY = prevItem.transform[5];
+                const curX = item.transform[4];
+                const curY = item.transform[5];
+
+                // Estimate the width of the previous item's text
+                // width is usually available, fallback to heuristic
+                const prevWidth = prevItem.width || (prevItem.str.length * (prevItem.height || 10) * 0.5);
+
+                // Same line? (Y positions within ~3 units of each other)
+                // Y increases upwards in PDF coords usually, but absolute diff works
+                const sameLine = Math.abs(curY - prevY) < 3;
+
+                if (!sameLine) {
+                    // New line — add newline
+                    pageText += '\n' + item.str;
+                } else {
+                    // Same line — check horizontal gap
+                    const gap = curX - (prevX + prevWidth);
+                    // Char width approx (height * 0.3 is a conservative tight estimate for a char)
+                    const charWidth = (item.height || 10) * 0.3;
+
+                    if (gap > charWidth * 1.5) {
+                        // Real word gap — add space
+                        pageText += ' ' + item.str;
+                    } else {
+                        // No significant gap — same word, join directly
+                        pageText += item.str;
+                    }
+                }
+
+                prevItem = item;
+            }
+
             fullText += pageText + '\n';
 
             // Extract links from annotations
@@ -32,6 +82,13 @@ export async function extractText(file) {
                 }
             });
         }
+
+        // Final safety pass: collapse any remaining character-spaced runs
+        // (catches edge cases where position data is unreliable)
+        fullText = fullText.replace(
+            /(?<![A-Za-z0-9])([A-Za-z0-9+#.]) ([A-Za-z0-9+#.])( [A-Za-z0-9+#.]){1,}(?![A-Za-z0-9])/g,
+            (match) => match.replace(/ /g, '')
+        );
 
         return { text: fullText };
     } catch (e) {

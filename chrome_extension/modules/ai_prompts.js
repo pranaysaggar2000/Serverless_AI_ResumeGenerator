@@ -38,6 +38,9 @@ Rule 1: Extract COMPLETE job description — every bullet, every section. Do not
 Rule 2: company_description = what the company DOES (industry, products, mission).
 Rule 3: If no job description is found, return {"error": "No job description found on this page"}.
 
+
+FORMATTING: Output all text as normal continuous words. NEVER insert spaces between individual characters of a word.
+
 ` + 'Return ONLY JSON in ```json``` block:\n```json\n' + `{
   "job_title": "exact title from posting",
   "company_name": "company name",
@@ -89,6 +92,9 @@ Rule 6 — CLASSIFY PRECISELY:
 
 Rule 7 — LEADERSHIP/STRATEGY TERMS:
 For senior/lead/manager roles, extract "stakeholder management", "technical direction", "roadmap", "mentorship" as MANDATORY keywords (not soft skills). Only classify as soft_skills if the JD treats them as nice-to-haves.
+
+
+FORMATTING: Output all text as normal continuous words. NEVER insert spaces between individual characters of a word.
 
 ` + 'Return ONLY JSON in ```json``` block:\n```json\n' + `{
   "company_name": "",
@@ -399,6 +405,9 @@ ${ANTI_AI_WRITING_RULES}
 Before output: verify NO bullet ends with "with a focus on...", "utilizing...", "with expertise in...", "leveraging...", or "ensuring...". Rewrite any that do.
 Every bullet MUST end with a period. If a bullet does not end with ".", add one.
 
+
+FORMATTING: Output all text as normal continuous words. NEVER insert spaces between individual characters of a word.
+
 ` + 'Return ONLY JSON in ```json``` block:\n```json\n' + `{
   "name": "${baseResume.name || ''}",
   "contact": ${JSON.stringify(baseResume.contact || { location: "", phone: "", email: "", linkedin_url: "", portfolio_url: "" })},
@@ -531,6 +540,9 @@ Rule 7: PRESERVE all metrics, numbers, exact wording. Keep GPAs in their origina
 Rule 8: section_order = order they appear. Only include sections with content.
 Rule 9: Do NOT rephrase or summarize.
 
+
+FORMATTING: Output all text as normal continuous words. NEVER insert spaces between individual characters of a word.
+
 ` + 'Return ONLY JSON in ```json``` block:\n```json\n' + `{
   "name": "Full Name",
   "contact": {"location":"","phone":"","email":"","linkedin_url":"","portfolio_url":""},
@@ -563,24 +575,50 @@ export function convert_markdown_to_html(text) {
 
 /**
  * Fix character-spaced hallucinations: "P y t h o n" → "Python"
+ * Handles full spacing, partial spacing, and special chars like C++, C#, Node.js
+ * Uses regex pattern matching to find runs of single chars separated by spaces,
+ * without touching normal multi-word text like "I am fine".
  */
 function deCharSpace(str) {
     if (!str || typeof str !== 'string' || str.length < 5) return str;
-    const spacedPattern = /(?<=\S) (?=\S)/g;
-    const spaces = (str.match(spacedPattern) || []).length;
-    const nonSpaceChars = str.replace(/\s/g, '').length;
-    if (spaces < nonSpaceChars * 0.4) return str;
-    return str
-        .replace(/(\S) (?=\S)/g, '$1')
-        .replace(/,(\S)/g, ', $1')
-        .replace(/\+\+/g, '++')
-        .replace(/\.(\w)/g, '.$1');
+
+    // Find runs of (single non-space char + space) repeated 2+ times ending with single char
+    // Matches "P y t h o n" but NOT "I am fine"
+    const CHAR_SPACED_RUN = /(?<![A-Za-z0-9])([A-Za-z0-9+#.]) ([A-Za-z0-9+#.])( [A-Za-z0-9+#.]){1,}(?![A-Za-z0-9])/g;
+
+    let fixed = str.replace(CHAR_SPACED_RUN, (match) => match.replace(/ /g, ''));
+
+    // Restore expected spaces after punctuation that got collapsed
+    fixed = fixed.replace(/,([A-Za-z])/g, ', $1');
+    fixed = fixed.replace(/\.([A-Z])/g, '. $1');
+
+    return fixed;
+}
+
+/**
+ * Recursively apply deCharSpace to all string values (and keys) in an object.
+ * Use AFTER JSON.parse to clean character-spacing inside parsed resume data.
+ */
+export function deCharSpaceDeep(obj) {
+    if (typeof obj === 'string') return deCharSpace(obj);
+    if (Array.isArray(obj)) return obj.map(deCharSpaceDeep);
+    if (obj && typeof obj === 'object') {
+        const out = {};
+        for (const [k, v] of Object.entries(obj)) {
+            out[deCharSpace(k)] = deCharSpaceDeep(v);
+        }
+        return out;
+    }
+    return obj;
 }
 
 export function clean_tailored_resume(resume_data) {
+    // Deep-clean all string values for character-spacing hallucinations FIRST
+    resume_data = deCharSpaceDeep(resume_data);
+
     // Clean summary
     if (resume_data.summary) {
-        resume_data.summary = convert_markdown_to_html(deCharSpace(resume_data.summary));
+        resume_data.summary = convert_markdown_to_html(resume_data.summary);
     }
 
     // Clean skills
@@ -588,7 +626,7 @@ export function clean_tailored_resume(resume_data) {
         const fixed = {};
         for (const [cat, val] of Object.entries(resume_data.skills)) {
             let v = Array.isArray(val) ? val.join(", ") : String(val);
-            fixed[deCharSpace(cat)] = convert_markdown_to_html(deCharSpace(v));
+            fixed[cat] = convert_markdown_to_html(v);
         }
         resume_data.skills = fixed;
     }
@@ -599,7 +637,7 @@ export function clean_tailored_resume(resume_data) {
             resume_data[sec].forEach(item => {
                 if (item.bullets) {
                     item.bullets = item.bullets.map(b => {
-                        let cleaned = convert_markdown_to_html(deCharSpace(b));
+                        let cleaned = convert_markdown_to_html(b);
                         if (cleaned && !/[.!?]$/.test(cleaned.replace(/<\/[^>]+>$/g, '').trim())) {
                             cleaned = cleaned.replace(/\s*$/, '.');
                         }

@@ -882,6 +882,35 @@ body.resizing {
     border-style: solid;
 }
 
+.section-del-btn {
+    opacity: 0;
+    transition: opacity 0.15s;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px dashed #d1d5db;
+    background: transparent;
+    color: #9ca3af;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin-left: 4px;
+}
+
+.resume-section:hover .section-del-btn {
+    opacity: 1;
+}
+
+.section-del-btn:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+    background: #fef2f2;
+    border-style: solid;
+}
+
 
 /* Editable Behavior */
 [contenteditable] {

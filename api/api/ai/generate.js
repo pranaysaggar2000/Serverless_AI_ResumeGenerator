@@ -37,7 +37,7 @@ module.exports = withCors(async (req, res) => {
         }
 
         // Validate taskType
-        const VALID_TASK_TYPES = ['jdParse', 'tailor', 'score', 'default'];
+        const VALID_TASK_TYPES = ['jdParse', 'tailor', 'score', 'strategy', 'default'];
         if (taskType && !VALID_TASK_TYPES.includes(taskType)) {
             return res.status(400).json({ error: `Invalid taskType: ${taskType}` });
         }

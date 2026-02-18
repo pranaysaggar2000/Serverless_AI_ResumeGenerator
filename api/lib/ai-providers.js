@@ -24,6 +24,9 @@ async function callCerebras(prompt, model, maxTokens, reasoningEffort) {
     const apiKey = process.env.CEREBRAS_API_KEY;
     if (!apiKey) throw new Error('CEREBRAS_API_KEY not configured');
 
+    console.log(`[ForgeCV-Backend] Calling Cerebras... Model: ${model}, MaxTokens: ${maxTokens}`);
+    const start = Date.now();
+
     const body = {
         model,
         messages: [{ role: 'user', content: prompt }],
@@ -36,8 +39,10 @@ async function callCerebras(prompt, model, maxTokens, reasoningEffort) {
         'Content-Type': 'application/json',
     });
 
+    const duration = Date.now() - start;
     const data = JSON.parse(result);
     if (data.choices?.[0]?.message?.content) {
+        console.log(`[ForgeCV-Backend] ✓ Cerebras success (${duration}ms)`);
         return data.choices[0].message.content;
     }
     throw new Error('Empty Cerebras response');
@@ -49,6 +54,9 @@ async function callCerebras(prompt, model, maxTokens, reasoningEffort) {
 async function callGroq(prompt, model, maxTokens) {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) throw new Error('GROQ_API_KEY not configured');
+
+    console.log(`[ForgeCV-Backend] Calling Groq... Model: ${model}, MaxTokens: ${maxTokens}`);
+    const start = Date.now();
 
     const body = JSON.stringify({
         model,
@@ -62,8 +70,10 @@ async function callGroq(prompt, model, maxTokens) {
         'Content-Type': 'application/json'
     });
 
+    const duration = Date.now() - start;
     const data = JSON.parse(result);
     if (data.choices?.[0]?.message?.content) {
+        console.log(`[ForgeCV-Backend] ✓ Groq success (${duration}ms)`);
         return data.choices[0].message.content;
     }
     throw new Error('Empty Groq response');
@@ -77,31 +87,21 @@ async function callAIServer(prompt, options = {}) {
     const route = TASK_ROUTING[taskType] || TASK_ROUTING.default;
     const CEREBRAS_KEY = process.env.CEREBRAS_API_KEY;
 
-    // Use Cerebras only if key is configured — else fall to Groq
-    // (This logic specifically checks if the primary route is Cerebras AND key exists)
-    // However, our routing table is explicit. Let's strictly follow the plan:
-    // If route says Cerebras and we have key -> use it.
-    // If route says Cerebras but NO key -> fall back immediately or try Groq.
+    console.log(`[ForgeCV-Backend] Request: taskType=${taskType}`);
 
     // Simplification based on user request logic:
     const useCerebras = route.provider === 'cerebras' && !!CEREBRAS_KEY;
 
     try {
         if (useCerebras) {
+            console.log(`[ForgeCV-Backend] Routing to Primary: CEREBRAS`);
             return await callCerebras(prompt, route.model, route.maxTokens, route.reasoningEffort);
         } else {
-            // Default to Groq if provider is Groq OR if Cerebras key missing
-            // Note: The original prompt said "result = await callGroq(...)". 
-            // If the route was Cerebras but no key, we should ideally use a fallback model, 
-            // but the user's snippet just called callGroq with the *route's* model. 
-            // If the route's model was 'gpt-oss-120b', callGroq would fail.
-            // Let's safe-guard: if we are supposed to use Cerebras but can't, use the fallback strategy immediately.
-
             if (route.provider === 'cerebras' && !CEREBRAS_KEY) {
-                // Force fallback logic immediately by throwing
+                console.warn(`[ForgeCV-Backend] Wanted Cerebras but CEREBRAS_API_KEY missing. Forcing fallback.`);
                 throw new Error('Cerebras key missing, forcing fallback');
             }
-
+            console.log(`[ForgeCV-Backend] Routing to Primary: GROQ`);
             return await callGroq(prompt, route.model, route.maxTokens);
         }
     } catch (primaryErr) {

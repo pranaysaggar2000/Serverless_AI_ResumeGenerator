@@ -21,7 +21,9 @@ module.exports = withCors(async (req, res) => {
         // Strip trailing slash if present
         if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
 
-        const redirectTo = `${baseUrl}/api/auth/callback`;
+        // Create redirect URL (prioritize API_BASE_URL env var for feature branches)
+        const redirectBase = process.env.API_BASE_URL || baseUrl;
+        const redirectTo = `${redirectBase}/api/auth/callback`;
 
         // Generate OAuth URL
         const { data, error } = await supabaseAdmin.auth.signInWithOAuth({

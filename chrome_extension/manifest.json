@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "ForgeCV: AI powered resume generator",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "description": "AI-powered resume tailoring. Automatically reads job descriptions, optimizes your resume for ATS, and generates tailored PDFs.",
     "icons": {
         "16": "icon-16.png",

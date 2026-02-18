@@ -42,32 +42,68 @@ function trackDeletedItem(sectionName, item, originalIndex) {
 function updateRestoreButtonVisibility() {
     const btn = document.getElementById('restoreDeletedBtn');
     if (!btn) return;
-    const itemCount = Object.values(userDeletedItems).reduce((s, a) => s + a.length, 0);
-    const count = itemCount + deletedSections.length;
+    const count = Object.values(userDeletedItems).reduce((s, a) => s + a.length, 0) + deletedSections.length;
     if (count > 0) {
         btn.style.display = 'inline-flex';
-        btn.textContent = `♻️ Restore Deleted (${count})`;
+        btn.textContent = `♻️ Restore (${count})`;
     } else {
         btn.style.display = 'none';
     }
 }
 
 function detectMissingItems() {
-    if (!state.baseResume) { setTimeout(detectMissingItems, 500); return; }
-    const sections = ['experience', 'projects', 'leadership', 'research', 'education', 'certifications', 'awards', 'volunteering'];
+    if (!state.baseResume || !currentResume) {
+        setTimeout(detectMissingItems, 500);
+        return;
+    }
+
+    userDeletedItems = {}; // Reset on every call
+
+    const sections = ['experience', 'projects', 'leadership', 'research',
+        'education', 'certifications', 'awards', 'volunteering'];
+
+    // Build a flat set of ALL item IDs across ALL sections of currentResume
+    const allCurrentIds = [];
     sections.forEach(sec => {
+        (currentResume[sec] || []).forEach(item => {
+            const id = (item.company || item.name || item.organization || item.title || '').toLowerCase().trim();
+            if (id) allCurrentIds.push(id);
+        });
+    });
+
+    sections.forEach(sec => {
+        // Skip research from BASE detection when merged — those items count as projects now
+        // But since we search ALL current items, we just need to know if the research item exists ANYWHERE.
+        if (sec === 'research' && state.mergeResearchIntoProjects) return;
+
         const baseItems = state.baseResume[sec] || [];
-        const currentItems = currentResume[sec] || [];
+
         baseItems.forEach((baseItem, baseIdx) => {
             const baseId = (baseItem.company || baseItem.name || baseItem.organization || baseItem.title || '').toLowerCase().trim();
             if (!baseId) return;
-            const exists = currentItems.some(curr => {
-                const currId = (curr.company || curr.name || curr.organization || curr.title || '').toLowerCase().trim();
-                return currId === baseId || currId.includes(baseId) || baseId.includes(currId);
-            });
-            if (!exists) trackDeletedItem(sec, baseItem, baseIdx);
+
+            // Check 1: Direct/includes match against ALL current items (cross-section)
+            const directMatch = allCurrentIds.some(currId =>
+                currId === baseId || currId.includes(baseId) || baseId.includes(currId)
+            );
+            if (directMatch) return; // Found — not missing
+
+            // Check 2: Word-overlap fallback (handles AI renaming)
+            // If 60%+ of words match, consider it the same item
+            const baseWords = new Set(baseId.split(/\s+/).filter(w => w.length > 2));
+            if (baseWords.size >= 2) {
+                const overlapMatch = allCurrentIds.some(currId => {
+                    const currWords = currId.split(/\s+/).filter(w => w.length > 2);
+                    const overlap = currWords.filter(w => baseWords.has(w)).length;
+                    return overlap >= Math.ceil(baseWords.size * 0.6);
+                });
+                if (overlapMatch) return; // Fuzzy match — not missing
+            }
+
+            trackDeletedItem(sec, baseItem, baseIdx);
         });
     });
+
     updateRestoreButtonVisibility();
 }
 
@@ -109,297 +145,321 @@ function getFilteredBaseResume() {
 }
 
 
-function showExcludedItemsDialog() {
-    const excluded = state.excludedItems || {};
-    const base = state.baseResume || {};
+// showExcludedItemsDialog and updateExcludedItemsButtonVisibility removed - merged into Restore logic
 
-    // Calculate total excluded items
-    let total = 0;
-    const itemsBySection = {};
+function showAddSectionDialog() {
+    const allSections = ['summary', 'skills', 'experience', 'projects', 'education',
+        'leadership', 'research', 'certifications', 'awards', 'volunteering', 'languages', 'interests'];
 
-    Object.entries(excluded).forEach(([section, ids]) => {
-        if (!ids || ids.length === 0) return;
-        if (!base[section]) return;
+    const sectionLabels = {
+        summary: 'Summary', skills: 'Skills', experience: 'Work Experience',
+        projects: 'Projects', education: 'Education', leadership: 'Leadership',
+        research: 'Research & Publications', certifications: 'Certifications',
+        awards: 'Awards & Honors', volunteering: 'Volunteering',
+        languages: 'Languages', interests: 'Interests'
+    };
 
-        // Find actual item data
-        const items = base[section].filter(item => {
-            const itemId = (item.company || item.name || item.organization || item.title || '').toLowerCase().trim();
-            return ids.some(id => {
-                const idLower = String(id).toLowerCase().trim();
-                return idLower === itemId || itemId.includes(idLower) || idLower.includes(itemId);
-            });
-        });
-
-        if (items.length > 0) {
-            itemsBySection[section] = items;
-            total += items.length;
-        }
+    // Find sections NOT currently in resume (empty or missing from section_order)
+    const existingSections = (currentResume.section_order || []).filter(s => {
+        const val = currentResume[s];
+        if (!val) return false;
+        if (Array.isArray(val)) return val.length > 0;
+        if (typeof val === 'string') return val.trim().length > 0;
+        if (typeof val === 'object') return Object.keys(val).length > 0;
+        return false;
     });
 
-    if (total === 0) {
-        showSuccessToast("No excluded items found.");
+    const missingSections = allSections.filter(s => !existingSections.includes(s));
+
+    if (missingSections.length === 0) {
+        showSuccessToast('All sections already present!');
         return;
     }
 
-    let html = `<div style="max-height:400px;overflow-y:auto;padding:10px;"><p style="margin:0 0 12px;color:#6b7280;font-size:13px;">Select items to restore from AI exclusion.</p>`;
-
-    Object.entries(itemsBySection).forEach(([section, items]) => {
-        const sectionLabel = section.charAt(0).toUpperCase() + section.slice(1);
-        html += `<div style="margin-bottom:12px;"><h4 style="margin:0 0 6px;font-size:13px;color:#92400e;text-transform:uppercase;">${escapeHtml(sectionLabel)}</h4>`;
-
-        items.forEach((item, i) => {
-            const name = item.company || item.name || item.organization || item.title || 'Unknown';
-            const subtitle = item.role || item.tech || '';
-            const itemId = (item.company || item.name || item.organization || item.title || '').trim();
-
-            html += `<label class="restore-item" style="display:flex;gap:10px;padding:8px;border-bottom:1px solid #fef3c7;background:#fffbeb;cursor:pointer;">
-                        <input type="checkbox" data-section="${section}" data-item-id="${escapeHtml(itemId)}">
-                        <div style="font-size:13px;">
-                            <strong>${escapeHtml(name)}</strong>
-                            ${subtitle ? `<div style="font-size:11px;color:#6b7280;">${escapeHtml(subtitle)}</div>` : ''}
-                        </div>
-                    </label>`;
-        });
-        html += `</div>`;
-    });
-    html += `</div>`;
-
     const overlay = document.createElement('div');
-    overlay.id = 'restoreExcludedOverlay';
+    overlay.id = 'addSectionOverlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
-    overlay.innerHTML = `<div style="background:white;border-radius:12px;width:420px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;">
-            <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;background:#fff7ed;">
-                <h3 style="color:#9a3412;">⚠️ Restore Excluded Items</h3>
-                <button id="closeExcludedBtn" style="background:none;border:none;cursor:pointer;font-size:18px;color:#9a3412;">&times;</button>
-            </div>
-            ${html}
-            <div style="padding:12px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:8px;">
-                <button id="cancelExcludedBtn" class="editor-cancel-btn" style="width:auto;">Cancel</button>
-                <button id="confirmExcludedRestore" style="background:#ea580c;color:white;padding:8px 16px;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Restore Selected</button>
-            </div>
-        </div>`;
+
+    let html = `<div style="background:white;border-radius:12px;width:360px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;">
+        <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+            <h3 style="margin:0;font-size:15px;">➕ Add Section</h3>
+            <button id="closeAddSectionBtn" style="background:none;border:none;font-size:18px;cursor:pointer;color:#6b7280;">&times;</button>
+        </div>
+        <div style="padding:16px 20px;max-height:400px;overflow-y:auto;">
+            <p style="font-size:12px;color:#6b7280;margin:0 0 12px;">Click a section to add it to your resume:</p>`;
+
+    missingSections.forEach(sec => {
+        html += `<button class="add-section-item" data-section="${sec}" style="
+            display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;margin-bottom:6px;
+            background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;
+            font-size:13px;color:#374151;text-align:left;transition:all 0.15s;
+        ">
+            <span style="font-size:16px;">📄</span>
+            <span>${sectionLabels[sec] || sec}</span>
+        </button>`;
+    });
+
+    html += `</div></div>`;
+    overlay.innerHTML = html;
     document.body.appendChild(overlay);
 
+    // Close handlers
+    overlay.querySelector('#closeAddSectionBtn').onclick = () => overlay.remove();
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-    overlay.querySelector('#closeExcludedBtn').addEventListener('click', () => overlay.remove());
-    overlay.querySelector('#cancelExcludedBtn').addEventListener('click', () => overlay.remove());
 
-    overlay.querySelector('#confirmExcludedRestore').onclick = async () => {
-        const checked = overlay.querySelectorAll('input:checked');
-        if (checked.length === 0) {
-            overlay.remove();
-            return;
-        }
+    // Hover effects + click handlers
+    overlay.querySelectorAll('.add-section-item').forEach(btn => {
+        btn.onmouseenter = () => { btn.style.background = '#eef2ff'; btn.style.borderColor = '#6366f1'; };
+        btn.onmouseleave = () => { btn.style.background = '#f9fafb'; btn.style.borderColor = '#e5e7eb'; };
 
-        const toRestore = {}; // section -> [itemIds]
+        btn.onclick = async () => {
+            const sec = btn.dataset.section;
+            undoSnapshot = JSON.parse(JSON.stringify(currentResume));
 
-        checked.forEach(cb => {
-            const sec = cb.dataset.section;
-            const id = cb.dataset.itemId;
-            if (!toRestore[sec]) toRestore[sec] = [];
-            toRestore[sec].push(id);
-        });
-
-        // 1. Add to currentResume
-        undoSnapshot = JSON.parse(JSON.stringify(currentResume));
-
-        let restoredCount = 0;
-        Object.entries(toRestore).forEach(([section, ids]) => {
-            if (!currentResume[section]) currentResume[section] = [];
-
-            // Get original items
-            const originalItems = itemsBySection[section].filter(item => {
-                const itemId = (item.company || item.name || item.organization || item.title || '').trim();
-                return ids.includes(itemId);
-            });
-
-            // Add to resume
-            currentResume[section].push(...JSON.parse(JSON.stringify(originalItems)));
-            restoredCount += originalItems.length;
-
-            // 2. Remove from state.excludedItems?
-            // Actually, we should PROBABLY add them to mustIncludeItems so they stick?
-            // But for now, just restoring them to current resume is enough for manual editing.
-            // However, if we re-generate, they might get excluded again unless we add to "mustIncludeItems".
-            // Let's DO add to mustIncludeItems.
-        });
-
-        // Update mustIncludeItems
-        const mustInclude = state.mustIncludeItems || {};
-        Object.entries(toRestore).forEach(([section, ids]) => {
-            if (!mustInclude[section]) mustInclude[section] = [];
-            ids.forEach(id => {
-                if (!mustInclude[section].includes(id)) mustInclude[section].push(id);
-            });
-        });
-
-        updateState({ mustIncludeItems: mustInclude });
-        await chrome.storage.local.set({ must_include_items: mustInclude });
-
-        // Remove from excludedItems state locally so badge updates
-        // (Note: This determines badge count)
-        const newExcluded = JSON.parse(JSON.stringify(state.excludedItems));
-        Object.entries(toRestore).forEach(([section, ids]) => {
-            if (newExcluded[section]) {
-                newExcluded[section] = newExcluded[section].filter(exParams => {
-                    // exParams is string ID
-                    return !ids.includes(exParams);
-                });
-                if (newExcluded[section].length === 0) delete newExcluded[section];
+            // Create empty section data with a starter item
+            if (sec === 'summary') {
+                currentResume.summary = '';
+            } else if (sec === 'skills') {
+                if (!currentResume.skills || Array.isArray(currentResume.skills)) currentResume.skills = {};
+                currentResume.skills['Skills'] = 'Skill 1, Skill 2';
+            } else if (sec === 'languages' || sec === 'interests') {
+                currentResume[sec] = ['Item 1'];
+            } else {
+                // Array sections — create one empty starter item
+                const templates = {
+                    experience: { company: 'Company Name', role: 'Role', dates: 'Dates', location: 'Location', bullets: ['Describe your achievement'] },
+                    projects: { name: 'Project Name', tech: '', dates: 'Dates', bullets: ['Describe your work'] },
+                    education: { institution: 'University', degree: 'Degree', gpa: '', dates: 'Dates', location: '', bullets: [] },
+                    leadership: { organization: 'Organization', role: 'Role', dates: 'Dates', location: '', bullets: ['Describe your impact'] },
+                    research: { title: 'Paper Title', conference: '', dates: 'Date', link: '', bullets: [] },
+                    certifications: [{ name: 'Certification Name', issuer: '', dates: '' }],
+                    awards: [{ name: 'Award Name', organization: '', dates: '' }],
+                    volunteering: { organization: 'Organization', role: 'Role', dates: 'Dates', location: '', bullets: ['Describe your contribution'] },
+                };
+                const template = templates[sec];
+                currentResume[sec] = Array.isArray(template) ? template : [template || {}];
             }
-        });
-        updateState({ excludedItems: newExcluded });
 
-        await saveChanges(false);
-        renderEditor();
-        renderSectionNav();
-        overlay.remove();
-        showSuccessToast(`Restored ${restoredCount} items!`);
+            // Add to section_order at sensible position
+            if (!currentResume.section_order) currentResume.section_order = [];
+            if (!currentResume.section_order.includes(sec)) {
+                const defaultOrder = ['summary', 'skills', 'experience', 'projects', 'education',
+                    'leadership', 'research', 'certifications', 'awards', 'volunteering', 'languages', 'interests'];
+                const idealIdx = defaultOrder.indexOf(sec);
+                let insertAt = currentResume.section_order.length;
+                for (let i = 0; i < currentResume.section_order.length; i++) {
+                    if (defaultOrder.indexOf(currentResume.section_order[i]) > idealIdx) {
+                        insertAt = i;
+                        break;
+                    }
+                }
+                currentResume.section_order.splice(insertAt, 0, sec);
+            }
 
-        // Update badges
-        updateExcludedItemsButtonVisibility();
-    };
-}
+            overlay.remove();
+            await applyStructuralChange(false);
+            renderSectionNav();
+            showSuccessToast(`"${sectionLabels[sec] || sec}" section added!`);
 
-function updateExcludedItemsButtonVisibility() {
-    const btn = document.getElementById('viewExcludedBtn');
-    if (!btn) return;
-
-    const excluded = state.excludedItems || {};
-    // Calculate REAL count based on base resume matching
-    // (sometimes excluded list has junk or items already restored manually)
-    let total = 0;
-    const base = state.baseResume || {};
-    const tailored = currentResume || {}; // Current working copy
-
-    Object.entries(excluded).forEach(([section, ids]) => {
-        if (!ids || ids.length === 0) return;
-        if (!base[section]) return;
-
-        // Count items that are in base, linked to these IDs, AND NOT in current tailored
-        const missingItems = base[section].filter(item => {
-            const itemId = (item.company || item.name || item.organization || item.title || '').toLowerCase().trim();
-
-            const isExcludedId = ids.some(id => {
-                const idLower = String(id).toLowerCase().trim();
-                return idLower === itemId || itemId.includes(idLower) || idLower.includes(itemId);
-            });
-            if (!isExcludedId) return false;
-
-            // Check if present in current resume
-            const currentSec = tailored[section] || [];
-            const isPresent = currentSec.some(t => {
-                const tId = (t.company || t.name || t.organization || t.title || '').toLowerCase().trim();
-                return tId === itemId || tId.includes(itemId) || itemId.includes(tId);
-            });
-
-            return !isPresent;
-        });
-
-        total += missingItems.length;
+            // Scroll to new section
+            setTimeout(() => {
+                const target = document.querySelector(`.resume-section[data-section="${sec}"]`);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        };
     });
-
-    if (total > 0) {
-        btn.style.display = 'inline-flex';
-        btn.innerHTML = `<span style="margin-right:4px;">⚠️</span> Excluded (${total})`;
-        btn.style.background = '#fffbeb';
-        btn.style.borderColor = '#fcd34d';
-        btn.style.color = '#92400e';
-    } else {
-        btn.style.display = 'none';
-    }
 }
 
 function showRestoreDeletedDialog() {
-    const itemTotal = Object.values(userDeletedItems).reduce((s, a) => s + a.length, 0);
-    const total = itemTotal + deletedSections.length;
-    if (total === 0) return;
+    const itemCount = Object.values(userDeletedItems).reduce((s, a) => s + a.length, 0);
+    const total = itemCount + deletedSections.length;
+    if (total === 0) { showSuccessToast("Nothing to restore."); return; }
 
-    let html = `<div style="max-height:400px;overflow-y:auto;padding:10px;"><p style="margin:0 0 12px;color:#6b7280;font-size:13px;">Select items to restore.</p>`;
-    const sectionLabels = { experience: 'Work Experience', projects: 'Projects', leadership: 'Leadership', research: 'Research', education: 'Education', certifications: 'Certifications', awards: 'Awards', volunteering: 'Volunteering', summary: 'Summary', skills: 'Skills', languages: 'Languages', interests: 'Interests' };
+    const sectionLabels = {
+        experience: 'Work Experience', projects: 'Projects', leadership: 'Leadership',
+        research: 'Research', education: 'Education', certifications: 'Certifications',
+        awards: 'Awards', volunteering: 'Volunteering'
+    };
+
+    let html = `<div style="max-height:400px;overflow-y:auto;padding:10px;">
+        <p style="font-size:12px;color:#6b7280;margin:0 0 12px;">Select items to restore to your resume.</p>`;
 
     // Deleted sections
     if (deletedSections.length > 0) {
-        html += `<div style="margin-bottom:12px;"><h4 style="margin:0 0 6px;font-size:13px;color:#374151;text-transform:uppercase;">Deleted Sections</h4>`;
+        html += `<div style="margin-bottom:12px;">
+            <h4 style="margin:0 0 6px;font-size:12px;color:#6b7280;text-transform:uppercase;">Sections</h4>`;
         deletedSections.forEach((entry, i) => {
             html += `<label class="restore-item" style="display:flex;gap:10px;padding:8px;border-bottom:1px solid #f3f4f6;cursor:pointer;">
-                        <input type="checkbox" data-restore-type="section" data-deleted-index="${i}">
-                        <div style="font-size:13px;"><strong>${escapeHtml(sectionLabels[entry.section] || entry.section)}</strong></div>
-                    </label>`;
+                <input type="checkbox" data-type="section" data-index="${i}">
+                <div style="font-size:13px;"><strong>${escapeHtml(sectionLabels[entry.section] || entry.section)}</strong></div>
+            </label>`;
         });
         html += `</div>`;
     }
 
-    // Deleted items
+    // Deleted items — flat list grouped by section
     Object.entries(userDeletedItems).forEach(([section, items]) => {
         if (items.length === 0) return;
-        html += `<div style="margin-bottom:12px;"><h4 style="margin:0 0 6px;font-size:13px;color:#374151;text-transform:uppercase;">${sectionLabels[section] || section}</h4>`;
+        html += `<div style="margin-bottom:12px;">
+            <h4 style="margin:0 0 6px;font-size:12px;color:#6b7280;text-transform:uppercase;">${sectionLabels[section] || section}</h4>`;
         items.forEach((entry, i) => {
             const name = entry.item.company || entry.item.name || entry.item.organization || entry.item.title || 'Unknown';
+            const subtitle = entry.item.role || entry.item.tech || entry.item.conference || '';
             html += `<label class="restore-item" style="display:flex;gap:10px;padding:8px;border-bottom:1px solid #f3f4f6;cursor:pointer;">
-                        <input type="checkbox" data-section="${section}" data-deleted-index="${i}">
-                        <div style="font-size:13px;"><strong>${escapeHtml(name)}</strong></div>
-                    </label>`;
+                <input type="checkbox" data-type="item" data-section="${section}" data-index="${i}">
+                <div>
+                    <div style="font-size:13px;"><strong>${escapeHtml(name)}</strong>${subtitle ? ' <span style="color:#6b7280;">— ' + escapeHtml(subtitle) + '</span>' : ''}</div>
+                </div>
+            </label>`;
         });
         html += `</div>`;
     });
+
     html += `</div>`;
 
     const overlay = document.createElement('div');
     overlay.id = 'restoreDeletedOverlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
-    overlay.innerHTML = `<div style="background:white;border-radius:12px;width:420px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;">
-            <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;"><h3>♻️ Restore Deleted Items</h3><button id="closeRestoreBtn">&times;</button></div>
-            ${html}
-            <div style="padding:12px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:8px;">
-                <button id="cancelRestoreBtn">Cancel</button>
-                <button id="confirmRestore" style="background:#6366f1;color:white;padding:8px 16px;border-radius:6px;">Restore Selected</button>
+    overlay.innerHTML = `<div style="background:white;border-radius:12px;width:420px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;display:flex;flex-direction:column;max-height:80vh;">
+            <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+                <h3 style="margin:0;">♻️ Restore Items</h3>
+                <button id="closeRestoreBtn" style="background:none;border:none;font-size:18px;cursor:pointer;">&times;</button>
             </div>
-        </div>`;
+        ${html}
+            <div style="padding:12px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:8px;">
+            <button id="cancelRestoreBtn" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;">Cancel</button>
+            <button id="confirmRestoreBtn" style="background:#6366f1;color:white;padding:8px 16px;border:none;border-radius:6px;cursor:pointer;">Restore Selected</button>
+        </div>
+    </div>`;
     document.body.appendChild(overlay);
 
-    // Attach listeners
+    // Close handlers
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
     overlay.querySelector('#closeRestoreBtn').addEventListener('click', () => overlay.remove());
     overlay.querySelector('#cancelRestoreBtn').addEventListener('click', () => overlay.remove());
 
-    overlay.querySelector('#confirmRestore').onclick = async () => {
+    // Restore handler
+    overlay.querySelector('#confirmRestoreBtn').onclick = async () => {
         const checked = overlay.querySelectorAll('input:checked');
-        const toRestore = {};
-        const sectionsToRestore = [];
+        if (checked.length === 0) { overlay.remove(); return; }
+
         undoSnapshot = JSON.parse(JSON.stringify(currentResume));
+
+        // Collect what to restore
+        const sectionIndicesToRestore = [];
+        const itemsToRestore = {}; // section -> [indices]
+
         checked.forEach(cb => {
-            if (cb.dataset.restoreType === 'section') {
-                sectionsToRestore.push(parseInt(cb.dataset.deletedIndex));
-            } else {
+            if (cb.dataset.type === 'section') {
+                sectionIndicesToRestore.push(parseInt(cb.dataset.index));
+            } else if (cb.dataset.type === 'item') {
                 const sec = cb.dataset.section;
-                if (!toRestore[sec]) toRestore[sec] = [];
-                toRestore[sec].push(parseInt(cb.dataset.deletedIndex));
+                if (!itemsToRestore[sec]) itemsToRestore[sec] = [];
+                itemsToRestore[sec].push(parseInt(cb.dataset.index));
             }
         });
 
-        // Restore deleted sections
-        sectionsToRestore.sort((a, b) => b - a);
-        sectionsToRestore.forEach(idx => {
+        // 1. Restore sections (reverse order to avoid index shifting)
+        sectionIndicesToRestore.sort((a, b) => b - a);
+        sectionIndicesToRestore.forEach(idx => {
             const entry = deletedSections[idx];
-            currentResume[entry.section] = JSON.parse(JSON.stringify(entry.data));
-            if (!currentResume.section_order) currentResume.section_order = [];
-            if (!currentResume.section_order.includes(entry.section)) {
-                currentResume.section_order.splice(entry.orderIndex, 0, entry.section);
+            if (entry) {
+                currentResume[entry.section] = JSON.parse(JSON.stringify(entry.data));
+                if (!currentResume.section_order) currentResume.section_order = [];
+                if (!currentResume.section_order.includes(entry.section)) {
+                    currentResume.section_order.splice(entry.orderIndex, 0, entry.section);
+                }
+                deletedSections.splice(idx, 1);
             }
-            deletedSections.splice(idx, 1);
         });
 
-        // Restore deleted items
-        Object.entries(toRestore).forEach(([section, indices]) => {
-            indices.sort((a, b) => b - a);
-            if (!currentResume[section]) currentResume[section] = [];
+        // 2. Restore items
+        const mustInclude = { ...(state.mustIncludeItems || {}) };
+        const newExcluded = state.excludedItems ? JSON.parse(JSON.stringify(state.excludedItems)) : {};
+        let stateModified = false;
+
+        Object.entries(itemsToRestore).forEach(([section, indices]) => {
+            indices.sort((a, b) => b - a); // Reverse to avoid shifting
+
             indices.forEach(idx => {
-                currentResume[section].push(JSON.parse(JSON.stringify(userDeletedItems[section][idx].item)));
+                if (!userDeletedItems[section]?.[idx]) return;
+
+                const item = JSON.parse(JSON.stringify(userDeletedItems[section][idx].item));
+                const itemId = (item.company || item.name || item.organization || item.title || '').trim();
+                const itemIdLower = itemId.toLowerCase();
+
+                // Determine target section (handle merge)
+                let targetSection = section;
+                let itemToPush = item;
+                if (state.mergeResearchIntoProjects && section === 'research') {
+                    targetSection = 'projects';
+                    if (!itemToPush.name && itemToPush.title) itemToPush.name = itemToPush.title;
+                    if (itemToPush.conference && itemToPush.bullets) {
+                        itemToPush.bullets.unshift('Published in: ' + itemToPush.conference);
+                    }
+                }
+
+                // Add to resume
+                if (!currentResume[targetSection]) currentResume[targetSection] = [];
+                currentResume[targetSection].push(itemToPush);
+
+                // Ensure section is in section_order (it may have been deleted)
+                if (!currentResume.section_order) currentResume.section_order = [];
+                if (!currentResume.section_order.includes(targetSection)) {
+                    // Insert at sensible position
+                    const defaultOrder = ['summary', 'skills', 'experience', 'projects', 'education',
+                        'leadership', 'research', 'certifications', 'awards', 'volunteering', 'languages'];
+                    const idealIdx = defaultOrder.indexOf(targetSection);
+                    let insertAt = currentResume.section_order.length;
+
+                    if (idealIdx !== -1) {
+                        for (let i = 0; i < currentResume.section_order.length; i++) {
+                            const currentSecIdx = defaultOrder.indexOf(currentResume.section_order[i]);
+                            // If current section should come after (or is unknown/custom), insert before it
+                            if (currentSecIdx > idealIdx || currentSecIdx === -1) {
+                                insertAt = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    currentResume.section_order.splice(insertAt, 0, targetSection);
+                }
+
+                // Add to mustIncludeItems (survives reforge)
+                if (itemId) {
+                    if (!mustInclude[section]) mustInclude[section] = [];
+                    if (!mustInclude[section].includes(itemId)) {
+                        mustInclude[section].push(itemId);
+                        stateModified = true;
+                    }
+                }
+
+                // Remove from excludedItems (so API filter won't strip it)
+                // Check both the original section and 'projects' (for merged research)
+                [section, targetSection].forEach(checkSec => {
+                    if (newExcluded[checkSec]) {
+                        newExcluded[checkSec] = newExcluded[checkSec].filter(id => {
+                            const exLower = String(id).toLowerCase().trim();
+                            return !(exLower === itemIdLower || exLower.includes(itemIdLower) || itemIdLower.includes(exLower));
+                        });
+                        if (newExcluded[checkSec].length === 0) delete newExcluded[checkSec];
+                        stateModified = true;
+                    }
+                });
+
+                // Remove from userDeletedItems
                 userDeletedItems[section].splice(idx, 1);
             });
-            if (userDeletedItems[section].length === 0) delete userDeletedItems[section];
+
+            if (userDeletedItems[section]?.length === 0) delete userDeletedItems[section];
         });
+
+        // Persist state changes
+        if (stateModified) {
+            updateState({ mustIncludeItems: mustInclude, excludedItems: newExcluded });
+            await chrome.storage.local.set({ must_include_items: mustInclude, excluded_items: newExcluded });
+        }
 
         await applyStructuralChange(false);
         renderSectionNav();
@@ -455,6 +515,8 @@ async function loadInitialData() {
             excludedItems: data.excluded_items,
             mergeResearchIntoProjects: data.merge_research_projects || false
         });
+
+
         detectMissingItems();
 
         const container = document.getElementById('pdfContainer');
@@ -468,7 +530,6 @@ async function loadInitialData() {
             renderEditor();
             renderSectionNav();
             updateAtsBadge();
-            updateExcludedItemsButtonVisibility(); // Check for excluded items
             updateRestoreButtonVisibility();
             await safelyGeneratePdf(true);
             autoFitEditor();
@@ -671,101 +732,124 @@ function setupKeyboardShortcuts() {
 }
 
 function setupToolbar() {
-    // Excluded Items Button (AI removed)
+    const restoreBtn = document.getElementById('restoreDeletedBtn');
+    if (restoreBtn) restoreBtn.onclick = showRestoreDeletedDialog;
+
+    // Add Section button in toolbar
     const rightActions = document.querySelector('.toolbar-right');
     if (rightActions) {
-        const excludedBtn = document.createElement('button');
-        excludedBtn.id = 'viewExcludedBtn';
-        excludedBtn.className = 'tb-btn';
-        excludedBtn.style.display = 'none'; // Hidden by default
-        excludedBtn.style.marginRight = '8px';
-        excludedBtn.innerHTML = `⚠️ Excluded`;
-        excludedBtn.onclick = showExcludedItemsDialog;
-        // Insert before download buttons or at start of right actions
-        rightActions.insertBefore(excludedBtn, rightActions.firstChild);
+        // Check if button already exists to prevent duplicates if this runs multiple times
+        if (document.getElementById('addSectionBtn')) return;
 
-        // Restore Deleted Button (User removed)
-        const restoreBtn = document.createElement('button');
-        restoreBtn.id = 'restoreDeletedBtn';
-        restoreBtn.className = 'tb-btn';
-        restoreBtn.style.display = 'none';
-        restoreBtn.style.marginRight = '8px';
-        restoreBtn.innerHTML = `♻️ Restore Deleted`;
-        restoreBtn.onclick = showRestoreDeletedDialog;
-        rightActions.insertBefore(restoreBtn, rightActions.firstChild);
-    }
+        const addSecBtn = document.createElement('button');
+        addSecBtn.id = 'addSectionBtn';
+        addSecBtn.className = 'tb-btn';
+        addSecBtn.innerHTML = '➕ Section';
+        addSecBtn.onclick = showAddSectionDialog;
 
-    document.getElementById('saveBtn')?.addEventListener('click', () => saveChanges(true));
-    document.getElementById('restoreDeletedBtn')?.addEventListener('click', showRestoreDeletedDialog);
-    document.getElementById('reforgeBtn')?.addEventListener('click', async () => {
-        const btn = document.getElementById('reforgeBtn');
-        const originalText = btn.innerHTML;
-        try {
-            await saveChanges(true);
-            const data = await chrome.storage.local.get(['base_resume', 'jd_analysis', 'gemini_api_key', 'groq_api_key', 'openrouter_api_key', 'provider_settings', 'auth_mode', 'free_usage', 'access_token']);
-            if (!data.jd_analysis) { showErrorToast('No job description found!'); return; }
-            if (data.auth_mode === 'free' && data.free_usage?.remaining <= 0) { showErrorToast('Daily limit reached!'); return; }
-
-            // Warn user about deletions
-            const deletedCount = Object.values(userDeletedItems).reduce((s, a) => s + a.length, 0) + deletedSections.length;
-            let confirmMsg = "Regenerate resume with AI?";
-            if (deletedCount > 0) {
-                confirmMsg += `\n\nNOTE: ${deletedCount} manually deleted items/sections will be EXCLUDED from the new resume.`;
-            }
-            if (!confirm(confirmMsg)) return;
-
-            btn.innerHTML = '<span class="spinner"></span> Reforging...'; btn.disabled = true;
-            updateState({
-                baseResume: data.base_resume, currentJdAnalysis: data.jd_analysis,
-                currentApiKey: data.gemini_api_key, currentGroqKey: data.groq_api_key, currentOpenRouterKey: data.openrouter_api_key,
-                currentProvider: data.provider_settings?.provider || 'gemini', authMode: data.auth_mode, accessToken: data.access_token,
-                isLoggedIn: !!data.access_token
-            });
-
-            // Calculate filtered base resume (respecting user deletions)
-            const filteredBase = getFilteredBaseResume();
-
-            const newResume = await regenerateResume(data.base_resume || currentResume, collectBulletCountsFromFullEditor(), data.jd_analysis, getApiKeyForProvider(), state.currentProvider, 'balanced', '1page', state.mustIncludeItems, filteredBase);
-            currentResume = newResume;
-            await chrome.storage.local.set({ tailored_resume: newResume });
-            renderEditor(); renderSectionNav(); await safelyGeneratePdf(true); showSuccessToast('Reforged!');
-        } catch (e) {
-            console.error("Reforge Error:", e); showErrorToast(`Reforge Failed: ${e.message}`);
-        } finally {
-            btn.innerHTML = originalText; btn.disabled = false;
+        // Insert after restore button if it exists, otherwise at start of right actions
+        if (restoreBtn && restoreBtn.parentNode === rightActions) {
+            restoreBtn.after(addSecBtn);
+        } else {
+            rightActions.insertBefore(addSecBtn, rightActions.firstChild);
         }
-    });
+    }
+}
 
-    document.getElementById('closeTabBtn')?.addEventListener('click', () => window.close());
-    document.getElementById('reorderToggle')?.addEventListener('click', openReorderModal);
-    setupReorderModal();
+document.getElementById('saveBtn')?.addEventListener('click', () => saveChanges(true));
 
-    document.getElementById('fitToOnePageBtn')?.addEventListener('click', async () => {
-        if ((pdfPreview?.getPageCount() || 1) <= 1) { showSuccessToast('Already fits!'); return; }
-        const btn = document.getElementById('fitToOnePageBtn');
-        const originalText = btn.innerHTML; btn.innerHTML = '📐 Fitting...';
+document.getElementById('reforgeBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('reforgeBtn');
+    const originalText = btn.innerHTML;
+    try {
+        await saveChanges(true);
+        const data = await chrome.storage.local.get(['base_resume', 'jd_analysis', 'gemini_api_key', 'groq_api_key', 'openrouter_api_key', 'provider_settings', 'auth_mode', 'free_usage', 'access_token', 'tailoring_strategy', 'page_mode']);
+        if (!data.jd_analysis) { showErrorToast('No job description found!'); return; }
+        if (data.auth_mode === 'free' && data.free_usage?.remaining <= 0) { showErrorToast('Daily limit reached!'); return; }
 
-        currentFormat = { ...currentFormat, margins: 'narrow', density: 'compact', bodySize: Math.max(8.5, (currentFormat.bodySize || 10) - 1), headerSize: Math.max(10, (currentFormat.headerSize || 12) - 1), nameSize: Math.max(16, (currentFormat.nameSize || 20) - 2) };
+        // Warn user about deletions
+        const deletedCount = Object.values(userDeletedItems).reduce((s, a) => s + a.length, 0) + deletedSections.length;
+        let confirmMsg = "Regenerate resume with AI?";
+        if (deletedCount > 0) {
+            confirmMsg += `\n\nNOTE: ${deletedCount} manually deleted items / sections will be EXCLUDED from the new resume.`;
+        }
+        if (!confirm(confirmMsg)) return;
+
+        btn.innerHTML = '<span class="spinner"></span> Reforging...'; btn.disabled = true;
+        updateState({
+            baseResume: data.base_resume, currentJdAnalysis: data.jd_analysis,
+            currentApiKey: data.gemini_api_key, currentGroqKey: data.groq_api_key, currentOpenRouterKey: data.openrouter_api_key,
+            currentProvider: data.provider_settings?.provider || 'gemini', authMode: data.auth_mode, accessToken: data.access_token,
+            isLoggedIn: !!data.access_token
+        });
+
+        // Calculate filtered base resume (respecting user deletions)
+        const filteredBase = getFilteredBaseResume();
+
+        // Collect IDs of deleted items to explicitly exclude from AI logic
+        const deletedItemIds = {};
+        Object.entries(userDeletedItems).forEach(([sec, items]) => {
+            deletedItemIds[sec] = items.map(i => (i.item.company || i.item.name || i.item.title || '').trim().toLowerCase()).filter(Boolean);
+        });
+
+        const newResume = await regenerateResume(
+            data.base_resume || currentResume,
+            collectBulletCountsFromFullEditor(),
+            data.jd_analysis,
+            getApiKeyForProvider(),
+            state.currentProvider,
+            data.tailoring_strategy || 'balanced',
+            data.page_mode || '1page',
+            state.mustIncludeItems,
+            filteredBase,
+            deletedItemIds
+        );
+        currentResume = newResume;
+        await chrome.storage.local.set({ tailored_resume: newResume });
+
+        // Clear stale deletion tracking and re-detect
+        userDeletedItems = {};
+        deletedSections = [];
+        detectMissingItems();
+
+        renderEditor(); renderSectionNav(); await safelyGeneratePdf(true); showSuccessToast('Reforged!');
+    } catch (e) {
+        console.error("Reforge Error:", e); showErrorToast(`Reforge Failed: ${e.message}`);
+    } finally {
+        btn.innerHTML = originalText; btn.disabled = false;
+    }
+});
+
+document.getElementById('closeTabBtn')?.addEventListener('click', () => window.close());
+document.getElementById('reorderToggle')?.addEventListener('click', openReorderModal);
+setupReorderModal();
+
+document.getElementById('fitToOnePageBtn')?.addEventListener('click', async () => {
+    if ((pdfPreview?.getPageCount() || 1) <= 1) { showSuccessToast('Already fits!'); return; }
+    const btn = document.getElementById('fitToOnePageBtn');
+    const originalText = btn.innerHTML; btn.innerHTML = '📐 Fitting...';
+
+    currentFormat = { ...currentFormat, margins: 'narrow', density: 'compact', bodySize: Math.max(8.5, (currentFormat.bodySize || 10) - 1), headerSize: Math.max(10, (currentFormat.headerSize || 12) - 1), nameSize: Math.max(16, (currentFormat.nameSize || 20) - 2) };
+    applyFormatStylesToEditor(currentFormat);
+    await safelyGeneratePdf(true);
+
+    while ((pdfPreview?.getPageCount() || 1) > 1 && (currentFormat.bodySize || 10) > 8) {
+        currentFormat.bodySize -= 0.5;
         applyFormatStylesToEditor(currentFormat);
         await safelyGeneratePdf(true);
+    }
+    chrome.storage.local.set({ format_settings: currentFormat });
+    showSuccessToast('Fitted to 1 page!'); btn.innerHTML = originalText;
+});
 
-        while ((pdfPreview?.getPageCount() || 1) > 1 && (currentFormat.bodySize || 10) > 8) {
-            currentFormat.bodySize -= 0.5;
-            applyFormatStylesToEditor(currentFormat);
-            await safelyGeneratePdf(true);
-        }
-        chrome.storage.local.set({ format_settings: currentFormat });
-        showSuccessToast('Fitted to 1 page!'); btn.innerHTML = originalText;
-    });
+document.getElementById('copyTextBtn')?.addEventListener('click', () => {
+    if (!currentResume) return;
+    const sectionsOrder = currentResume.section_order || DEFAULT_SECTIONS;
+    const text = [currentResume.name, ...Object.values(currentResume.contact || {}), currentResume.summary].filter(Boolean).join('\n') + '\n\n' + sectionsOrder.map(s => currentResume[s] ? `${s.toUpperCase()}\n${JSON.stringify(currentResume[s], null, 2)}` : '').join('\n\n');
+    navigator.clipboard.writeText(text);
+    showSuccessToast("Text copied!");
+});
 
-    document.getElementById('copyTextBtn')?.addEventListener('click', () => {
-        if (!currentResume) return;
-        const sectionsOrder = currentResume.section_order || DEFAULT_SECTIONS;
-        const text = [currentResume.name, ...Object.values(currentResume.contact || {}), currentResume.summary].filter(Boolean).join('\n') + '\n\n' + sectionsOrder.map(s => currentResume[s] ? `${s.toUpperCase()}\n${JSON.stringify(currentResume[s], null, 2)}` : '').join('\n\n');
-        navigator.clipboard.writeText(text);
-        showSuccessToast("Text copied!");
-    });
-}
 
 function setupReorderModal() {
     const modal = document.getElementById('reorderModal');
@@ -788,9 +872,16 @@ function setupReorderModal() {
 
 function openReorderModal() {
     const list = document.getElementById('sortableList'); list.innerHTML = '';
-    const order = currentResume.section_order || DEFAULT_SECTIONS;
-    const all = Array.from(new Set([...order, ...DEFAULT_SECTIONS]));
-    all.forEach(s => {
+    const order = currentResume.section_order || [];
+
+    // Only show sections that exist and have content
+    order.forEach(s => {
+        const data = currentResume[s];
+        if (!data) return;
+        if (Array.isArray(data) && data.length === 0) return;
+        if (typeof data === 'string' && !data.trim()) return;
+        if (typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length === 0) return;
+
         const li = document.createElement('li'); li.className = 'sortable-item'; li.draggable = true; li.dataset.section = s;
         li.innerHTML = `<span class="handle">☰</span> ${s.charAt(0).toUpperCase() + s.slice(1)}`;
         list.appendChild(li);
@@ -1337,10 +1428,11 @@ function setupPreviewControls() {
     }, { passive: false });
 }
 
-export function collectBulletCountsFromFullEditor() {
+function collectBulletCountsFromFullEditor() {
     const res = {};
     ['experience', 'projects', 'leadership', 'research'].forEach(s => {
         if (Array.isArray(currentResume[s])) res[s] = currentResume[s].map(i => i.bullet_count_preference || (i.bullets || []).length);
     });
     return res;
 }
+

@@ -153,6 +153,9 @@ export async function extractBaseProfile(text, apiKey, provider) {
 }
 
 export async function tailorResume(baseResume, jdText, apiKey, provider, tailoringStrategy) {
+    // Clear previous exclusions as this is a fresh forge
+    updateState({ excludedItems: null, mustIncludeItems: null });
+
     // NEW: Direct AI Call with JD Analysis Caching
 
     // 1. Analyze JD first (we need jdAnalysis for the tailor prompt)
@@ -201,28 +204,9 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
 
         // Create working copy for prompt building
         let resumeForPrompt = JSON.parse(JSON.stringify(baseResume));
+
         if (state.mergeResearchIntoProjects) {
             resumeForPrompt = Prompts.mergeResearchIntoProjects(resumeForPrompt);
-        }
-
-        // --- EXCLUSION FILTER: Strip previously AI-excluded items (unless user re-included them) ---
-        if (state.excludedItems) {
-            const mustInclude = state.mustIncludeItems || {};
-            for (const [sec, excludedIds] of Object.entries(state.excludedItems)) {
-                if (!Array.isArray(excludedIds) || excludedIds.length === 0) continue;
-                if (!Array.isArray(resumeForPrompt[sec])) continue;
-
-                const reIncludeIds = (mustInclude[sec] || []).map(id => String(id).toLowerCase().trim());
-                resumeForPrompt[sec] = resumeForPrompt[sec].filter(item => {
-                    const itemId = (item.company || item.name || item.organization || item.title || '').toLowerCase().trim();
-                    const isExcluded = excludedIds.some(id => {
-                        const exLower = String(id).toLowerCase().trim();
-                        return exLower === itemId || itemId.includes(exLower) || exLower.includes(itemId);
-                    });
-                    if (!isExcluded) return true;
-                    return reIncludeIds.some(id => id === itemId || itemId.includes(id) || id.includes(itemId));
-                });
-            }
         }
 
         const tailorPrompt = Prompts.buildTailorPrompt(resumeForPrompt, jdAnalysis, tailoringStrategy, null, state.pageMode || '1page', state.mustIncludeItems, state.formatSettings);
@@ -269,6 +253,21 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
                     return null;
                 })
                 .filter(i => i && i.length > 0);
+        }
+
+        // NORMALIZE EXCLUSIONS (Output)
+        // If merge is ON, the AI might return research items as 'projects' (correct) or 'research' (unlikely but possible).
+        // WE must ensure that if research is merged, all research exclusions are stored under 'projects'.
+        if (state.mergeResearchIntoProjects) {
+            if (excludedItems.research && excludedItems.research.length > 0) {
+                if (!excludedItems.projects) excludedItems.projects = [];
+                excludedItems.projects.push(...excludedItems.research);
+                excludedItems.research = [];
+            }
+            // Also, deduplicate projects
+            if (excludedItems.projects) {
+                excludedItems.projects = [...new Set(excludedItems.projects)];
+            }
         }
 
         // Store excluded items in state
@@ -399,7 +398,7 @@ function sanitizeBulletCounts(sourceResume, editorResume, bulletCounts) {
     return sanitized;
 }
 
-export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis, apiKey, provider, tailoringStrategy, pageMode = '1page', mustIncludeItems = null, explicitSourceResume = null) {
+export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis, apiKey, provider, tailoringStrategy, pageMode = '1page', mustIncludeItems = null, explicitSourceResume = null, explicitDeletedItemIds = null) {
     // Uses the base resume (full context) as the source for re-tailoring.
     // Preserves manual edits from the tailored resume (titles, order, summary).
     try {
@@ -441,15 +440,43 @@ export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis,
 
         // Create working copy for prompt building
         let resumeForPrompt = sourceResume;
+
+        // --- NORMALIZE EXCLUSIONS (Input) ---
+        let activeExcludedItems = state.excludedItems ? JSON.parse(JSON.stringify(state.excludedItems)) : null;
+        if (state.mergeResearchIntoProjects && activeExcludedItems) {
+            if (activeExcludedItems.research && activeExcludedItems.research.length > 0) {
+                if (!activeExcludedItems.projects) activeExcludedItems.projects = [];
+                activeExcludedItems.projects.push(...activeExcludedItems.research);
+                activeExcludedItems.research = [];
+            }
+        }
+
         if (state.mergeResearchIntoProjects) {
             resumeForPrompt = Prompts.mergeResearchIntoProjects(sourceResume);
         }
 
-        // --- EXCLUSION FILTER: Strip previously AI-excluded items (unless user re-included them) ---
-        if (state.excludedItems) {
+        // --- DELETION FILTER: Strip items manually deleted in full editor ---
+        // This runs AFTER merge, so if research was merged into projects, the ID map 
+        // will correctly filter it from projects if the editor deleted it.
+        if (explicitDeletedItemIds) {
+            // explicitDeletedItemIds = { section: [id1, id2] }
+            resumeForPrompt = JSON.parse(JSON.stringify(resumeForPrompt));
+            for (const [sec, deletedIds] of Object.entries(explicitDeletedItemIds)) {
+                if (!Array.isArray(resumeForPrompt[sec])) continue;
+                if (!Array.isArray(deletedIds) || deletedIds.length === 0) continue;
+
+                resumeForPrompt[sec] = resumeForPrompt[sec].filter(item => {
+                    const itemId = (item.company || item.name || item.organization || item.title || '').toLowerCase().trim();
+                    return !deletedIds.includes(itemId);
+                });
+            }
+        }
+
+        // --- EXCLUSION FILTER: Strip previously AI-excluded items ---
+        if (activeExcludedItems) {
             resumeForPrompt = JSON.parse(JSON.stringify(resumeForPrompt)); // Ensure deep clone for modification
             const mustInclude = state.mustIncludeItems || {};
-            for (const [sec, excludedIds] of Object.entries(state.excludedItems)) {
+            for (const [sec, excludedIds] of Object.entries(activeExcludedItems)) {
                 if (!Array.isArray(excludedIds) || excludedIds.length === 0) continue;
                 if (!Array.isArray(resumeForPrompt[sec])) continue;
 
@@ -506,6 +533,18 @@ export async function regenerateResume(tailoredResume, bulletCounts, jdAnalysis,
         newTailoredData = Prompts.ensure_keyword_coverage(newTailoredData, jdAnalysis);
         newTailoredData = Prompts.enforce_skill_limits(newTailoredData);
         newTailoredData = Prompts.enforce_bullet_limits(newTailoredData, bulletCounts);
+
+        // NORMALIZE EXCLUSIONS (Output)
+        if (state.mergeResearchIntoProjects) {
+            if (excludedItems.research && excludedItems.research.length > 0) {
+                if (!excludedItems.projects) excludedItems.projects = [];
+                excludedItems.projects.push(...excludedItems.research);
+                excludedItems.research = [];
+            }
+            if (excludedItems.projects) {
+                excludedItems.projects = [...new Set(excludedItems.projects)];
+            }
+        }
 
         // Update excluded items state
         updateState({ excludedItems: excludedItems });

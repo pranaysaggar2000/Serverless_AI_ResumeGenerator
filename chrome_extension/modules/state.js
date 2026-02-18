@@ -1,5 +1,5 @@
 // Production Vercel deployment URL
-export const API_BASE_URL = "https://serverless-ai-resume-generator-api.vercel.app";
+export const API_BASE_URL = "https://serverless-ai-resume-gene-git-65ac0c-pranaysaggar2000s-projects.vercel.app";
 export const DEBUG = false; // Set to true for development
 
 const stateShape = {
@@ -9,6 +9,7 @@ const stateShape = {
     currentApiKey: "",
     currentGroqKey: "",
     currentOpenRouterKey: "",
+    currentCerebrasKey: "",
     currentProvider: "gemini", // Default
     hasAnalyzed: false,
     tailoringStrategy: "balanced",

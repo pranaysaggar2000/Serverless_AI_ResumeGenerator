@@ -20,8 +20,9 @@
         "https://api.groq.com/*",
         "https://openrouter.ai/*",
         "https://www.linkedin.com/*",
-        "https://serverless-ai-resume-generator-api.vercel.app/*",
-        "https://*.supabase.co/*"
+        "https://serverless-ai-resume-gene-git-65ac0c-pranaysaggar2000s-projects.vercel.app/*",
+        "https://*.supabase.co/*",
+        "https://api.cerebras.ai/*"
     ],
     "action": {
         "default_title": "ForgeCV",

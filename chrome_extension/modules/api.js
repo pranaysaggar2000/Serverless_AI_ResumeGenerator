@@ -209,7 +209,37 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
             resumeForPrompt = Prompts.mergeResearchIntoProjects(resumeForPrompt);
         }
 
-        const tailorPrompt = Prompts.buildTailorPrompt(resumeForPrompt, jdAnalysis, tailoringStrategy, null, state.pageMode || '1page', state.mustIncludeItems, state.formatSettings);
+        // ── Step 2: Strategy agent (Cerebras if available, else falls through to Groq on server) ──
+        let agentStrategy = null;
+        try {
+            const strategyPrompt = Prompts.buildStrategyPrompt(
+                resumeForPrompt, jdAnalysis, tailoringStrategy, state.pageMode || '1page'
+            );
+            const strategyProvider = state.currentCerebrasKey ? 'cerebras' : provider;
+            const strategyKey = state.currentCerebrasKey ? state.currentCerebrasKey : apiKey;
+            const strategyResponse = await callAI(strategyPrompt, strategyProvider, strategyKey, {
+                expectJson: true,
+                taskType: 'strategy',
+                actionId,
+            });
+            agentStrategy = extractJSON(strategyResponse);
+
+            // Apply strategy exclusions to resumeForPrompt before the rewrite step
+            if (agentStrategy?.exclude) {
+                for (const [sec, names] of Object.entries(agentStrategy.exclude)) {
+                    if (!Array.isArray(names) || !names.length || !Array.isArray(resumeForPrompt[sec])) continue;
+                    resumeForPrompt[sec] = resumeForPrompt[sec].filter(item => {
+                        const n = (item.company || item.name || item.organization || item.title || '').toLowerCase();
+                        return !names.some(ex => n.includes(ex.toLowerCase()));
+                    });
+                }
+            }
+        } catch (stratErr) {
+            // Strategy is best-effort — never block the forge if it fails
+            console.warn('[forge] Strategy step failed, continuing without it:', stratErr.message);
+        }
+
+        const tailorPrompt = Prompts.buildTailorPrompt(resumeForPrompt, jdAnalysis, tailoringStrategy, null, state.pageMode || '1page', state.mustIncludeItems, state.formatSettings, agentStrategy);
         const tailorResponse = await callAI(tailorPrompt, provider, apiKey, { expectJson: true, taskType: 'tailor', actionId });
         let tailoredData = extractJSON(tailorResponse);
 

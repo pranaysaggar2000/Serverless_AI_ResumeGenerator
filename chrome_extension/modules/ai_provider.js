@@ -19,7 +19,7 @@ export async function callAI(prompt, provider, apiKey, options = {}) {
         } catch (error) {
             const { showStatus } = await import('./ui.js');
             // Fallback to BYOK ONLY if they actually have a valid-looking key configured
-            const hasActualByokKey = !!(state.currentApiKey || state.currentGroqKey || state.currentOpenRouterKey);
+            const hasActualByokKey = !!(state.currentApiKey || state.currentGroqKey || state.currentOpenRouterKey || state.currentCerebrasKey);
             if (error.message === 'SERVER_ERROR' && hasActualByokKey) {
                 showStatus('Free tier server unavailable. Using your own API key instead.', 'warning');
                 // Fall through to BYOK logic below
@@ -53,6 +53,8 @@ export async function callAI(prompt, provider, apiKey, options = {}) {
         return callGroq(prompt, apiKey, options);
     } else if (provider === 'openrouter') {
         return callOpenRouter(prompt, apiKey, options);
+    } else if (provider === 'cerebras') {
+        return callCerebras(prompt, apiKey, options);
     }
     throw new Error(`Unknown provider: ${provider}`);
 }
@@ -144,12 +146,16 @@ async function callGemini(prompt, apiKey, options) {
 }
 
 async function callGroq(prompt, apiKey, options) {
-    const modelsChain = [
-        'moonshotai/kimi-k2-instruct-0905',
-        "meta-llama/llama-4-scout-17b-16e-instruct",
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant"
-    ];
+    const GROQ_CHAINS = {
+        jdParse: ['llama-3.3-70b-versatile', 'llama-3.1-70b-versatile'],
+        strategy: ['llama-3.3-70b-versatile', 'llama-3.1-70b-versatile'],
+        tailor: ['moonshotai/kimi-k2-instruct', 'llama-3.3-70b-versatile', 'llama-3.1-70b-versatile'],
+        score: ['moonshotai/kimi-k2-instruct', 'llama-3.3-70b-versatile'],
+        default: ['llama-3.3-70b-versatile', 'llama-3.1-70b-versatile', 'llama-3.1-8b-instant'],
+    };
+    const modelsChain = GROQ_CHAINS[options.taskType] || GROQ_CHAINS.default;
+
+    debugLog(`[Groq] Task: ${options.taskType}, Models: ${modelsChain.join(', ')}`);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000); // 60s timeout
@@ -157,12 +163,14 @@ async function callGroq(prompt, apiKey, options) {
     try {
         for (const modelId of modelsChain) {
             try {
+                debugLog(`[Groq] Attempting model: ${modelId}`);
                 const payload = {
                     model: modelId,
                     messages: [
                         { role: "user", content: prompt.trimEnd() }
                     ]
                 };
+                // ... (rest of payload construction)
 
                 if (options.expectJson) {
                     payload.response_format = { type: "json_object" };
@@ -235,6 +243,44 @@ async function callGroq(prompt, apiKey, options) {
     throw new Error("All Groq models failed.");
 }
 
+async function callCerebras(prompt, apiKey, options = {}) {
+    const model = 'gpt-oss-120b';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    debugLog(`[Cerebras] Calling model: ${model} | Task: ${options.taskType}`);
+    try {
+        const body = {
+            model,
+            messages: [{ role: 'user', content: prompt.trimEnd() }],
+            max_tokens: options.taskType === 'strategy' ? 600 : 2000,
+        };
+        if (options.taskType === 'strategy') body.reasoning_effort = 'low';
+
+        const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+            signal: controller.signal,
+        });
+
+        if (response.status === 401 || response.status === 403) throw new Error('CEREBRAS_AUTH_ERROR');
+        if (response.status === 429) throw new Error('CEREBRAS_RATE_LIMITED');
+        if (!response.ok) throw new Error(`Cerebras HTTP ${response.status}`);
+
+        const data = await response.json();
+        return data.choices[0].message.content;
+    } catch (e) {
+        if (e.name === 'AbortError') throw new Error('Cerebras request timed out. Please try again.');
+        if (e.message === 'CEREBRAS_AUTH_ERROR') throw new Error('Cerebras API Key is invalid. Please check your settings.');
+        throw e;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
 // OpenRouter Model Chains - Optimized based on health check results
 const OPENROUTER_CHAINS = {
     // For JD Parsing (simpler task, speed matters)
@@ -272,6 +318,8 @@ const OPENROUTER_CHAINS = {
         "openrouter/free"
     ]
 };
+
+
 
 async function callOpenRouter(prompt, apiKey, options) {
     // Determine which chain to use based on task type
@@ -390,3 +438,5 @@ async function callOpenRouter(prompt, apiKey, options) {
 
     throw new Error(`All OpenRouter models failed for ${options.taskType || 'default'} task. The service may be experiencing high demand.`);
 }
+
+

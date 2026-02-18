@@ -419,6 +419,7 @@ async function loadState() {
     const data = await chrome.storage.local.get([
         'gemini_api_key',
         'groq_api_key',
+        'cerebras_api_key',
         'openrouter_api_key',
         'provider',
         'base_resume',
@@ -450,6 +451,7 @@ async function loadState() {
     updateState({
         currentApiKey: data.gemini_api_key || "",
         currentGroqKey: data.groq_api_key || "",
+        currentCerebrasKey: data.cerebras_api_key || "",
         currentOpenRouterKey: data.openrouter_api_key || "",
         currentProvider: data.provider || "gemini",
         baseResume: data.base_resume || null,
@@ -476,6 +478,13 @@ async function loadState() {
         // DO NOT set authMode here - wait until after loadAuthState()
     });
 
+    // Load Cerebras key on init
+    const cerebrasInput = document.getElementById('cerebrasApiKey');
+    if (cerebrasInput) cerebrasInput.value = data.cerebras_api_key || '';
+
+    const badge = document.getElementById('agentModeBadge');
+    if (badge && (data.cerebras_api_key) && (data.groq_api_key)) badge.style.display = 'block';
+
     // Load authentication state first, which will set isLoggedIn and authMode if tokens exist
     const { loadAuthState } = await import('./modules/auth.js');
     await loadAuthState();
@@ -487,7 +496,7 @@ async function loadState() {
         // If no explicit choice, auto-determine
         if (state.isLoggedIn) {
             finalAuthMode = 'free';
-        } else if (data.gemini_api_key || data.groq_api_key || data.openrouter_api_key) {
+        } else if (data.gemini_api_key || data.groq_api_key || data.cerebras_api_key || data.openrouter_api_key) {
             finalAuthMode = 'byok';
         } else {
             finalAuthMode = 'free'; // Default to free tier (user will need to login)
@@ -577,12 +586,14 @@ async function loadState() {
 function setupSettings() {
     const apiKeyInput = document.getElementById('apiKey');
     const groqApiKeyInput = document.getElementById('groqApiKey');
+    const cerebrasApiKeyInput = document.getElementById('cerebrasApiKey');
     const openrouterApiKeyInput = document.getElementById('openrouterApiKey');
     const providerSelect = document.getElementById('providerSelect');
 
     // Pre-fill
     if (apiKeyInput) apiKeyInput.value = state.currentApiKey;
     if (groqApiKeyInput) groqApiKeyInput.value = state.currentGroqKey;
+    if (cerebrasApiKeyInput) cerebrasApiKeyInput.value = state.currentCerebrasKey || "";
     if (openrouterApiKeyInput) openrouterApiKeyInput.value = state.currentOpenRouterKey || "";
     if (providerSelect) {
         providerSelect.value = state.currentProvider;
@@ -955,6 +966,13 @@ function setupEventListeners() {
                 detectedPageUrl: '',
                 jdExtractionMethod: 'manual'
             });
+            await chrome.storage.local.set({
+                current_jd_text: jdText,
+                detected_job_title: 'Manual JD',
+                detected_company: 'Pasted',
+                detected_page_url: '',
+                jd_extraction_method: 'manual'
+            });
             updateJdStatus();
             document.getElementById('manualJdInput').style.display = 'none';
 
@@ -1118,6 +1136,7 @@ function setupEventListeners() {
     saveSettingsBtn.addEventListener('click', async () => {
         const geminiKey = apiKeyInput.value.trim();
         const groqKey = document.getElementById('groqApiKey').value.trim();
+        const cerebrasKey = document.getElementById('cerebrasApiKey').value.trim();
         const openrouterKey = document.getElementById('openrouterApiKey').value.trim();
         const provider = document.getElementById('providerSelect').value;
 
@@ -1131,6 +1150,10 @@ function setupEventListeners() {
                 showStatus("Please enter a Groq API key.", "error", "settingsStatus");
                 return;
             }
+            if (provider === 'cerebras' && !cerebrasKey) {
+                showStatus("Please enter a Cerebras API key.", "error", "settingsStatus");
+                return;
+            }
             if (provider === 'openrouter' && !openrouterKey) {
                 showStatus("Please enter an OpenRouter API key.", "error", "settingsStatus");
                 return;
@@ -1140,6 +1163,7 @@ function setupEventListeners() {
         await chrome.storage.local.set({
             gemini_api_key: geminiKey,
             groq_api_key: groqKey,
+            cerebras_api_key: cerebrasKey,
             openrouter_api_key: openrouterKey,
             provider: provider
         });
@@ -1147,9 +1171,13 @@ function setupEventListeners() {
         updateState({
             currentApiKey: geminiKey,
             currentGroqKey: groqKey,
+            currentCerebrasKey: cerebrasKey,
             currentOpenRouterKey: openrouterKey,
             currentProvider: provider
         });
+
+        const badge = document.getElementById('agentModeBadge');
+        if (badge) badge.style.display = (cerebrasKey && groqKey) ? 'block' : 'none';
 
         showStatus("Settings saved!", "success", "settingsStatus");
         setTimeout(() => {

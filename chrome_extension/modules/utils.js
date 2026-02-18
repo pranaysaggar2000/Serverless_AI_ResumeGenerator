@@ -11,6 +11,7 @@ export function checkCurrentProviderKey() {
     // Original BYOK logic
     if (state.currentProvider === 'gemini') return !!state.currentApiKey;
     if (state.currentProvider === 'groq') return !!state.currentGroqKey;
+    if (state.currentProvider === 'cerebras') return !!state.currentCerebrasKey;
     if (state.currentProvider === 'openrouter') return !!state.currentOpenRouterKey;
     return false;
 }
@@ -22,6 +23,7 @@ export function getApiKeyForProvider() {
     // Original BYOK logic
     if (state.currentProvider === 'gemini') return state.currentApiKey;
     if (state.currentProvider === 'groq') return state.currentGroqKey;
+    if (state.currentProvider === 'cerebras') return state.currentCerebrasKey;
     if (state.currentProvider === 'openrouter') return state.currentOpenRouterKey;
     return '';
 }

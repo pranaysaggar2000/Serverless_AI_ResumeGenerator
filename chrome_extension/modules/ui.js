@@ -61,21 +61,18 @@ export function showStatus(message, type = 'info', elementId = 'status') {
 export function toggleProviderUI(provider) {
     const geminiEl = getEl('geminiKeyData');
     const groqEl = getEl('groqKeyData');
+    const cerebrasEl = getEl('cerebrasKeyData');
     const openrouterEl = getEl('openrouterKeyData');
 
-    if (provider === 'gemini') {
-        if (geminiEl) geminiEl.style.display = 'block';
-        if (groqEl) groqEl.style.display = 'none';
-        if (openrouterEl) openrouterEl.style.display = 'none';
-    } else if (provider === 'groq') {
-        if (geminiEl) geminiEl.style.display = 'none';
-        if (groqEl) groqEl.style.display = 'block';
-        if (openrouterEl) openrouterEl.style.display = 'none';
-    } else if (provider === 'openrouter') {
-        if (geminiEl) geminiEl.style.display = 'none';
-        if (groqEl) groqEl.style.display = 'none';
-        if (openrouterEl) openrouterEl.style.display = 'block';
-    }
+    if (geminiEl) geminiEl.style.display = 'none';
+    if (groqEl) groqEl.style.display = 'none';
+    if (cerebrasEl) cerebrasEl.style.display = 'none';
+    if (openrouterEl) openrouterEl.style.display = 'none';
+
+    if (provider === 'gemini' && geminiEl) geminiEl.style.display = 'block';
+    else if (provider === 'groq' && groqEl) groqEl.style.display = 'block';
+    else if (provider === 'cerebras' && cerebrasEl) cerebrasEl.style.display = 'block';
+    else if (provider === 'openrouter' && openrouterEl) openrouterEl.style.display = 'block';
 }
 
 export function showMainUI() {

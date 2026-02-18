@@ -72,9 +72,7 @@ function detectMissingItems() {
     });
 
     sections.forEach(sec => {
-        // Skip research from BASE detection when merged — those items count as projects now
-        // But since we search ALL current items, we just need to know if the research item exists ANYWHERE.
-        if (sec === 'research' && state.mergeResearchIntoProjects) return;
+
 
         const baseItems = state.baseResume[sec] || [];
 
@@ -169,7 +167,12 @@ function showAddSectionDialog() {
         return false;
     });
 
-    const missingSections = allSections.filter(s => !existingSections.includes(s));
+    let missingSections = allSections.filter(s => !existingSections.includes(s));
+
+    // Hide Research if merged
+    if (state.mergeResearchIntoProjects) {
+        missingSections = missingSections.filter(s => s !== 'research');
+    }
 
     if (missingSections.length === 0) {
         showSuccessToast('All sections already present!');

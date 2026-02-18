@@ -2390,21 +2390,26 @@ header .controls {
 .jd-preview-textarea {
     width: 100%;
     min-height: 40px;
-    max-height: 40px;
+    height: 40px;
+    /* Default height instead of max-height */
     font-size: 10px;
     padding: 6px;
     line-height: 1.4;
     border: 1px solid #eee;
     border-radius: var(--radius-sm);
     background: #fdfdfd;
-    overflow-y: hidden;
-    resize: none;
-    transition: max-height 0.2s ease;
+    overflow-y: auto;
+    resize: vertical;
+    /* Allow resizing */
+    transition: height 0.2s ease;
     color: var(--text-secondary);
 }
 
 .jd-preview-textarea.expanded {
-    max-height: 300px;
+    height: 300px;
+    /* Start with a good height */
+    max-height: none;
+    /* Allow unlimited resizing */
     overflow-y: auto;
 }
 

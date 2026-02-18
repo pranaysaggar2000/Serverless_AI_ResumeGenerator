@@ -1,271 +1,136 @@
 const https = require('https');
 
-// Helper to determine token limit based on task type
-function getMaxTokens(taskType) {
-    switch (taskType) {
-        case 'tailor': return 8192;
-        case 'score': return 4096;
-        case 'jdParse': return 4096;
-        default: return 4096;
-    }
-}
-
 // ============================================
-// PROVIDER 1: CEREBRAS (Primary - FREE)
-// 14,400 requests/day, 1M tokens/day
-// https://cloud.cerebras.ai/
+// TASK-BASED ROUTING CONFIGURATION
 // ============================================
-const CEREBRAS_CHAINS = {
-    jdParse: ['llama-3.3-70b', 'qwen-3-32b', 'gpt-oss-120b'],
-    tailor: ['llama-3.3-70b', 'gpt-oss-120b', 'qwen-3-32b'],
-    score: ['llama-3.3-70b', 'qwen-3-32b', 'gpt-oss-120b'],
-    default: ['llama-3.3-70b', 'qwen-3-32b', 'gpt-oss-120b']
+const TASK_ROUTING = {
+    jdParse: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 1500 },
+    strategy: { provider: 'cerebras', model: 'gpt-oss-120b', maxTokens: 600, reasoningEffort: 'low' },
+    tailor: { provider: 'groq', model: 'moonshotai/kimi-k2-instruct', maxTokens: 4000 },
+    score: { provider: 'groq', model: 'moonshotai/kimi-k2-instruct', maxTokens: 2000 },
+    default: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 2000 },
 };
 
-async function callCerebras(prompt, options = {}) {
-    const { taskType = 'default', expectJson = false } = options;
-    const models = CEREBRAS_CHAINS[taskType] || CEREBRAS_CHAINS.default;
-    const apiKey = process.env.CEREBRAS_API_KEY;
+const TASK_FALLBACKS = {
+    strategy: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 600 },
+    tailor: { provider: 'cerebras', model: 'gpt-oss-120b', maxTokens: 4000 },
+    score: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 2000 },
+};
 
+// ============================================
+// PROVIDER 1: CEREBRAS
+// ============================================
+async function callCerebras(prompt, model, maxTokens, reasoningEffort) {
+    const apiKey = process.env.CEREBRAS_API_KEY;
     if (!apiKey) throw new Error('CEREBRAS_API_KEY not configured');
 
-    for (const model of models) {
-        try {
-            const body = JSON.stringify({
-                model,
-                messages: [{ role: 'user', content: prompt }],
-                ...(expectJson && { response_format: { type: 'json_object' } }),
-                max_tokens: getMaxTokens(taskType),
-                temperature: 0.3
-            });
+    const body = {
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: maxTokens,
+    };
+    if (reasoningEffort) body.reasoning_effort = reasoningEffort;
 
-            const startTime = Date.now();
-            const timeout = taskType === 'tailor' ? 45000 : 30000;
-            const result = await httpPost('api.cerebras.ai', '/v1/chat/completions', body, {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            }, timeout);
-            const duration = Date.now() - startTime;
+    const result = await httpPost('api.cerebras.ai', '/v1/chat/completions', JSON.stringify(body), {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+    });
 
-            const data = JSON.parse(result);
-            if (data.choices?.[0]?.message?.content) {
-                console.log(`[Cerebras] Model: ${model} | Duration: ${duration}ms | Success`);
-                return data.choices[0].message.content;
-            }
-            throw new Error('Empty Cerebras response');
-        } catch (e) {
-            console.warn(`Cerebras ${model} failed:`, e.message);
-            if (e.message.includes('401') || e.message.includes('403')) throw e; // Auth error, don't retry
-            continue; // Try next model
-        }
+    const data = JSON.parse(result);
+    if (data.choices?.[0]?.message?.content) {
+        return data.choices[0].message.content;
     }
-    throw new Error('All Cerebras models failed');
+    throw new Error('Empty Cerebras response');
 }
 
 // ============================================
-// PROVIDER 2: MISTRAL (Secondary - FREE)
-// 1B tokens/month, 500K tokens/min
-// https://console.mistral.ai/
+// PROVIDER 2: GROQ
 // ============================================
-const MISTRAL_CHAINS = {
-    jdParse: ['mistral-small-2506'],
-    tailor: ['mistral-large-2512'],
-    score: ['mistral-small-2506'],
-    default: ['mistral-large-2512']
-};
-
-async function callMistral(prompt, options = {}) {
-    const { taskType = 'default', expectJson = false } = options;
-    const models = MISTRAL_CHAINS[taskType] || MISTRAL_CHAINS.default;
-    const apiKey = process.env.MISTRAL_API_KEY;
-
-    if (!apiKey) throw new Error('MISTRAL_API_KEY not configured');
-
-    for (const model of models) {
-        try {
-            const body = JSON.stringify({
-                model,
-                messages: [{ role: 'user', content: prompt }],
-                ...(expectJson && { response_format: { type: 'json_object' } }),
-                max_tokens: getMaxTokens(taskType),
-                temperature: 0.3
-            });
-
-            const startTime = Date.now();
-            const timeout = taskType === 'tailor' ? 45000 : 30000;
-            const result = await httpPost('api.mistral.ai', '/v1/chat/completions', body, {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            }, timeout);
-            const duration = Date.now() - startTime;
-
-            const data = JSON.parse(result);
-            if (data.choices?.[0]?.message?.content) {
-                console.log(`[Mistral] Model: ${model} | Duration: ${duration}ms | Success`);
-                return data.choices[0].message.content;
-            }
-            throw new Error('Empty Mistral response');
-        } catch (e) {
-            console.warn(`Mistral ${model} failed:`, e.message);
-            if (e.message.includes('401') || e.message.includes('403')) throw e;
-            continue;
-        }
-    }
-    throw new Error('All Mistral models failed');
-}
-
-// ============================================
-// PROVIDER 3: GROQ (Existing fallback - FREE)
-// 1,000 requests/day for most models
-// https://console.groq.com/
-// ============================================
-const GROQ_MODELS = [
-    'moonshotai/kimi-k2-instruct-0905',
-    'meta-llama/llama-4-scout-17b-16e-instruct',   // Best quality, 30K TPM, 500K TPD
-    'meta-llama/llama-4-maverick-17b-128e-instruct', // Backup Scout-class model
-    'llama-3.3-70b-versatile',                       // Fallback
-    'llama-3.1-8b-instant'                           // Last resort (fast but lower quality)
-];
-
-async function callGroqServer(prompt, options = {}) {
-    const { taskType = 'default', expectJson = false } = options;
+async function callGroq(prompt, model, maxTokens) {
     const apiKey = process.env.GROQ_API_KEY;
-
     if (!apiKey) throw new Error('GROQ_API_KEY not configured');
 
-    for (const model of GROQ_MODELS) {
-        try {
-            const body = JSON.stringify({
-                model,
-                messages: [{ role: 'user', content: prompt }],
-                ...(expectJson && { response_format: { type: 'json_object' } }),
-                max_tokens: getMaxTokens(taskType),
-                temperature: 0.3
-            });
+    const body = JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: maxTokens,
+        temperature: 0.3
+    });
 
-            const startTime = Date.now();
-            const timeout = taskType === 'tailor' ? 45000 : 30000;
-            const result = await httpPost('api.groq.com', '/openai/v1/chat/completions', body, {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            }, timeout);
-            const duration = Date.now() - startTime;
+    const result = await httpPost('api.groq.com', '/openai/v1/chat/completions', body, {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+    });
 
-            const data = JSON.parse(result);
-            if (data.choices?.[0]?.message?.content) {
-                console.log(`[Groq] Model: ${model} | Duration: ${duration}ms | Success`);
-                return data.choices[0].message.content;
-            }
-            throw new Error('Empty Groq response');
-        } catch (e) {
-            console.warn(`Groq ${model} failed:`, e.message);
-            if (e.message.includes('401')) throw e;
-            if (e.message.includes('429')) continue; // Rate limited, try next
-            continue;
-        }
+    const data = JSON.parse(result);
+    if (data.choices?.[0]?.message?.content) {
+        return data.choices[0].message.content;
     }
-    throw new Error('All Groq models failed');
+    throw new Error('Empty Groq response');
 }
 
 // ============================================
-// PROVIDER 4: OPENROUTER (Last resort - FREE)
-// 50 requests/day (free models)
-// https://openrouter.ai/
-// ============================================
-const OPENROUTER_FREE_MODELS = [
-    'meta-llama/llama-3.3-70b-instruct:free',
-    'openai/gpt-oss-120b:free',
-    'openrouter/free'
-];
-
-async function callOpenRouterServer(prompt, options = {}) {
-    const { taskType = 'default' } = options;
-    const apiKey = process.env.OPENROUTER_API_KEY;
-
-    if (!apiKey) throw new Error('OPENROUTER_API_KEY not configured');
-
-    for (const model of OPENROUTER_FREE_MODELS) {
-        try {
-            const body = JSON.stringify({
-                model,
-                messages: [{ role: 'user', content: prompt }],
-                max_tokens: getMaxTokens(taskType),
-                temperature: 0.3
-            });
-
-            const startTime = Date.now();
-            const timeout = taskType === 'tailor' ? 45000 : 30000;
-            const result = await httpPost('openrouter.ai', '/api/v1/chat/completions', body, {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://forgecv.app',
-                'X-Title': 'ForgeCV'
-            }, timeout);
-            const duration = Date.now() - startTime;
-
-            const data = JSON.parse(result);
-            if (data.choices?.[0]?.message?.content) {
-                console.log(`[OpenRouter] Model: ${model} | Duration: ${duration}ms | Success`);
-                return data.choices[0].message.content;
-            }
-            throw new Error('Empty OpenRouter response');
-        } catch (e) {
-            console.warn(`OpenRouter ${model} failed:`, e.message);
-            if (e.message.includes('401')) throw e;
-            continue;
-        }
-    }
-    throw new Error('All OpenRouter models failed');
-}
-
-// ============================================
-// MAIN ENTRY POINT — Cascading Provider Chain
+// MAIN ENTRY POINT
 // ============================================
 async function callAIServer(prompt, options = {}) {
-    const providers = [
-        { name: 'Groq', fn: callGroqServer, required_key: 'GROQ_API_KEY' },           // 1st: Best quality (Scout)
-        { name: 'Cerebras', fn: callCerebras, required_key: 'CEREBRAS_API_KEY' },      // 2nd: High volume fallback
-        { name: 'Mistral', fn: callMistral, required_key: 'MISTRAL_API_KEY' },         // 3rd: Good quality backup
-        { name: 'OpenRouter', fn: callOpenRouterServer, required_key: 'OPENROUTER_API_KEY' } // 4th: Last resort
-    ];
+    const { taskType = 'default' } = options;
+    const route = TASK_ROUTING[taskType] || TASK_ROUTING.default;
+    const CEREBRAS_KEY = process.env.CEREBRAS_API_KEY;
 
-    // Debug: Log which keys are available at runtime
-    const availableKeys = providers.filter(p => !!process.env[p.required_key]).map(p => p.name);
-    console.log(`[AI Configuration] Providers with keys: ${availableKeys.join(', ') || 'NONE'}`);
+    // Use Cerebras only if key is configured — else fall to Groq
+    // (This logic specifically checks if the primary route is Cerebras AND key exists)
+    // However, our routing table is explicit. Let's strictly follow the plan:
+    // If route says Cerebras and we have key -> use it.
+    // If route says Cerebras but NO key -> fall back immediately or try Groq.
 
-    const errors = [];
+    // Simplification based on user request logic:
+    const useCerebras = route.provider === 'cerebras' && !!CEREBRAS_KEY;
 
-    for (const provider of providers) {
-        // Skip provider if API key not configured
-        if (!process.env[provider.required_key]) {
-            console.log(`Skipping ${provider.name}: ${provider.required_key} not set`);
-            continue;
-        }
+    try {
+        if (useCerebras) {
+            return await callCerebras(prompt, route.model, route.maxTokens, route.reasoningEffort);
+        } else {
+            // Default to Groq if provider is Groq OR if Cerebras key missing
+            // Note: The original prompt said "result = await callGroq(...)". 
+            // If the route was Cerebras but no key, we should ideally use a fallback model, 
+            // but the user's snippet just called callGroq with the *route's* model. 
+            // If the route's model was 'gpt-oss-120b', callGroq would fail.
+            // Let's safe-guard: if we are supposed to use Cerebras but can't, use the fallback strategy immediately.
 
-        try {
-            console.log(`Trying ${provider.name}...`);
-            const result = await provider.fn(prompt, options);
-            console.log(`✓ ${provider.name} succeeded`);
-            return result;
-        } catch (e) {
-            console.warn(`✗ ${provider.name} failed: ${e.message}`);
-            errors.push(`${provider.name}: ${e.message}`);
-
-            // Don't continue if it's an auth error — that provider is misconfigured
-            if (e.message.includes('401') || e.message.includes('403')) {
-                console.warn(`  Auth error on ${provider.name}, skipping to next provider`);
+            if (route.provider === 'cerebras' && !CEREBRAS_KEY) {
+                // Force fallback logic immediately by throwing
+                throw new Error('Cerebras key missing, forcing fallback');
             }
-            continue;
+
+            return await callGroq(prompt, route.model, route.maxTokens);
+        }
+    } catch (primaryErr) {
+        console.warn(`[generate] Primary failed for taskType=${taskType}: ${primaryErr.message}`);
+
+        const fallback = TASK_FALLBACKS[taskType];
+        if (fallback) {
+            const useFallbackCerebras = fallback.provider === 'cerebras' && !!CEREBRAS_KEY;
+
+            try {
+                if (useFallbackCerebras) {
+                    return await callCerebras(prompt, fallback.model, fallback.maxTokens);
+                } else {
+                    return await callGroq(prompt, fallback.model, fallback.maxTokens);
+                }
+            } catch (fallbackErr) {
+                console.error(`[generate] Fallback also failed: ${fallbackErr.message}`);
+                throw primaryErr; // Throw original error if fallback fails
+            }
+        } else {
+            throw primaryErr;
         }
     }
-
-    throw new Error(`All AI providers failed. Errors: ${errors.join(' | ')}`);
 }
 
 // ============================================
 // HTTP Helper
 // ============================================
-function httpPost(hostname, path, body, headers, timeout = 10000) {
+function httpPost(hostname, path, body, headers, timeout = 30000) {
     return new Promise((resolve, reject) => {
         const timeoutId = setTimeout(() => {
             req.destroy();

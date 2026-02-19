@@ -454,9 +454,9 @@ PRESERVE architectural reasoning ("to separate X from Y", "enabling Z to scale")
 
 Rule 3 — SKILLS: Max 4 categories, max 16 items each, 1-3 words per item.
 INCLUDE: named tools/languages/platforms you can install or import (Python, Docker, Tableau).
-EXCLUDE: activities, processes, traits, degree fields (CI/CD → bullet, "Software Engineering" → never).
+EXCLUDE: activities, processes, traits, degree fields, abstract concepts (CI/CD → bullet, "Software Engineering" → never).
 Test: "Can I download/install this?" YES → skills. NO → weave into a bullet instead.
-Category names: short technical groupings ("Languages", "Cloud & Data", "DevOps", "Frameworks").
+Category names: short technical groupings ("Languages", "Cloud & Data", "DevOps", "Frameworks"). Validate items fit their category appropriately.
 
 Rule 4 — PROJECTS & RESEARCH:
     Projects: Inject related JD keywords ONLY if tech field overlaps and era is plausible. Max 1 modified bullet per project. NEVER fabricate implausible tech.
@@ -479,7 +479,7 @@ Every bullet MUST end with a period.If a bullet does not end with ".", add one.
         FORMATTING: Output all text as normal continuous words.NEVER insert spaces between individual characters of a word.
 
 ` + 'Return ONLY JSON in ```json``` block:\n```json\n' + `{
-    "_reasoning": "Limit to 400 words. Step 1: Which keywords are priority? Step 2: What are the seniority guidelines? Step 3: Check exclusion rules.",
+    "_reasoning": "Limit to 400 words. Step 1: Priority keywords? Step 2: Seniority guidelines? Step 3: Check exclusion rules. Step 4: Verify ALL skills pass the 'Can I install this' test and fit their category.",
     "name": "${baseResume.name || ''}",
         "contact": ${JSON.stringify(baseResume.contact || { location: "", phone: "", email: "", linkedin_url: "", portfolio_url: "" })},
     "summary": "rewritten summary",
@@ -1189,16 +1189,27 @@ export function remove_hallucinated_skills(resume_data, baseResume, jdAnalysis) 
     jdKeywords.forEach(k => legitimate.add(k.toLowerCase()));
 
     // Now filter skills — keep only those that are in the legitimate set
-    // Use fuzzy matching: a generated skill is legitimate if any legitimate term contains it or vice versa
+    // Use fuzzy matching safely: prevent short terms from triggering false substring matches
     const isLegitimate = (skill) => {
-        const lower = skill.toLowerCase();
-        for (const legit of legitimate) {
-            if (legit.includes(lower) || lower.includes(legit)) return true;
-        }
-        if (lower.length >= 3 && allBaseText.includes(lower)) return true;
-        if (lower.length < 3) {
-            const regex = new RegExp(`\\b${lower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        const lower = String(skill).toLowerCase();
+
+        if (legitimate.has(lower)) return true;
+
+        if (lower.length >= 3) {
+            for (const legit of legitimate) {
+                if (legit.includes(lower) || lower.includes(legit)) return true;
+            }
+            if (allBaseText.includes(lower)) return true;
+        } else {
+            // For short skills (e.g. "C", "R", "AI"), require word-boundary matching
+            // to avoid false positives (e.g., "AI" matching inside "email")
+            const regex = new RegExp(`\\b${lower.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\b`, 'i');
             if (regex.test(allBaseText)) return true;
+
+            // Or exact match against a legitimate skill
+            for (const legit of legitimate) {
+                if (legit === lower) return true;
+            }
         }
         return false;
     };

@@ -8,7 +8,7 @@ const TASK_ROUTING = {
     strategy: { provider: 'cerebras', model: 'gpt-oss-120b', maxTokens: 600, reasoningEffort: 'low' },
     tailor: { provider: 'groq', model: 'moonshotai/kimi-k2-instruct', maxTokens: 4000 },
     score: { provider: 'groq', model: 'moonshotai/kimi-k2-instruct', maxTokens: 2000 },
-    default: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 2000 },
+    default: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 8192 },
 };
 
 const TASK_FALLBACKS = {

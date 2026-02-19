@@ -479,6 +479,7 @@ Every bullet MUST end with a period.If a bullet does not end with ".", add one.
         FORMATTING: Output all text as normal continuous words.NEVER insert spaces between individual characters of a word.
 
 ` + 'Return ONLY JSON in ```json``` block:\n```json\n' + `{
+    "_reasoning": "Limit to 400 words. Step 1: Which keywords are priority? Step 2: What are the seniority guidelines? Step 3: Check exclusion rules.",
     "name": "${baseResume.name || ''}",
         "contact": ${JSON.stringify(baseResume.contact || { location: "", phone: "", email: "", linkedin_url: "", portfolio_url: "" })},
     "summary": "rewritten summary",
@@ -535,6 +536,7 @@ Grades: >90 Exceptional, >85 Excellent, >75 Strong, >65 Good.
 Rate each: CRITICAL, MODERATE, MINOR.
 
 ` + 'Return ONLY JSON in ```json``` block:\n```json\n' + `{
+  "_reasoning": "Limit to 400 words. Audit steps: 1) Keyword presence check, 2) Quality checks (stubs/filler).",
   "score": 0,
   "missing_keywords": [],
   "weak_keywords": [],

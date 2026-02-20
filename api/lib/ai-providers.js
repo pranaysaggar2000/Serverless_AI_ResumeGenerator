@@ -6,14 +6,14 @@ const https = require('https');
 const TASK_ROUTING = {
     jdParse: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 1500 },
     strategy: { provider: 'cerebras', model: 'qwen-3-235b-a22b-instruct-2507', maxTokens: 800 },
-    tailor: { provider: 'nvidia', model: 'moonshotai/kimi-k2.5', maxTokens: 4000 },
+    tailor: { provider: 'nvidia', model: 'z-ai/glm5', maxTokens: 4000 },
     score: { provider: 'groq', model: 'moonshotai/kimi-k2-instruct', maxTokens: 2000 },
     default: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 8192 },
 };
 
 const TASK_FALLBACKS = {
     strategy: [
-        { provider: 'cerebras', model: 'llama-3.3-70b-versatile', maxTokens: 800 },
+        { provider: 'cerebras', model: 'zai-glm-4.7', maxTokens: 800 },
         { provider: 'cerebras', model: 'gpt-oss-120b', maxTokens: 800 },
         { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 800 },
     ],
@@ -102,14 +102,14 @@ async function callNvidia(prompt, model, maxTokens) {
         temperature: 1.00,
         top_p: 1.00,
         stream: false,
-        chat_template_kwargs: { thinking: true }
+        chat_template_kwargs: { enable_thinking: true, clear_thinking: false }
     };
 
     const result = await httpPost('integrate.api.nvidia.com', '/v1/chat/completions', JSON.stringify(body), {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-    });
+    }, 120000); // 120 seconds timeout for NIM
 
     const duration = Date.now() - start;
     const data = JSON.parse(result);

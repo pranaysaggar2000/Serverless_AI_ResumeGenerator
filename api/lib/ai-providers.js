@@ -6,7 +6,7 @@ const https = require('https');
 const TASK_ROUTING = {
     jdParse: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 1500 },
     strategy: { provider: 'cerebras', model: 'qwen-3-235b-a22b-instruct-2507', maxTokens: 800 },
-    tailor: { provider: 'nvidia', model: 'z-ai/glm5', maxTokens: 4000 },
+    tailor: { provider: 'nvidia', model: 'deepseek-ai/deepseek-v3.2', maxTokens: 8192 },
     score: { provider: 'groq', model: 'moonshotai/kimi-k2-instruct', maxTokens: 2000 },
     default: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 8192 },
 };
@@ -100,9 +100,9 @@ async function callNvidia(prompt, model, maxTokens) {
         messages: [{ role: 'user', content: prompt }],
         max_tokens: maxTokens,
         temperature: 1.00,
-        top_p: 1.00,
+        top_p: 0.95,
         stream: false,
-        chat_template_kwargs: { enable_thinking: true, clear_thinking: false }
+        chat_template_kwargs: { thinking: true }
     };
 
     const result = await httpPost('integrate.api.nvidia.com', '/v1/chat/completions', JSON.stringify(body), {

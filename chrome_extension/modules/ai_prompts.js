@@ -442,12 +442,14 @@ Rule 1 — SUMMARY (exactly 4 sentences, third person, NO pronouns):
 S1: [Role title] with [X] years in [2-3 domains]. Years from work dates only, not education.
 S2: Skilled in [5-7 specific tool names from resume AND JD]. Pack with matchable nouns.
 S3: One concrete achievement with a REAL metric already in the resume. Do not invent.
-S4: Background in [2-3 concrete domain areas — "NLP systems" not "scalable solutions"].
+S4: Background in [2-3 concrete domain areas], explicitly tying your expertise to the target company's industry or mission.
 NO: visa status, "passionate about", "seeking a role", "proven track record", "leverage".
 
 Rule 2 — BULLETS: "Accomplished [X] measured by [Y], by doing [Z]."
-BAD: "Reduced latency 40%, with expertise in Cloud"
-GOOD: "Deployed service on AWS, reducing p95 latency 40%."
+BAD: "Orchestrated CI/CD, with expertise in Cloud"
+GOOD: "Managed feature branching and PR reviews via GitHub Actions, reducing integration errors."
+Every action verb MUST clarify scale or explicitly state the technical outcome.
+Length: Each bullet MUST be dense and substantial, typically 15-25 words (approx 100-160 characters). Do not output extremely short, low-context bullets.
 Minimums: Experience ≥2 bullets, Projects ≥2, Research/Leadership ≥1.
 Exclude an item rather than show it with 1 weak bullet.
 PRESERVE architectural reasoning ("to separate X from Y", "enabling Z to scale") — never cut these.
@@ -455,11 +457,13 @@ PRESERVE architectural reasoning ("to separate X from Y", "enabling Z to scale")
 Rule 3 — SKILLS: Max 4 categories, max 16 items each, 1-3 words per item.
 INCLUDE: named tools/languages/platforms you can install or import (Python, Docker, Tableau).
 EXCLUDE: activities, processes, traits, degree fields, abstract concepts (CI/CD → bullet, "Software Engineering" → never).
+NO nested / parenthetical expansions or duplicated concepts (e.g. "Deep Learning" NOT "Deep Learning (CNN, RNN)").
 Test: "Can I download/install this?" YES → skills. NO → weave into a bullet instead.
 Category names: short technical groupings ("Languages", "Cloud & Data", "DevOps", "Frameworks"). Validate items fit their category appropriately.
 
 Rule 4 — PROJECTS & RESEARCH:
     Projects: Inject related JD keywords ONLY if tech field overlaps and era is plausible. Max 1 modified bullet per project. NEVER fabricate implausible tech.
+    When injecting missing required workflows or models, provide explicit rigor and context (e.g. name the evaluation metric, exact testing strategy, or statistical method). Do not just drop surface-level buzzwords.
     Research: NEVER modify research/publication bullets — published work is immutable. Do not inject keywords into paper descriptions. Keywords from research topics can appear in the skills section.
     ${!baseResume.research || baseResume.research.length === 0 ? "NOTE: This resume's research items have been merged into projects. Treat bullets for these items as immutable." : ""}
 

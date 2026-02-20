@@ -241,7 +241,9 @@ export function generateResumePdf(data, fmt = {}) {
         checkPageBreak(lines.length * LEADING + 3);
 
         // Draw bullet
+        doc.setFontSize(BODY * 1.4);
         doc.text(settings.bulletChar, MARGIN_SIDE + 5, cursorY, { charSpace: 0 });
+        doc.setFontSize(BODY);
 
         // Draw indent text
         doc.text(lines, MARGIN_SIDE + bulletIndent, cursorY, { charSpace: 0 });
@@ -320,8 +322,9 @@ export function generateResumePdf(data, fmt = {}) {
 
                     // Bullet
                     doc.setFont(settings.font, 'normal');
-                    doc.setFontSize(BODY);
+                    doc.setFontSize(BODY * 1.4);
                     doc.text(settings.bulletChar, MARGIN_SIDE + 5, cursorY, { charSpace: 0 });
+                    doc.setFontSize(BODY);
 
                     // Bold Category
                     doc.setFont(settings.font, 'bold');

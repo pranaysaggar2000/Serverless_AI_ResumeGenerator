@@ -5,14 +5,18 @@ const https = require('https');
 // ============================================
 const TASK_ROUTING = {
     jdParse: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 1500 },
-    strategy: { provider: 'cerebras', model: 'gpt-oss-120b', maxTokens: 600, reasoningEffort: 'low' },
+    strategy: { provider: 'cerebras', model: 'qwen-3-235b-a22b-instruct-2507', maxTokens: 800 },
     tailor: { provider: 'groq', model: 'moonshotai/kimi-k2-instruct', maxTokens: 4000 },
     score: { provider: 'groq', model: 'moonshotai/kimi-k2-instruct', maxTokens: 2000 },
     default: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 8192 },
 };
 
 const TASK_FALLBACKS = {
-    strategy: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 600 },
+    strategy: [
+        { provider: 'cerebras', model: 'llama-3.3-70b-versatile', maxTokens: 800 },
+        { provider: 'cerebras', model: 'gpt-oss-120b', maxTokens: 800 },
+        { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 800 },
+    ],
     tailor: { provider: 'cerebras', model: 'gpt-oss-120b', maxTokens: 4000 },
     score: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 2000 },
 };
@@ -109,18 +113,21 @@ async function callAIServer(prompt, options = {}) {
 
         const fallback = TASK_FALLBACKS[taskType];
         if (fallback) {
-            const useFallbackCerebras = fallback.provider === 'cerebras' && !!CEREBRAS_KEY;
-
-            try {
-                if (useFallbackCerebras) {
-                    return await callCerebras(prompt, fallback.model, fallback.maxTokens);
-                } else {
-                    return await callGroq(prompt, fallback.model, fallback.maxTokens);
+            const fallbackChain = Array.isArray(fallback) ? fallback : [fallback];
+            for (const fb of fallbackChain) {
+                try {
+                    const useFallbackCerebras = fb.provider === 'cerebras' && !!CEREBRAS_KEY;
+                    if (useFallbackCerebras) {
+                        return await callCerebras(prompt, fb.model, fb.maxTokens);
+                    } else {
+                        return await callGroq(prompt, fb.model, fb.maxTokens);
+                    }
+                } catch (fbErr) {
+                    console.warn(`[fallback] ${fb.provider}/${fb.model} failed: ${fbErr.message}`);
+                    continue;
                 }
-            } catch (fallbackErr) {
-                console.error(`[generate] Fallback also failed: ${fallbackErr.message}`);
-                throw primaryErr; // Throw original error if fallback fails
             }
+            throw primaryErr; // all fallbacks failed
         } else {
             throw primaryErr;
         }

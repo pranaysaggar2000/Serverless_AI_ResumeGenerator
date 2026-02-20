@@ -244,7 +244,11 @@ async function callGroq(prompt, apiKey, options) {
 }
 
 async function callCerebras(prompt, apiKey, options = {}) {
-    const model = 'gpt-oss-120b';
+    const CEREBRAS_MODELS = {
+        strategy: 'qwen-3-235b-a22b-instruct-2507',  // best reasoning for planning
+        default: 'gpt-oss-120b',                     // fast for everything else
+    };
+    const model = CEREBRAS_MODELS[options.taskType] || CEREBRAS_MODELS.default;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
     debugLog(`[Cerebras] Calling model: ${model} | Task: ${options.taskType}`);
@@ -254,7 +258,6 @@ async function callCerebras(prompt, apiKey, options = {}) {
             messages: [{ role: 'user', content: prompt.trimEnd() }],
             max_tokens: options.taskType === 'strategy' ? 600 : 2000,
         };
-        if (options.taskType === 'strategy') body.reasoning_effort = 'low';
 
         const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
             method: 'POST',

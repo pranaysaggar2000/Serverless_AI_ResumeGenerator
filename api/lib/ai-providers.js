@@ -6,7 +6,7 @@ const https = require('https');
 const TASK_ROUTING = {
     jdParse: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 1500 },
     strategy: { provider: 'cerebras', model: 'qwen-3-235b-a22b-instruct-2507', maxTokens: 800 },
-    tailor: { provider: 'groq', model: 'moonshotai/kimi-k2-instruct', maxTokens: 4000 },
+    tailor: { provider: 'nvidia', model: 'moonshotai/kimi-k2.5', maxTokens: 4000 },
     score: { provider: 'groq', model: 'moonshotai/kimi-k2-instruct', maxTokens: 2000 },
     default: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 8192 },
 };
@@ -17,7 +17,10 @@ const TASK_FALLBACKS = {
         { provider: 'cerebras', model: 'gpt-oss-120b', maxTokens: 800 },
         { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 800 },
     ],
-    tailor: { provider: 'cerebras', model: 'gpt-oss-120b', maxTokens: 4000 },
+    tailor: [
+        { provider: 'groq', model: 'moonshotai/kimi-k2-instruct', maxTokens: 4000 },
+        { provider: 'cerebras', model: 'gpt-oss-120b', maxTokens: 4000 }
+    ],
     score: { provider: 'groq', model: 'llama-3.3-70b-versatile', maxTokens: 2000 },
 };
 
@@ -84,30 +87,64 @@ async function callGroq(prompt, model, maxTokens) {
 }
 
 // ============================================
+// PROVIDER 3: NVIDIA NIM
+// ============================================
+async function callNvidia(prompt, model, maxTokens) {
+    const apiKey = process.env.NVIDIA_API_KEY;
+    if (!apiKey) throw new Error('NVIDIA_API_KEY not configured');
+    console.log(`[ForgeCV-Backend] Calling Nvidia NIM... Model: ${model}, MaxTokens: ${maxTokens}`);
+    const start = Date.now();
+
+    const body = {
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: maxTokens,
+        temperature: 1.00,
+        top_p: 1.00,
+        stream: false,
+        chat_template_kwargs: { thinking: true }
+    };
+
+    const result = await httpPost('integrate.api.nvidia.com', '/v1/chat/completions', JSON.stringify(body), {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    });
+
+    const duration = Date.now() - start;
+    const data = JSON.parse(result);
+    if (data.choices?.[0]?.message?.content) {
+        console.log(`[ForgeCV-Backend] ✓ Nvidia NIM success (${duration}ms)`);
+        return data.choices[0].message.content;
+    }
+    throw new Error('Empty Nvidia response');
+}
+
+
+// ============================================
 // MAIN ENTRY POINT
 // ============================================
+async function dispatchCall(provider, prompt, model, maxTokens, reasoningEffort) {
+    if (provider === 'nvidia') {
+        return await callNvidia(prompt, model, maxTokens);
+    } else if (provider === 'cerebras') {
+        const CEREBRAS_KEY = process.env.CEREBRAS_API_KEY;
+        if (!CEREBRAS_KEY) throw new Error('Cerebras key missing');
+        return await callCerebras(prompt, model, maxTokens, reasoningEffort);
+    } else {
+        return await callGroq(prompt, model, maxTokens); // Default to Groq
+    }
+}
+
 async function callAIServer(prompt, options = {}) {
     const { taskType = 'default' } = options;
     const route = TASK_ROUTING[taskType] || TASK_ROUTING.default;
-    const CEREBRAS_KEY = process.env.CEREBRAS_API_KEY;
 
     console.log(`[ForgeCV-Backend] Request: taskType=${taskType}`);
 
-    // Simplification based on user request logic:
-    const useCerebras = route.provider === 'cerebras' && !!CEREBRAS_KEY;
-
     try {
-        if (useCerebras) {
-            console.log(`[ForgeCV-Backend] Routing to Primary: CEREBRAS`);
-            return await callCerebras(prompt, route.model, route.maxTokens, route.reasoningEffort);
-        } else {
-            if (route.provider === 'cerebras' && !CEREBRAS_KEY) {
-                console.warn(`[ForgeCV-Backend] Wanted Cerebras but CEREBRAS_API_KEY missing. Forcing fallback.`);
-                throw new Error('Cerebras key missing, forcing fallback');
-            }
-            console.log(`[ForgeCV-Backend] Routing to Primary: GROQ`);
-            return await callGroq(prompt, route.model, route.maxTokens);
-        }
+        console.log(`[ForgeCV-Backend] Routing to Primary: ${route.provider.toUpperCase()}`);
+        return await dispatchCall(route.provider, prompt, route.model, route.maxTokens, route.reasoningEffort);
     } catch (primaryErr) {
         console.warn(`[generate] Primary failed for taskType=${taskType}: ${primaryErr.message}`);
 
@@ -116,12 +153,7 @@ async function callAIServer(prompt, options = {}) {
             const fallbackChain = Array.isArray(fallback) ? fallback : [fallback];
             for (const fb of fallbackChain) {
                 try {
-                    const useFallbackCerebras = fb.provider === 'cerebras' && !!CEREBRAS_KEY;
-                    if (useFallbackCerebras) {
-                        return await callCerebras(prompt, fb.model, fb.maxTokens);
-                    } else {
-                        return await callGroq(prompt, fb.model, fb.maxTokens);
-                    }
+                    return await dispatchCall(fb.provider, prompt, fb.model, fb.maxTokens, fb.reasoningEffort);
                 } catch (fbErr) {
                     console.warn(`[fallback] ${fb.provider}/${fb.model} failed: ${fbErr.message}`);
                     continue;

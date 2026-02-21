@@ -154,6 +154,12 @@ EXCLUSION PRIORITY ORDER (for 1-page mode):
 3. A project with only generic tech (SQL, Python) and no domain fit should be excluded
    in favor of projects with stronger keyword density or recency
 
+EXCLUSION SIGNAL — exclude a project if ALL of these are true:
+1. Fewer than 2 bullets in the source
+2. Fewer than 2 mandatory keyword matches in the prose summary
+A thin project with a JD-flavored rewrite is worse than no project —
+it signals AI generation to a hiring manager.
+
 CANDIDATE OUTLINE:
 Experience:
 ${expOutline || 'None'}

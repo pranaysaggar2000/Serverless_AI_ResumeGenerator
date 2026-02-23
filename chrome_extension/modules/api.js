@@ -213,7 +213,9 @@ export async function tailorResume(baseResume, jdText, apiKey, provider, tailori
         let agentStrategy = null;
         try {
             const strategyPrompt = Prompts.buildStrategyPrompt(
-                resumeForPrompt, jdAnalysis, tailoringStrategy, state.pageMode || '1page'
+                resumeForPrompt, jdAnalysis, tailoringStrategy,
+                state.pageMode || '1page',
+                state.formatSettings
             );
             const strategyProvider = state.currentCerebrasKey ? 'cerebras' : provider;
             const strategyKey = state.currentCerebrasKey ? state.currentCerebrasKey : apiKey;

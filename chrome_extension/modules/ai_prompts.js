@@ -125,7 +125,62 @@ FORMATTING: Output all text as normal continuous words. NEVER insert spaces betw
 }
 
 
-export function buildStrategyPrompt(baseResume, jdAnalysis, tailoringStrategy, pageMode = '1page') {
+function estimateCharBudget(formatSettings = {}) {
+    const {
+        font = 'times',
+        density = 'normal',
+        margins = 'normal',
+        bodySize = 10,
+        pageSize = 'letter'
+    } = formatSettings;
+
+    // Page width in inches
+    const pageWidth = pageSize === 'a4' ? 8.27 : 8.5;
+
+    // Margin deduction (both sides)
+    const marginDeduction = margins === 'narrow' ? 1.0
+        : margins === 'wide' ? 2.5
+            : 2.0; // normal = 1" each side
+    const textWidth = pageWidth - marginDeduction;
+
+    // Chars per line by font + size
+    // Base chars/inch at 10pt: times=14.5, helvetica=13.5, courier=12
+    const charsPerInch = font === 'times' ? 14.5
+        : font === 'courier' ? 12.0
+            : 13.5; // helvetica
+    const sizeScale = bodySize / 10;
+    const charsPerLine = Math.floor((textWidth * charsPerInch) / sizeScale);
+
+    // Lines per page by density
+    const linesPerPage = density === 'compact' ? 58
+        : density === 'spacious' ? 44
+            : 50; // normal
+
+    // Fixed overhead: name block(3) + contact(1) + 
+    // avg section headers(8) + education(4) = ~16 lines
+    const overheadLines = 16;
+    const contentLines = linesPerPage - overheadLines;
+
+    // Total char budget for bullets + summary + skill lines
+    const totalChars = contentLines * charsPerLine;
+
+    // Rough split: summary=~400, skills=~300, rest=bullets
+    const bulletBudget = totalChars - 700;
+
+    return {
+        charsPerLine,
+        contentLines,
+        totalChars,
+        bulletBudget,
+        // Human-readable guidance for the model
+        budgetLabel: totalChars > 4200 ? 'generous'
+            : totalChars > 3400 ? 'normal'
+                : 'tight'
+    };
+}
+
+
+export function buildStrategyPrompt(baseResume, jdAnalysis, tailoringStrategy, pageMode = '1page', formatSettings = null) {
     const mandatory = (jdAnalysis.mandatory_keywords || []).slice(0, 20).join(', ');
     const preferred = (jdAnalysis.preferred_keywords || []).slice(0, 12).join(', ');
     const jobTitle = jdAnalysis.job_title || 'the role';
@@ -141,12 +196,27 @@ export function buildStrategyPrompt(baseResume, jdAnalysis, tailoringStrategy, p
         : tailoringStrategy === 'profile_focus' ? 'Preserve original content, minimal keyword injection.'
             : 'Balance authenticity with keyword coverage.';
 
+    const budget = estimateCharBudget(formatSettings || {});
+    const budgetLine = pageMode === '1page'
+        ? `PAGE BUDGET: ~${budget.totalChars} total chars, ~${budget.contentLines} content lines, ~${budget.charsPerLine} chars/line. Budget is ${budget.budgetLabel}.`
+        : '';
+
+    const exclusionGuidance = pageMode === '1page' ? (
+        budget.budgetLabel === 'tight'
+            ? 'Budget is TIGHT — exclude aggressively. Keep max 2 projects, cut thin leadership/research entirely.'
+            : budget.budgetLabel === 'generous'
+                ? 'Budget is generous — only exclude genuinely irrelevant items.'
+                : 'Exclude items with weak keyword overlap or no metrics to fit comfortably.'
+    ) : '';
+
     return `You are a resume strategy planner. Decide instructions for WHAT to include and HOW to angle the resume BEFORE writing begins.
 
 
 TARGET ROLE: ${jobTitle} (${seniority} level)
 STRATEGY: ${strategyHint}
 ${pageLine}
+${budgetLine}
+${exclusionGuidance}
 
 EXCLUSION PRIORITY ORDER (for 1-page mode):
 1. Exclude oldest projects first when keyword overlap is weak (≤2 matching keywords)

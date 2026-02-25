@@ -108,7 +108,7 @@ async function callNvidia(prompt, model, maxTokens) {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-    }, 120000); // 120 seconds timeout for NIM
+    }, 60000); // 60 seconds timeout for NIM
 
     const duration = Date.now() - start;
     const data = JSON.parse(result);
